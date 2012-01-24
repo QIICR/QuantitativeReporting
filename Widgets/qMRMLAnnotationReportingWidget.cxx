@@ -41,7 +41,6 @@ void qMRMLAnnotationReportingWidgetPrivate::init()
   //this->setupUi(q);
 }
 
-/*
 //------------------------------------------------------------------------------
 // qMRMLAnnotationReportingWidget methods
 
@@ -58,7 +57,7 @@ qMRMLAnnotationReportingWidget::qMRMLAnnotationReportingWidget(QWidget* widget)
 qMRMLAnnotationReportingWidget::~qMRMLAnnotationReportingWidget()
 {
 }
-*/
+
 //------------------------------------------------------------------------------
 void qMRMLAnnotationReportingWidget::setMRMLScene(vtkMRMLScene* scene)
 {

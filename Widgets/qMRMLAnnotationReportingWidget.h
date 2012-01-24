@@ -41,7 +41,7 @@ public:
   typedef QWidget Superclass;
 
   /// Constructors
-  qMRMLAnnotationReportingWidget(QWidget* parent=0);
+  explicit qMRMLAnnotationReportingWidget(QWidget* parent=0);
   virtual ~qMRMLAnnotationReportingWidget();
 
   /// Utility function that returns the mrml scene of the layout manager
