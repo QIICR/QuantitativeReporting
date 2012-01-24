@@ -15,18 +15,18 @@
 
 ==============================================================================*/
 
-#ifndef __qSlicerReportingModuleModule_h
-#define __qSlicerReportingModuleModule_h
+#ifndef __qSlicerReportingModule_h
+#define __qSlicerReportingModule_h
 
 // SlicerQt includes
 #include "qSlicerLoadableModule.h"
 
-#include "qSlicerReportingModuleModuleExport.h"
+#include "qSlicerReportingModuleExport.h"
 
-class qSlicerReportingModuleModulePrivate;
+class qSlicerReportingModulePrivate;
 
 /// \ingroup Slicer_QtModules_ExtensionTemplate
-class Q_SLICER_QTMODULES_REPORTINGMODULE_EXPORT qSlicerReportingModuleModule :
+class Q_SLICER_QTMODULES_REPORTINGMODULE_EXPORT qSlicerReportingModule :
   public qSlicerLoadableModule
 {
   Q_OBJECT
@@ -35,8 +35,8 @@ class Q_SLICER_QTMODULES_REPORTINGMODULE_EXPORT qSlicerReportingModuleModule :
 public:
 
   typedef qSlicerLoadableModule Superclass;
-  explicit qSlicerReportingModuleModule(QObject *parent=0);
-  virtual ~qSlicerReportingModuleModule();
+  explicit qSlicerReportingModule(QObject *parent=0);
+  virtual ~qSlicerReportingModule();
 
   qSlicerGetTitleMacro(QTMODULE_TITLE);
   
@@ -61,11 +61,11 @@ protected:
   virtual vtkMRMLAbstractLogic* createLogic();
 
 protected:
-  QScopedPointer<qSlicerReportingModuleModulePrivate> d_ptr;
+  QScopedPointer<qSlicerReportingModulePrivate> d_ptr;
 
 private:
-  Q_DECLARE_PRIVATE(qSlicerReportingModuleModule);
-  Q_DISABLE_COPY(qSlicerReportingModuleModule);
+  Q_DECLARE_PRIVATE(qSlicerReportingModule);
+  Q_DISABLE_COPY(qSlicerReportingModule);
 
 };
 

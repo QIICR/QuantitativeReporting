@@ -15,19 +15,19 @@
 
 ==============================================================================*/
 
-#ifndef __qSlicerReportingModuleModuleWidget_h
-#define __qSlicerReportingModuleModuleWidget_h
+#ifndef __qSlicerReportingModuleWidget_h
+#define __qSlicerReportingModuleWidget_h
 
 // SlicerQt includes
 #include "qSlicerAbstractModuleWidget.h"
 
-#include "qSlicerReportingModuleModuleExport.h"
+#include "qSlicerReportingModuleExport.h"
 
-class qSlicerReportingModuleModuleWidgetPrivate;
+class qSlicerReportingModuleWidgetPrivate;
 class vtkMRMLNode;
 
 /// \ingroup Slicer_QtModules_ExtensionTemplate
-class Q_SLICER_QTMODULES_REPORTINGMODULE_EXPORT qSlicerReportingModuleModuleWidget :
+class Q_SLICER_QTMODULES_REPORTINGMODULE_EXPORT qSlicerReportingModuleWidget :
   public qSlicerAbstractModuleWidget
 {
   Q_OBJECT
@@ -35,20 +35,20 @@ class Q_SLICER_QTMODULES_REPORTINGMODULE_EXPORT qSlicerReportingModuleModuleWidg
 public:
 
   typedef qSlicerAbstractModuleWidget Superclass;
-  qSlicerReportingModuleModuleWidget(QWidget *parent=0);
-  virtual ~qSlicerReportingModuleModuleWidget();
+  qSlicerReportingModuleWidget(QWidget *parent=0);
+  virtual ~qSlicerReportingModuleWidget();
 
 public slots:
 
 
 protected:
-  QScopedPointer<qSlicerReportingModuleModuleWidgetPrivate> d_ptr;
+  QScopedPointer<qSlicerReportingModuleWidgetPrivate> d_ptr;
   
   virtual void setup();
 
 private:
-  Q_DECLARE_PRIVATE(qSlicerReportingModuleModuleWidget);
-  Q_DISABLE_COPY(qSlicerReportingModuleModuleWidget);
+  Q_DECLARE_PRIVATE(qSlicerReportingModuleWidget);
+  Q_DISABLE_COPY(qSlicerReportingModuleWidget);
 };
 
 #endif

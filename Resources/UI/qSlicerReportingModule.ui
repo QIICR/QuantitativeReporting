@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>qSlicerReportingModuleModule</class>
- <widget class="qSlicerWidget" name="qSlicerReportingModuleModule">
+ <class>qSlicerReportingModule</class>
+ <widget class="qSlicerWidget" name="qSlicerReportingModule">
   <property name="geometry">
    <rect>
     <x>0</x>

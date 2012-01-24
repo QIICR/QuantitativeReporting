@@ -32,7 +32,7 @@
 // STD includes
 #include <cstdlib>
 
-#include "vtkSlicerReportingModuleModuleLogicExport.h"
+#include "vtkSlicerReportingModuleLogicExport.h"
 
 
 /// \ingroup Slicer_QtModules_ExtensionTemplate

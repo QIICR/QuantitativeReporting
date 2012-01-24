@@ -25,8 +25,8 @@
 #include <vtkSlicerReportingModuleLogic.h>
 
 // ExtensionTemplate includes
-#include "qSlicerReportingModuleModule.h"
-#include "qSlicerReportingModuleModuleWidget.h"
+#include "qSlicerReportingModule.h"
+#include "qSlicerReportingModuleWidget.h"
 
 // SlicerQT includes
 #include <qSlicerModuleManager.h>
@@ -35,66 +35,66 @@
 #include <vtkSlicerConfigure.h>
 
 //-----------------------------------------------------------------------------
-Q_EXPORT_PLUGIN2(qSlicerReportingModuleModule, qSlicerReportingModuleModule);
+Q_EXPORT_PLUGIN2(qSlicerReportingModule, qSlicerReportingModule);
 
 //-----------------------------------------------------------------------------
 /// \ingroup Slicer_QtModules_ExtensionTemplate
-class qSlicerReportingModuleModulePrivate
+class qSlicerReportingModulePrivate
 {
 public:
-  qSlicerReportingModuleModulePrivate();
+  qSlicerReportingModulePrivate();
 };
 
 //-----------------------------------------------------------------------------
-// qSlicerReportingModuleModulePrivate methods
+// qSlicerReportingModulePrivate methods
 
 //-----------------------------------------------------------------------------
-qSlicerReportingModuleModulePrivate::qSlicerReportingModuleModulePrivate()
+qSlicerReportingModulePrivate::qSlicerReportingModulePrivate()
 {
 }
 
 //-----------------------------------------------------------------------------
-// qSlicerReportingModuleModule methods
+// qSlicerReportingModule methods
 
 //-----------------------------------------------------------------------------
-qSlicerReportingModuleModule::qSlicerReportingModuleModule(QObject* _parent)
+qSlicerReportingModule::qSlicerReportingModule(QObject* _parent)
   : Superclass(_parent)
-  , d_ptr(new qSlicerReportingModuleModulePrivate)
+  , d_ptr(new qSlicerReportingModulePrivate)
 {
 }
 
 //-----------------------------------------------------------------------------
-qSlicerReportingModuleModule::~qSlicerReportingModuleModule()
+qSlicerReportingModule::~qSlicerReportingModule()
 {
 }
 
 //-----------------------------------------------------------------------------
-QString qSlicerReportingModuleModule::helpText()const
+QString qSlicerReportingModule::helpText()const
 {
   return "This ReportingModule module illustrates how a loadable module should "
       "be implemented.";
 }
 
 //-----------------------------------------------------------------------------
-QString qSlicerReportingModuleModule::acknowledgementText()const
+QString qSlicerReportingModule::acknowledgementText()const
 {
   return "This work was supported by ...";
 }
 
 //-----------------------------------------------------------------------------
-QIcon qSlicerReportingModuleModule::icon()const
+QIcon qSlicerReportingModule::icon()const
 {
   return QIcon(":/Icons/ReportingModule.png");
 }
 
 //-----------------------------------------------------------------------------
-void qSlicerReportingModuleModule::setup()
+void qSlicerReportingModule::setup()
 {
   this->Superclass::setup();
 }
 
 //-----------------------------------------------------------------------------
-qSlicerAbstractModuleRepresentation * qSlicerReportingModuleModule::createWidgetRepresentation()
+qSlicerAbstractModuleRepresentation * qSlicerReportingModule::createWidgetRepresentation()
 {
   QString pythonPath = qSlicerUtils::pathWithoutIntDir(
               QFileInfo(this->path()).path(), Slicer_QTLOADABLEMODULES_LIB_DIR);
@@ -111,7 +111,7 @@ qSlicerAbstractModuleRepresentation * qSlicerReportingModuleModule::createWidget
 }
 
 //-----------------------------------------------------------------------------
-vtkMRMLAbstractLogic* qSlicerReportingModuleModule::createLogic()
+vtkMRMLAbstractLogic* qSlicerReportingModule::createLogic()
 {
   return vtkSlicerReportingModuleLogic::New();
 }

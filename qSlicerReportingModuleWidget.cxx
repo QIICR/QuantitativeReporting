@@ -19,44 +19,44 @@
 #include <QDebug>
 
 // SlicerQt includes
-#include "qSlicerReportingModuleModuleWidget.h"
-#include "ui_qSlicerReportingModuleModule.h"
+#include "qSlicerReportingModuleWidget.h"
+#include "ui_qSlicerReportingModule.h"
 
 //-----------------------------------------------------------------------------
 /// \ingroup Slicer_QtModules_ExtensionTemplate
-class qSlicerReportingModuleModuleWidgetPrivate: public Ui_qSlicerReportingModuleModule
+class qSlicerReportingModuleWidgetPrivate: public Ui_qSlicerReportingModule
 {
 public:
-  qSlicerReportingModuleModuleWidgetPrivate();
+  qSlicerReportingModuleWidgetPrivate();
 };
 
 //-----------------------------------------------------------------------------
-// qSlicerReportingModuleModuleWidgetPrivate methods
+// qSlicerReportingModuleWidgetPrivate methods
 
 //-----------------------------------------------------------------------------
-qSlicerReportingModuleModuleWidgetPrivate::qSlicerReportingModuleModuleWidgetPrivate()
+qSlicerReportingModuleWidgetPrivate::qSlicerReportingModuleWidgetPrivate()
 {
 }
 
 //-----------------------------------------------------------------------------
-// qSlicerReportingModuleModuleWidget methods
+// qSlicerReportingModuleWidget methods
 
 //-----------------------------------------------------------------------------
-qSlicerReportingModuleModuleWidget::qSlicerReportingModuleModuleWidget(QWidget* _parent)
+qSlicerReportingModuleWidget::qSlicerReportingModuleWidget(QWidget* _parent)
   : Superclass( _parent )
-  , d_ptr( new qSlicerReportingModuleModuleWidgetPrivate )
+  , d_ptr( new qSlicerReportingModuleWidgetPrivate )
 {
 }
 
 //-----------------------------------------------------------------------------
-qSlicerReportingModuleModuleWidget::~qSlicerReportingModuleModuleWidget()
+qSlicerReportingModuleWidget::~qSlicerReportingModuleWidget()
 {
 }
 
 //-----------------------------------------------------------------------------
-void qSlicerReportingModuleModuleWidget::setup()
+void qSlicerReportingModuleWidget::setup()
 {
-  Q_D(qSlicerReportingModuleModuleWidget);
+  Q_D(qSlicerReportingModuleWidget);
   d->setupUi(this);
   this->Superclass::setup();
 }

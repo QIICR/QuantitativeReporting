@@ -14,7 +14,7 @@ endif()
 #   - Usually identique to the directory name)
 #   - You shouldn't call 'project(...)'. See SlicerConfig.cmake for more details.
 #-----------------------------------------------------------------------------
-set(EXTENSION_NAME ReportingModule)
+set(EXTENSION_NAME Reporting)
 
 #-----------------------------------------------------------------------------
 # Prerequisites
@@ -61,31 +61,31 @@ set(qt_module_include_directories
 
 # Source files
 set(qt_module_SRCS
-  qSlicerReportingModuleModule.cxx
-  qSlicerReportingModuleModule.h
-  qSlicerReportingModuleModuleWidget.cxx
-  qSlicerReportingModuleModuleWidget.h
+  qSlicerReportingModule.cxx
+  qSlicerReportingModule.h
+  qSlicerReportingModuleWidget.cxx
+  qSlicerReportingModuleWidget.h
   )
 
 # Headers that should run through moc
 set(qt_module_MOC_SRCS
-  qSlicerReportingModuleModule.h
-  qSlicerReportingModuleModuleWidget.h
+  qSlicerReportingModule.h
+  qSlicerReportingModuleWidget.h
   )
 
 # UI files
 set(qt_module_UI_SRCS
-  Resources/UI/qSlicerReportingModuleModule.ui
+  Resources/UI/qSlicerReportingModule.ui
 )
 
 # Additional Target libraries
 set(qt_module_target_libraries
-  vtkSlicerReportingModuleModuleLogic
+  vtkSlicerReportingModuleLogic
   )
 
 # Resources
 set(qt_module_resources
-  Resources/qSlicerReportingModuleModule.qrc
+  Resources/qSlicerReportingModule.qrc
 )
 
 #-----------------------------------------------------------------------------
