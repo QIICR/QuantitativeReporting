@@ -33,7 +33,7 @@ class qSlicerReportingModuleWidget:
     #  self.__logic = self.parent.module().logic()
 
     self.parent.connect('mrmlSceneChanged(vtkMRMLScene*)', self.onMRMLSceneChanged)
-
+    
     '''
     # if we don't like the parent widget layout
     w = qt.QWidget()
@@ -43,13 +43,52 @@ class qSlicerReportingModuleWidget:
     w.show()
     self.layout = layout
     '''
-
+    
     self.__inputFrame = ctk.ctkCollapsibleButton()
     self.__inputFrame.text = "Input"
     self.__inputFrame.collapsed = 0
     inputFrameLayout = qt.QFormLayout(self.__inputFrame)
     
     self.layout.addWidget(self.__inputFrame)
+
+ 
+    '''
+    Choose the volume being annotated.
+    Will need to handle selection change:
+      -- on new, update viewers, create storage node 
+      -- on swich ask if the previous report should be saved
+    '''
+    label = qt.QLabel('Annotated volume: ')
+    self.__volumeSelector = slicer.qMRMLNodeComboBox()
+    self.__volumeSelector.nodeTypes = ['vtkMRMLScalarVolumeNode']
+    self.__volumeSelector.setMRMLScene(slicer.mrmlScene)
+    #self.__volumeSelector.connect('mrmlSceneChanged(vtkMRMLScene*)', self.onMRMLSceneChanged)
+    #self.__volumeSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onInputChanged)
+    self.__volumeSelector.addEnabled = 0
+    
+    inputFrameLayout.addRow(label, self.__volumeSelector)
+
+    '''
+    Report MRML node, will contain:
+     -- template or pointer to it
+     -- populated fields
+     -- pointer to the markup elements hierarchy head
+     -- storage node to handle file IO (can we do this in a module w/o
+         changing the core?)
+    On updates:
+     -- reset the content of the widgets
+     -- existing content repopulated from the node
+    '''
+    label = qt.QLabel('Report: ')
+    self.__reportSelector = slicer.qMRMLNodeComboBox()
+    self.__reportSelector.nodeTypes = ['vtkMRMLNode']
+    self.__reportSelector.setMRMLScene(slicer.mrmlScene)
+    #self.__reportSelector.connect('mrmlSceneChanged(vtkMRMLScene*)', self.onMRMLSceneChanged)
+    #self.__reportSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onInputChanged)
+    self.__reportSelector.addEnabled = 1
+    
+    inputFrameLayout.addRow(label, self.__reportSelector)
+
 
 
     self.__annotationsFrame = ctk.ctkCollapsibleButton()
