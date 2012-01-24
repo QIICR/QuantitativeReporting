@@ -43,6 +43,8 @@ endif()
 
 
 # Add subdirectories
+#add_subdirectory(MRML)
+add_subdirectory(Widgets)
 add_subdirectory(Logic)
 
 #-----------------------------------------------------------------------------
