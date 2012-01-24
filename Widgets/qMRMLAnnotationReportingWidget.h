@@ -25,14 +25,14 @@
 #include "ctkVTKObject.h"
 
 // qMRML includes
-#include "qMRMLWidgetsExport.h"
+#include "qSlicerReportingModuleWidgetsExport.h"
 
 // MRML includes
 
 class qMRMLAnnotationReportingWidgetPrivate;
 class vtkMRMLScene;
 
-class QMRML_WIDGETS_EXPORT qMRMLAnnotationReportingWidget : public QWidget
+class Q_SLICERREPORTINGMODULEWIDGETS_EXPORT qMRMLAnnotationReportingWidget : public QWidget
 {
   Q_OBJECT
   QVTK_OBJECT
