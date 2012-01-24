@@ -16,6 +16,9 @@
 ==============================================================================*/
 
 // Qt includes
+#include <QFileInfo>
+#include <QScopedPointer>
+#include <QtPlugin>
 #include <QtPlugin>
 
 // ExtensionTemplate Logic includes
@@ -24,6 +27,12 @@
 // ExtensionTemplate includes
 #include "qSlicerReportingModuleModule.h"
 #include "qSlicerReportingModuleModuleWidget.h"
+
+// SlicerQT includes
+#include <qSlicerModuleManager.h>
+#include <qSlicerScriptedLoadableModuleWidget.h>
+#include <qSlicerUtils.h>
+#include <vtkSlicerConfigure.h>
 
 //-----------------------------------------------------------------------------
 Q_EXPORT_PLUGIN2(qSlicerReportingModuleModule, qSlicerReportingModuleModule);
@@ -87,7 +96,18 @@ void qSlicerReportingModuleModule::setup()
 //-----------------------------------------------------------------------------
 qSlicerAbstractModuleRepresentation * qSlicerReportingModuleModule::createWidgetRepresentation()
 {
-  return new qSlicerReportingModuleModuleWidget;
+  QString pythonPath = qSlicerUtils::pathWithoutIntDir(
+              QFileInfo(this->path()).path(), Slicer_QTLOADABLEMODULES_LIB_DIR);
+
+  QScopedPointer<qSlicerScriptedLoadableModuleWidget> widget(new qSlicerScriptedLoadableModuleWidget);
+  QString classNameToLoad = "qSlicerReportingModuleWidget";
+  bool ret = widget->setPythonSource(
+        pythonPath + "/Python/" + classNameToLoad + ".py", classNameToLoad);
+  if (!ret)
+    {
+    return 0;
+    }
+  return widget.take();
 }
 
 //-----------------------------------------------------------------------------

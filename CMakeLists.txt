@@ -44,6 +44,7 @@ endif()
 
 # Add subdirectories
 add_subdirectory(Logic)
+add_subdirectory(Py)
 
 #-----------------------------------------------------------------------------
 # Sources
