@@ -34,7 +34,7 @@
 
 #include "vtkSlicerReportingModuleLogicExport.h"
 
-
+class vtkMRMLAnnotationNode;
 /// \ingroup Slicer_QtModules_ExtensionTemplate
 class VTK_SLICER_REPORTINGMODULE_MODULE_LOGIC_EXPORT vtkSlicerReportingModuleLogic :
   public vtkSlicerModuleLogic
@@ -47,6 +47,12 @@ public:
 
   /// Initialize listening to MRML events
   void InitializeEventListeners();
+
+  /// Convert the RAS of a mark up element (vtkMRMLAnnotation*Node) that's
+  /// associated with a volume node to the UID of the slice it's on. Returns
+  /// the UID, or the string NONE if there's no associated node, all control
+  /// points aren't on the same slice
+  const char *GetSliceUIDFromMarkUp(vtkMRMLAnnotationNode *node);
 
 protected:
   vtkSlicerReportingModuleLogic();
