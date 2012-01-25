@@ -16,6 +16,9 @@
 
 ==============================================================================*/
 
+// MRML includes
+#include "vtkMRMLAnnotationReportingNode.h"
+
 // qMRML includes
 #include "qMRMLAnnotationReportingWidget.h"
 

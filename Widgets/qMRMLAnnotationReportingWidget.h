@@ -29,6 +29,7 @@
 
 // MRML includes
 
+class vtkMRMLAnnotationReportingNode;
 class qMRMLAnnotationReportingWidgetPrivate;
 class vtkMRMLScene;
 
@@ -57,6 +58,8 @@ protected:
 private:
   Q_DECLARE_PRIVATE(qMRMLAnnotationReportingWidget);
   Q_DISABLE_COPY(qMRMLAnnotationReportingWidget);
+
+  vtkMRMLAnnotationReportingNode* annotationNode;
 };
 
 #endif
