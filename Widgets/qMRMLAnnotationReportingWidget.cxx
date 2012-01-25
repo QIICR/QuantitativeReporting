@@ -17,7 +17,7 @@
 ==============================================================================*/
 
 // MRML includes
-#include "vtkMRMLAnnotationReportingNode.h"
+#include <vtkMRMLAnnotationReportingNode.h>
 
 // qMRML includes
 #include "qMRMLAnnotationReportingWidget.h"
@@ -40,7 +40,7 @@ qMRMLAnnotationReportingWidgetPrivate::qMRMLAnnotationReportingWidgetPrivate(qMR
 
 void qMRMLAnnotationReportingWidgetPrivate::init()
 {
-  Q_Q(qMRMLAnnotationReportingWidget);
+//  Q_Q(qMRMLAnnotationReportingWidget);
   //this->setupUi(q);
 }
 
@@ -64,11 +64,13 @@ qMRMLAnnotationReportingWidget::~qMRMLAnnotationReportingWidget()
 //------------------------------------------------------------------------------
 void qMRMLAnnotationReportingWidget::setMRMLScene(vtkMRMLScene* scene)
 {
-  Q_D(qMRMLAnnotationReportingWidget);
+//  Q_D(qMRMLAnnotationReportingWidget);
 }
 
 //------------------------------------------------------------------------------
 vtkMRMLScene* qMRMLAnnotationReportingWidget::mrmlScene()const
 {
-  Q_D(const qMRMLAnnotationReportingWidget);
+//  Q_D(const qMRMLAnnotationReportingWidget);
+    vtkMRMLScene *scene = NULL;
+    return scene;
 }

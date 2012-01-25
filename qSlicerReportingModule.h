@@ -26,7 +26,7 @@
 class qSlicerReportingModulePrivate;
 
 /// \ingroup Slicer_QtModules_ExtensionTemplate
-class Q_SLICER_QTMODULES_REPORTINGMODULE_EXPORT qSlicerReportingModule :
+class Q_SLICER_QTMODULES_REPORTING_EXPORT qSlicerReportingModule :
   public qSlicerLoadableModule
 {
   Q_OBJECT

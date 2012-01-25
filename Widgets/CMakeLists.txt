@@ -1,4 +1,4 @@
-project(qSlicer${qt_module_name}Widgets)
+project(qSlicer${qt_module_name}ModuleWidgets)
 
 # from Modules/Annotations/Widgets
 
@@ -6,14 +6,16 @@ project(qSlicer${qt_module_name}Widgets)
 # See CMake/SlicerMacroBuildModuleWidgets.cmake for details
 #
 
-set(module_widgets_name "qSlicerReportingModuleWidgets")
+set(module_widgets_name ${PROJECT_NAME})
 
 # The header '${module_widgets_name}Export.h' will be automatically configured.
-set(module_widgets_export_directive "Q_SLICERREPORTINGMODULEWIDGETS_EXPORT")
+MESSAGE(STATUS "Relying on auto creation of file ${module_widgets_name}Export.h")
+set(module_widgets_export_directive "Q_SLICER_MODULE_REPORTING_WIDGETS_EXPORT")
 
 # Additional directories to include
 set(module_widgets_include_directories
-  ${CMAKE_CURRENT_BINARY_DIR}/Widgets
+  ${CMAKE_CURRENT_SOURCE_DIR}/../MRML
+  ${CMAKE_CURRENT_BINARY_DIR}/../MRML
   )
   
 # Source files

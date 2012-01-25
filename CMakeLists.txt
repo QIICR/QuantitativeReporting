@@ -15,7 +15,7 @@ endif()
 #   - You shouldn't call 'project(...)'. See SlicerConfig.cmake for more details.
 #-----------------------------------------------------------------------------
 set(EXTENSION_NAME Reporting)
-
+set(qt_module_name "Reporting")
 #-----------------------------------------------------------------------------
 # Prerequisites
 #-----------------------------------------------------------------------------
@@ -51,12 +51,16 @@ add_subdirectory(Py)
 #-----------------------------------------------------------------------------
 # Sources
 #-----------------------------------------------------------------------------
-set(qt_module_export_directive "Q_SLICER_QTMODULES_REPORTINGMODULE_EXPORT")
+set(qt_module_export_directive "Q_SLICER_QTMODULES_REPORTING_EXPORT")
 
 # Additional includes - Current_{source,binary} and Slicer_{Libs,Base} already included
 set(qt_module_include_directories
   ${CMAKE_CURRENT_SOURCE_DIR}/Logic
   ${CMAKE_CURRENT_BINARY_DIR}/Logic
+  ${CMAKE_CURRENT_SOURCE_DIR}/MRML
+  ${CMAKE_CURRENT_BINARY_DIR}/MRML
+  ${CMAKE_CURRENT_SOURCE_DIR}/Widgets
+  ${CMAKE_CURRENT_BINARY_DIR}/Widgets
   )
 
 # Source files

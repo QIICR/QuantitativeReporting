@@ -25,7 +25,7 @@
 #include "vtkMRML.h"
 #include "vtkMRMLNode.h"
 #include "vtkMRMLScene.h"
-#include "vtkSlicerReportingModuleMRMLExport.h"
+#include <vtkSlicerReportingModuleMRMLExport.h>
 
 
 /// \ingroup Slicer_QtModules_AnnotationReportingNode
