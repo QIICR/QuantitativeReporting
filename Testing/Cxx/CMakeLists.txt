@@ -7,6 +7,7 @@ SlicerMacroConfigureGenericCxxModuleTests(${EXTENSION_NAME} KIT_TEST_SRCS KIT_TE
 create_test_sourcelist(Tests ${EXTENSION_NAME}CxxTests.cxx
   ${KIT_TEST_NAMES_CXX}
   # Add source of your tests after this line.
+  vtkSlicerReportingModuleLogicTest1.cxx
   #EXTRA_INCLUDE TestingMacros.h
   )
 list(REMOVE_ITEM Tests ${KIT_TEST_NAMES_CXX})
@@ -28,4 +29,4 @@ foreach(testname ${KIT_TEST_NAMES})
   SIMPLE_TEST( ${testname} )
 endforeach()
 
-# Using SIMPLE_TEST(), you coudl add your test after this line.
+# Using SIMPLE_TEST(), you could add your test after this line.
