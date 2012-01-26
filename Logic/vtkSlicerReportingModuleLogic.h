@@ -35,6 +35,7 @@
 #include "vtkSlicerReportingModuleLogicExport.h"
 
 class vtkMRMLAnnotationNode;
+class vtkMRMLVolumeNode;
 /// \ingroup Slicer_QtModules_ExtensionTemplate
 class VTK_SLICER_REPORTINGMODULE_MODULE_LOGIC_EXPORT vtkSlicerReportingModuleLogic :
   public vtkSlicerModuleLogic
@@ -54,6 +55,9 @@ public:
   /// points aren't on the same slice
   const char *GetSliceUIDFromMarkUp(vtkMRMLAnnotationNode *node);
 
+  /// Set up the hierarchy for the newly selected volume node
+  void InitializeHierarchyForVolume(vtkMRMLVolumeNode *node);
+  
 protected:
   vtkSlicerReportingModuleLogic();
   virtual ~vtkSlicerReportingModuleLogic();
@@ -61,12 +65,24 @@ protected:
   /// Register MRML Node classes to Scene. Gets called automatically when the MRMLScene is attached to this logic class.
   virtual void RegisterNodes();
   virtual void UpdateFromMRMLScene();
+  /// Respond to events on the mrml scene
+  virtual void ProcessMRMLNodesEvents(vtkObject *caller,
+                                      unsigned long event,
+                                      void *callData );
   virtual void OnMRMLSceneNodeAdded(vtkMRMLNode* node);
   virtual void OnMRMLSceneNodeRemoved(vtkMRMLNode* node);
+
+  /// set/get the currently active markup hierarchy
+  vtkGetStringMacro(ActiveMarkupHierarchyID);
+  vtkSetStringMacro(ActiveMarkupHierarchyID);
+  
 private:
 
   vtkSlicerReportingModuleLogic(const vtkSlicerReportingModuleLogic&); // Not implemented
   void operator=(const vtkSlicerReportingModuleLogic&);               // Not implemented
+
+  /// the currently active markup hierarchy
+  char *ActiveMarkupHierarchyID;
 };
 
 #endif

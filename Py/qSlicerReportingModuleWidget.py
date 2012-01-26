@@ -18,6 +18,11 @@ class qSlicerReportingModuleWidget:
     self.__logic = slicer.modulelogic.vtkSlicerReportingModuleLogic()
     print 'Logic is ',self.__logic
 
+    if not self.__logic.GetMRMLScene():
+      # set the logic's mrml scene
+      self.__logic.SetMRMLScene(slicer.mrmlScene)
+      self.__logic.InitializeEventListeners()
+
     if not parent:
       self.__logic = slicer.modulelogic.vtkSlicerReportingModuleLogic()
       self.setup()
@@ -63,7 +68,8 @@ class qSlicerReportingModuleWidget:
     self.__volumeSelector.nodeTypes = ['vtkMRMLScalarVolumeNode']
     self.__volumeSelector.setMRMLScene(slicer.mrmlScene)
     #self.__volumeSelector.connect('mrmlSceneChanged(vtkMRMLScene*)', self.onMRMLSceneChanged)
-    #self.__volumeSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onInputChanged)
+    # todo: move the connection to the report drop down
+    self.__volumeSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onInputChanged)
     self.__volumeSelector.addEnabled = 0
     
     inputFrameLayout.addRow(label, self.__volumeSelector)
@@ -106,6 +112,15 @@ class qSlicerReportingModuleWidget:
     
     self.layout.addWidget(self.__markupFrame)
  
+    # Add the tree widget
+    self.__markupTreeView = slicer.qMRMLTreeView()
+    self.__markupTreeView.setMRMLScene(self.__logic.GetMRMLScene())
+    nodeTypes = ['vtkMRMLDisplayableHierarchyNode', 'vtkMRMLAnnotationHierarchyNode', 'vtkMRMLAnnotationNode', 'vtkMRMLVolumeNode']
+    self.__markupTreeView.nodeTypes = nodeTypes
+    self.__markupTreeView.sceneModelType = "Displayable"
+
+    markupFrameLayout.addRow(self.__markupTreeView)
+
     '''
     label = qt.QLabel('Input container:')
     self.__vcSelector = slicer.qMRMLNodeComboBox()
@@ -195,6 +210,14 @@ class qSlicerReportingModuleWidget:
     
   def onInputChanged(self):
     print 'onInputChanged() called'
+    # get the current volume node
+    self.__vNode = self.__volumeSelector.currentNode()
+    if self.__vNode != None:
+      print "Calling logic to set up hierarchy"
+      self.__logic.InitializeHierarchyForVolume(self.__vNode)
+      # make the tree view update
+      self.__markupTreeView.sceneModelType = "Displayable"
+
     '''
     self.__vcNode = self.__vcSelector.currentNode()
     if self.__vcNode != None:
