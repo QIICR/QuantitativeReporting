@@ -115,6 +115,7 @@ class qSlicerReportingModuleWidget:
     self.__markupTreeView.setMRMLScene(self.__logic.GetMRMLScene())
     nodeTypes = ['vtkMRMLDisplayableHierarchyNode', 'vtkMRMLAnnotationHierarchyNode', 'vtkMRMLAnnotationNode', 'vtkMRMLVolumeNode']
     self.__markupTreeView.nodeTypes = nodeTypes
+    self.__markupTreeView.listenNodeModifiedEvent = 1
     self.__markupTreeView.sceneModelType = "Displayable"
 
     markupFrameLayout.addRow(self.__markupTreeView)
@@ -216,13 +217,12 @@ class qSlicerReportingModuleWidget:
     if mrmlScene != self.__logic.GetMRMLScene():
       self.__logic.SetMRMLScene(mrmlScene)
       self.__logic.RegisterNodes()
-      self.__logic.InitializeEventListeners()
     self.__logic.GetMRMLManager().SetMRMLScene(mrmlScene)
     '''
     
   def updateTreeView(self):
     # make the tree view update
-    self.__markupTreeView.sceneModelType = "Displayable"
+    # self.__markupTreeView.sceneModelType = "Displayable"
     # set the root to be the reporting hierarchy root so don't see the annotation module hierarchies
     rootNode = slicer.mrmlScene.GetFirstNodeByName("Reporting Hierarchy")
     if rootNode:
