@@ -24,7 +24,6 @@ class qSlicerReportingModuleWidget:
       self.__logic.InitializeEventListeners()
 
     if not parent:
-      self.__logic = slicer.modulelogic.vtkSlicerReportingModuleLogic()
       self.setup()
       self.parent.setMRMLScene( slicer.mrmlScene )
       # after setup, be ready for events
@@ -69,7 +68,7 @@ class qSlicerReportingModuleWidget:
     self.__volumeSelector.setMRMLScene(slicer.mrmlScene)
     #self.__volumeSelector.connect('mrmlSceneChanged(vtkMRMLScene*)', self.onMRMLSceneChanged)
     # todo: move the connection to the report drop down
-    self.__volumeSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onInputChanged)
+    self.__volumeSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onAnnotatedVolumeNodeChanged)
     self.__volumeSelector.addEnabled = 0
     
     inputFrameLayout.addRow(label, self.__volumeSelector)
@@ -195,11 +194,25 @@ class qSlicerReportingModuleWidget:
     self.__chartTable.AddColumn(self.__xArray)
     self.__chartTable.AddColumn(self.__yArray)
     '''
+
+  def enter(self):
+    # print "Reporting Enter"
+    # update the logic active markup
+    vnode = self.__volumeSelector.currentNode()
+    if vnode != None:
+      # print "Enter: setting active hierarchy from node ",vnode.GetID()
+      self.__logic.SetActiveMarkupHierarchyIDFromNode(vnode)
+      self.updateTreeView()
+
+  def exit(self):
+    # print "Reporting Exit. setting active hierarchy to 0"
+    # turn off the active mark up so new annotations can go elsewhere
+    self.__logic.SetActiveMarkupHierarchyIDToNull()
      
   def onMRMLSceneChanged(self, mrmlScene):
     '''
     self.__vcSelector.setMRMLScene(slicer.mrmlScene)
-    self.onInputChanged()
+    self.onAnnotatedVolumeNodeChanged()
     
     if mrmlScene != self.__logic.GetMRMLScene():
       self.__logic.SetMRMLScene(mrmlScene)
@@ -208,15 +221,22 @@ class qSlicerReportingModuleWidget:
     self.__logic.GetMRMLManager().SetMRMLScene(mrmlScene)
     '''
     
-  def onInputChanged(self):
-    print 'onInputChanged() called'
+  def updateTreeView(self):
+    # make the tree view update
+    self.__markupTreeView.sceneModelType = "Displayable"
+    # set the root to be the reporting hierarchy root
+    # rootNode = slicer.mrmlScene.GetFirstNodeByName("Reporting Hierarchy")
+    # if rootNode:
+    #  self.__markupTreeView.setRootNode(rootNode)
+
+  def onAnnotatedVolumeNodeChanged(self):
     # get the current volume node
     self.__vNode = self.__volumeSelector.currentNode()
     if self.__vNode != None:
-      print "Calling logic to set up hierarchy"
+      # print "Calling logic to set up hierarchy"
       self.__logic.InitializeHierarchyForVolume(self.__vNode)
       # make the tree view update
-      self.__markupTreeView.sceneModelType = "Displayable"
+      self.updateTreeView()
 
     '''
     self.__vcNode = self.__vcSelector.currentNode()

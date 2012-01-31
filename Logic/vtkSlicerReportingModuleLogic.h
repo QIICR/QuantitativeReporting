@@ -57,6 +57,13 @@ public:
 
   /// Set up the hierarchy for the newly selected volume node
   void InitializeHierarchyForVolume(vtkMRMLVolumeNode *node);
+
+  /// Set the active hierarchy from a node by looking for hierarchies
+  void SetActiveMarkupHierarchyIDFromNode(vtkMRMLNode *node);
+
+  /// utility methods to call from python
+  char *ReturnActiveHierarchyID() { return this->ActiveMarkupHierarchyID; };
+  void SetActiveMarkupHierarchyIDToNull();
   
 protected:
   vtkSlicerReportingModuleLogic();

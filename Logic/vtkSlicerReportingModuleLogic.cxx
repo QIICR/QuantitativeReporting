@@ -126,7 +126,7 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     {
     return;
     }
-  vtkDebugMacro("OnMRMLSceneNodeAdded: got an annotation node with id " << node->GetID());
+  vtkDebugMacro("OnMRMLSceneNodeAdded: active markup hierarchy, got an annotation node added with id " << node->GetID());
 
   /// make a new hierarchy node to create a parallel tree?
   /// for now, just reasign it
@@ -251,7 +251,7 @@ void vtkSlicerReportingModuleLogic::InitializeHierarchyForVolume(vtkMRMLVolumeNo
     return;
     }
 
-  vtkWarningMacro("InitializeHierarchyForVolume: setting up hierarchy for volume " << node->GetID());
+  vtkDebugMacro("InitializeHierarchyForVolume: setting up hierarchy for volume " << node->GetID());
 
   /// does the node already have a hierarchy set up for it?
   vtkMRMLHierarchyNode *hnode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(node->GetScene(), node->GetID());
@@ -292,17 +292,53 @@ void vtkSlicerReportingModuleLogic::InitializeHierarchyForVolume(vtkMRMLVolumeNo
     vtkMRMLAnnotationHierarchyNode::New();
   ahnode->HideFromEditorsOff();
   std::string ahnodeName = std::string("Markup ") + std::string(node->GetName());
-  ahnode->SetName(this->GetMRMLScene()->GetUniqueNameByString(ahnodeName.c_str()));
+  ahnode->SetName(ahnodeName.c_str());
   this->GetMRMLScene()->AddNode(ahnode);
   // make it a child of the report for now
   ahnode->SetParentNodeID(topLevelID);
   
   /// make the annotation hierarchy active so new ones will get added to it
+  
   this->SetActiveMarkupHierarchyID(ahnode->GetID());
-
+  vtkDebugMacro("Set the active markup hierarchy id from node id = " << (ahnode->GetID() ? ahnode->GetID() : "null"));
+  
   /// need to trigger a tree redraw
   
   /// clean up
   volumeHierarchyNode->Delete();
   ahnode->Delete();
+}
+
+//---------------------------------------------------------------------------
+void vtkSlicerReportingModuleLogic::SetActiveMarkupHierarchyIDFromNode(vtkMRMLNode *node)
+{
+  if (!node || !node->GetName())
+    {
+    vtkDebugMacro("SetActiveMarkupHierarchyIDFromNode: node is " << (node? "not null" : "null") << ", name is " << (node->GetName() ? node->GetName() : "null") << ", settting active id to null");
+    this->SetActiveMarkupHierarchyID(NULL);
+    return;
+    }
+
+  // look for a markup node associated with this node
+  std::string ahnodeName = std::string("Markup ") + std::string(node->GetName());
+  vtkMRMLNode *mrmlNode = this->GetMRMLScene()->GetFirstNodeByName(ahnodeName.c_str());
+                                                                   
+  if (!mrmlNode)
+    {
+    vtkWarningMacro("SetActiveMarkupHierarchyIDFromNode: didn't find markup node by name " << ahnodeName.c_str() << ", setting active hierarchy to null");
+    this->SetActiveMarkupHierarchyID(NULL);
+    return;
+    }
+  vtkDebugMacro("SetActiveMarkupHierarchyIDFromNode: Setting active markup hierarchy to " << mrmlNode->GetID());
+  this->SetActiveMarkupHierarchyID(mrmlNode->GetID());
+}
+
+//---------------------------------------------------------------------------
+void vtkSlicerReportingModuleLogic::SetActiveMarkupHierarchyIDToNull()
+{
+  if (this->ActiveMarkupHierarchyID)
+    {
+    delete [] this->ActiveMarkupHierarchyID;
+    }
+  this->ActiveMarkupHierarchyID = NULL;
 }
