@@ -62,15 +62,15 @@ void vtkSlicerReportingModuleLogic::PrintSelf(ostream& os, vtkIndent indent)
 }
 
 //---------------------------------------------------------------------------
-void vtkSlicerReportingModuleLogic::InitializeEventListeners()
+void vtkSlicerReportingModuleLogic::SetMRMLSceneInternal(vtkMRMLScene* newScene)
 {
-  vtkDebugMacro("InitializeEventListeners");
+  vtkDebugMacro("SetMRMLSceneInternal");
   
   vtkNew<vtkIntArray> events;
   events->InsertNextValue(vtkMRMLScene::NodeAddedEvent);
   events->InsertNextValue(vtkMRMLScene::NodeRemovedEvent);
   events->InsertNextValue(vtkMRMLScene::EndBatchProcessEvent);
-  this->SetAndObserveMRMLSceneEventsInternal(this->GetMRMLScene(), events.GetPointer());
+  this->SetAndObserveMRMLSceneEventsInternal(newScene, events.GetPointer());
 }
 
 //-----------------------------------------------------------------------------

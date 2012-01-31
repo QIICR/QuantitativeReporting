@@ -21,7 +21,6 @@ class qSlicerReportingModuleWidget:
     if not self.__logic.GetMRMLScene():
       # set the logic's mrml scene
       self.__logic.SetMRMLScene(slicer.mrmlScene)
-      self.__logic.InitializeEventListeners()
 
     if not parent:
       self.setup()

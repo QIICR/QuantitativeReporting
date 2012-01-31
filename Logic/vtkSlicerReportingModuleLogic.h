@@ -46,9 +46,6 @@ public:
   vtkTypeMacro(vtkSlicerReportingModuleLogic, vtkSlicerModuleLogic);
   void PrintSelf(ostream& os, vtkIndent indent);
 
-  /// Initialize listening to MRML events
-  void InitializeEventListeners();
-
   /// Convert the RAS of a mark up element (vtkMRMLAnnotation*Node) that's
   /// associated with a volume node to the UID of the slice it's on. Returns
   /// the UID, or the string NONE if there's no associated node, all control
@@ -68,6 +65,9 @@ public:
 protected:
   vtkSlicerReportingModuleLogic();
   virtual ~vtkSlicerReportingModuleLogic();
+
+  // set up listening to scene events
+  virtual void SetMRMLSceneInternal(vtkMRMLScene* newScene);
 
   /// Register MRML Node classes to Scene. Gets called automatically when the MRMLScene is attached to this logic class.
   virtual void RegisterNodes();
