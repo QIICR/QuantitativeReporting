@@ -17,60 +17,60 @@
 ==============================================================================*/
 
 // MRML includes
-#include <vtkMRMLAnnotationReportingNode.h>
+#include <vtkMRMLReportingAnnotationNode.h>
 
 // qMRML includes
-#include "qMRMLAnnotationReportingWidget.h"
+#include "qMRMLReportingAnnotationWidget.h"
 
-class qMRMLAnnotationReportingWidgetPrivate: public QWidget // Ui_qMRMLAnnotationReportingWidget
+class qMRMLReportingAnnotationWidgetPrivate: public QWidget // Ui_qMRMLReportingAnnotationWidget
 {
-  Q_DECLARE_PUBLIC(qMRMLAnnotationReportingWidget);
+  Q_DECLARE_PUBLIC(qMRMLReportingAnnotationWidget);
 protected:
-  qMRMLAnnotationReportingWidget* const q_ptr;
+  qMRMLReportingAnnotationWidget* const q_ptr;
 
 public:
-  qMRMLAnnotationReportingWidgetPrivate(qMRMLAnnotationReportingWidget& object);
+  qMRMLReportingAnnotationWidgetPrivate(qMRMLReportingAnnotationWidget& object);
   void init();
   
 };
 
-qMRMLAnnotationReportingWidgetPrivate::qMRMLAnnotationReportingWidgetPrivate(qMRMLAnnotationReportingWidget& object) : q_ptr(&object)
+qMRMLReportingAnnotationWidgetPrivate::qMRMLReportingAnnotationWidgetPrivate(qMRMLReportingAnnotationWidget& object) : q_ptr(&object)
 {
 }
 
-void qMRMLAnnotationReportingWidgetPrivate::init()
+void qMRMLReportingAnnotationWidgetPrivate::init()
 {
-//  Q_Q(qMRMLAnnotationReportingWidget);
+  Q_Q(qMRMLReportingAnnotationWidget);
   //this->setupUi(q);
 }
 
 //------------------------------------------------------------------------------
-// qMRMLAnnotationReportingWidget methods
+// qMRMLReportingAnnotationWidget methods
 
 // --------------------------------------------------------------------------
-qMRMLAnnotationReportingWidget::qMRMLAnnotationReportingWidget(QWidget* widget)
+qMRMLReportingAnnotationWidget::qMRMLReportingAnnotationWidget(QWidget* widget)
   : Superclass(widget)
-  , d_ptr(new qMRMLAnnotationReportingWidgetPrivate(*this))
+  , d_ptr(new qMRMLReportingAnnotationWidgetPrivate(*this))
 {
-  Q_D(qMRMLAnnotationReportingWidget);
+  Q_D(qMRMLReportingAnnotationWidget);
   d->init();
 }
 
 // --------------------------------------------------------------------------
-qMRMLAnnotationReportingWidget::~qMRMLAnnotationReportingWidget()
+qMRMLReportingAnnotationWidget::~qMRMLReportingAnnotationWidget()
 {
 }
 
 //------------------------------------------------------------------------------
-void qMRMLAnnotationReportingWidget::setMRMLScene(vtkMRMLScene* scene)
+void qMRMLReportingAnnotationWidget::setMRMLScene(vtkMRMLScene* scene)
 {
-//  Q_D(qMRMLAnnotationReportingWidget);
+//  Q_D(qMRMLReportingAnnotationWidget);
 }
 
 //------------------------------------------------------------------------------
-vtkMRMLScene* qMRMLAnnotationReportingWidget::mrmlScene()const
+vtkMRMLScene* qMRMLReportingAnnotationWidget::mrmlScene()const
 {
-//  Q_D(const qMRMLAnnotationReportingWidget);
+//  Q_D(const qMRMLReportingAnnotationWidget);
     vtkMRMLScene *scene = NULL;
     return scene;
 }

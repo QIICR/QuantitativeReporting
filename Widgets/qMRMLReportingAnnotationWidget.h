@@ -15,8 +15,8 @@
 
 ==============================================================================*/
 
-#ifndef __qMRMLAnnotationReportingWidget_h
-#define __qMRMLAnnotationReportingWidget_h
+#ifndef __qMRMLReportingAnnotationWidget_h
+#define __qMRMLReportingAnnotationWidget_h
 
 // Qt includes
 #include <QWidget>
@@ -29,11 +29,11 @@
 
 // MRML includes
 
-class vtkMRMLAnnotationReportingNode;
-class qMRMLAnnotationReportingWidgetPrivate;
+class vtkMRMLReportingAnnotationNode;
+class qMRMLReportingAnnotationWidgetPrivate;
 class vtkMRMLScene;
 
-class Q_SLICER_MODULE_REPORTING_WIDGETS_EXPORT qMRMLAnnotationReportingWidget : public QWidget
+class Q_SLICER_MODULE_REPORTING_WIDGETS_EXPORT qMRMLReportingAnnotationWidget : public QWidget
 {
   Q_OBJECT
   QVTK_OBJECT
@@ -42,8 +42,8 @@ public:
   typedef QWidget Superclass;
 
   /// Constructors
-  explicit qMRMLAnnotationReportingWidget(QWidget* parent=0);
-  virtual ~qMRMLAnnotationReportingWidget();
+  explicit qMRMLReportingAnnotationWidget(QWidget* parent=0);
+  virtual ~qMRMLReportingAnnotationWidget();
 
   /// Utility function that returns the mrml scene of the layout manager
   vtkMRMLScene* mrmlScene()const;
@@ -53,13 +53,13 @@ public slots:
   void setMRMLScene(vtkMRMLScene* scene);
 
 protected:
-  QScopedPointer<qMRMLAnnotationReportingWidgetPrivate> d_ptr;
+  QScopedPointer<qMRMLReportingAnnotationWidgetPrivate> d_ptr;
 
 private:
-  Q_DECLARE_PRIVATE(qMRMLAnnotationReportingWidget);
-  Q_DISABLE_COPY(qMRMLAnnotationReportingWidget);
+  Q_DECLARE_PRIVATE(qMRMLReportingAnnotationWidget);
+  Q_DISABLE_COPY(qMRMLReportingAnnotationWidget);
 
-  vtkMRMLAnnotationReportingNode* annotationNode;
+  vtkMRMLReportingAnnotationNode* annotationNode;
 };
 
 #endif

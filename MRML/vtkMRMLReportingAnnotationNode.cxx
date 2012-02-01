@@ -6,7 +6,7 @@ See COPYRIGHT.txt
 or http://www.slicer.org/copyright/copyright.txt for details.
 
 Program:   3D Slicer
-Module:    $RCSfile: vtkMRMLAnnotationReportingNode.cxx,v $
+Module:    $RCSfile: vtkMRMLReportingAnnotationNode.cxx,v $
 Date:      $Date: 2006/03/17 15:10:10 $
 Version:   $Revision: 1.2 $
 
@@ -21,32 +21,32 @@ Version:   $Revision: 1.2 $
 #include "vtkMRMLVolumeNode.h"
 
 // CropModuleMRML includes
-#include "vtkMRMLAnnotationReportingNode.h"
+#include "vtkMRMLReportingAnnotationNode.h"
 
 // STD includes
 
 //----------------------------------------------------------------------------
-vtkMRMLNodeNewMacro(vtkMRMLAnnotationReportingNode);
+vtkMRMLNodeNewMacro(vtkMRMLReportingAnnotationNode);
 
 //----------------------------------------------------------------------------
-vtkMRMLAnnotationReportingNode::vtkMRMLAnnotationReportingNode()
+vtkMRMLReportingAnnotationNode::vtkMRMLReportingAnnotationNode()
 {
 }
 
 //----------------------------------------------------------------------------
-vtkMRMLAnnotationReportingNode::~vtkMRMLAnnotationReportingNode()
+vtkMRMLReportingAnnotationNode::~vtkMRMLReportingAnnotationNode()
 {
 }
 
 //----------------------------------------------------------------------------
-void vtkMRMLAnnotationReportingNode::ReadXMLAttributes(const char** atts)
+void vtkMRMLReportingAnnotationNode::ReadXMLAttributes(const char** atts)
 {
   Superclass::ReadXMLAttributes(atts);
   this->WriteXML(std::cout,1);
 }
 
 //----------------------------------------------------------------------------
-void vtkMRMLAnnotationReportingNode::WriteXML(ostream& of, int nIndent)
+void vtkMRMLReportingAnnotationNode::WriteXML(ostream& of, int nIndent)
 {
   Superclass::WriteXML(of, nIndent);
 }
@@ -54,13 +54,13 @@ void vtkMRMLAnnotationReportingNode::WriteXML(ostream& of, int nIndent)
 //----------------------------------------------------------------------------
 // Copy the node\"s attributes to this object.
 // Does NOT copy: ID, FilePrefix, Name, SliceID
-void vtkMRMLAnnotationReportingNode::Copy(vtkMRMLNode *anode)
+void vtkMRMLReportingAnnotationNode::Copy(vtkMRMLNode *anode)
 {
   Superclass::Copy(anode);
 }
 
 //----------------------------------------------------------------------------
-void vtkMRMLAnnotationReportingNode::PrintSelf(ostream& os, vtkIndent indent)
+void vtkMRMLReportingAnnotationNode::PrintSelf(ostream& os, vtkIndent indent)
 {
   Superclass::PrintSelf(os,indent);
 }
