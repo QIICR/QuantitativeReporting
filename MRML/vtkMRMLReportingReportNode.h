@@ -72,7 +72,7 @@ class VTK_SLICER_REPORTING_MODULE_MRML_EXPORT vtkMRMLReportingReportNode : publi
   //virtual void UpdateScene(vtkMRMLScene *scene);
 
   //virtual void ProcessMRMLEvents ( vtkObject *caller, unsigned long event, void *callData);
-
+  
 protected:
   vtkMRMLReportingReportNode();
   ~vtkMRMLReportingReportNode();

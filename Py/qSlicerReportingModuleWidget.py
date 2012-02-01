@@ -1,5 +1,7 @@
 from __main__ import vtk, qt, ctk, slicer
 
+from Helper import *
+
 class qSlicerReportingModuleWidget:
   def __init__( self, parent=None ):
 
@@ -169,6 +171,7 @@ class qSlicerReportingModuleWidget:
     # get the current volume node
     self.__vNode = self.__volumeSelector.currentNode()
     if self.__vNode != None:
+      Helper.SetBgFgVolumes(self.__vNode.GetID(), '')
       # print "Calling logic to set up hierarchy"
       self.__logic.InitializeHierarchyForVolume(self.__vNode)
       # make the tree view update
