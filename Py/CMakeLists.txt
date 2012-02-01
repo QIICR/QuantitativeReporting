@@ -1,5 +1,6 @@
 
 SET(VIE_PYTHON_SCRIPTS
+  Helper.py
   qSlicerReportingModuleWidget.py
   )
 

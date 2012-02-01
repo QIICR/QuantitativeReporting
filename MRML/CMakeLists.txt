@@ -8,6 +8,8 @@ set(module_mrml_include_directory
 set(module_mrml_SRCS
   vtkMRMLAnnotationReportingNode.cxx
   vtkMRMLAnnotationReportingNode.h
+  vtkMRMLReportingReportNode.cxx
+  vtkMRMLReportingReportNode.h
   )
 
 # Additional Target libraries

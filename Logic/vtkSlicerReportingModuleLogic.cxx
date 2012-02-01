@@ -23,6 +23,7 @@
 #include <vtkMRMLAnnotationControlPointsNode.h>
 #include <vtkMRMLAnnotationHierarchyNode.h>
 #include <vtkMRMLDisplayableHierarchyNode.h>
+#include <vtkMRMLReportingReportNode.h>
 #include <vtkMRMLScalarVolumeNode.h>
 
 // VTK includes
@@ -74,9 +75,14 @@ void vtkSlicerReportingModuleLogic::SetMRMLSceneInternal(vtkMRMLScene* newScene)
 }
 
 //-----------------------------------------------------------------------------
+// Register all module-specific nodes here
 void vtkSlicerReportingModuleLogic::RegisterNodes()
 {
-  assert(this->GetMRMLScene() != 0);
+  if(!this->GetMRMLScene())
+    return;
+  vtkMRMLReportingReportNode *rn = vtkMRMLReportingReportNode::New();
+  this->GetMRMLScene()->RegisterNodeClass(rn);
+  rn->Delete();
 }
 
 //---------------------------------------------------------------------------
