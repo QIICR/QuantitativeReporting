@@ -56,12 +56,29 @@ class qSlicerReportingModuleWidget:
     
     self.layout.addWidget(self.__inputFrame)
 
+    '''
+    Report MRML node, will contain:
+     -- pointer to the markup elements hierarchy head
+    On updates:
+     -- reset the content of the widgets
+     -- existing content repopulated from the node
+    '''
+    label = qt.QLabel('Report: ')
+    self.__reportSelector = slicer.qMRMLNodeComboBox()
+    self.__reportSelector.nodeTypes =  ['vtkMRMLReportingReportNode']
+    self.__reportSelector.setMRMLScene(slicer.mrmlScene)
+    self.__reportSelector.connect('mrmlSceneChanged(vtkMRMLScene*)', self.onMRMLSceneChanged)
+    self.__reportSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onReportNodeChanged)
+    self.__reportSelector.addEnabled = 1
+    
+    inputFrameLayout.addRow(label, self.__reportSelector)
  
     '''
     Choose the volume being annotated.
     Will need to handle selection change:
       -- on new, update viewers, create storage node 
       -- on swich ask if the previous report should be saved
+    TODO: disable this unless Report selector is initialized!
     '''
     label = qt.QLabel('Annotated volume: ')
     self.__volumeSelector = slicer.qMRMLNodeComboBox()
@@ -73,24 +90,6 @@ class qSlicerReportingModuleWidget:
     self.__volumeSelector.addEnabled = 0
     
     inputFrameLayout.addRow(label, self.__volumeSelector)
-
-    '''
-    Report MRML node, will contain:
-     -- pointer to the markup elements hierarchy head
-    On updates:
-     -- reset the content of the widgets
-     -- existing content repopulated from the node
-    '''
-    label = qt.QLabel('Report: ')
-    self.__reportSelector = slicer.qMRMLNodeComboBox()
-    #self.__reportSelector.nodeTypes = ['vtkMRMLScalarVolumeNode']
-    self.__reportSelector.nodeTypes =  ['vtkMRMLReportingReportNode']
-    self.__reportSelector.setMRMLScene(slicer.mrmlScene)
-    self.__reportSelector.connect('mrmlSceneChanged(vtkMRMLScene*)', self.onMRMLSceneChanged)
-    self.__reportSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onReportNodeChanged)
-    self.__reportSelector.addEnabled = 1
-    
-    inputFrameLayout.addRow(label, self.__reportSelector)
 
 
 
@@ -146,7 +145,6 @@ class qSlicerReportingModuleWidget:
   # change, but I recall handling of this is necessary, otherwise adding
   # nodes from selector would not work correctly
   def onMRMLSceneChanged(self, mrmlScene):
-    print 'mrml scene change handler'
     #self.__volumeSelector.setMRMLScene(slicer.mrmlScene)
     self.__reportSelector.setMRMLScene(slicer.mrmlScene)
     print 'Current report node: ',self.__reportSelector.currentNode()
@@ -172,6 +170,7 @@ class qSlicerReportingModuleWidget:
     self.__vNode = self.__volumeSelector.currentNode()
     if self.__vNode != None:
       Helper.SetBgFgVolumes(self.__vNode.GetID(), '')
+      # TODO: rotate all slices into acq plane
       # print "Calling logic to set up hierarchy"
       self.__logic.InitializeHierarchyForVolume(self.__vNode)
       # make the tree view update
