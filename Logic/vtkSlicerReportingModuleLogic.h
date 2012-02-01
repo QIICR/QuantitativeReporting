@@ -52,6 +52,13 @@ public:
   /// points aren't on the same slice
   const char *GetSliceUIDFromMarkUp(vtkMRMLAnnotationNode *node);
 
+  /// Return the id of the top level reporting module hierarchy node, creating
+  /// one if not found, NULL on error
+  char *GetTopLevelHierarchyNodeID();
+  
+  /// Set up the hierarchy for the newly selected report node
+  void InitializeHierarchyForReport(vtkMRMLNode *node);
+  
   /// Set up the hierarchy for the newly selected volume node
   void InitializeHierarchyForVolume(vtkMRMLVolumeNode *node);
 
@@ -59,8 +66,10 @@ public:
   void SetActiveMarkupHierarchyIDFromNode(vtkMRMLNode *node);
 
   /// utility methods to call from python
+  char *ReturnActiveReportID() { return this->ActiveReportHierarchyID; };
   char *ReturnActiveHierarchyID() { return this->ActiveMarkupHierarchyID; };
   void SetActiveMarkupHierarchyIDToNull();
+  
   
 protected:
   vtkSlicerReportingModuleLogic();
@@ -79,6 +88,10 @@ protected:
   virtual void OnMRMLSceneNodeAdded(vtkMRMLNode* node);
   virtual void OnMRMLSceneNodeRemoved(vtkMRMLNode* node);
 
+  /// set/get the currently active report hierarchy
+  vtkGetStringMacro(ActiveReportHierarchyID);
+  vtkSetStringMacro(ActiveReportHierarchyID);
+ 
   /// set/get the currently active markup hierarchy
   vtkGetStringMacro(ActiveMarkupHierarchyID);
   vtkSetStringMacro(ActiveMarkupHierarchyID);
@@ -88,6 +101,8 @@ private:
   vtkSlicerReportingModuleLogic(const vtkSlicerReportingModuleLogic&); // Not implemented
   void operator=(const vtkSlicerReportingModuleLogic&);               // Not implemented
 
+  /// the currently active report hierarchy
+  char *ActiveReportHierarchyID;
   /// the currently active markup hierarchy
   char *ActiveMarkupHierarchyID;
 };
