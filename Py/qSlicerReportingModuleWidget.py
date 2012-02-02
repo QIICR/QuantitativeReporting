@@ -166,7 +166,7 @@ class qSlicerReportingModuleWidget:
     
   def updateTreeView(self):
     # make the tree view update
-    # self.__markupTreeView.sceneModelType = "Displayable"
+    self.__markupTreeView.sceneModelType = "Displayable"
     # set the root to be the reporting hierarchy root so don't see the annotation module hierarchies
     rootNode = slicer.mrmlScene.GetFirstNodeByName("Reporting Hierarchy")
     if rootNode:
