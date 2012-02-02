@@ -18,7 +18,7 @@ class qSlicerReportingModuleWidget:
 
     # Reference to the logic
     self.__logic = slicer.modulelogic.vtkSlicerReportingModuleLogic()
-    print 'Logic is ',self.__logic
+    # print 'Logic is ',self.__logic
 
     if not self.__logic.GetMRMLScene():
       # set the logic's mrml scene
@@ -111,10 +111,13 @@ class qSlicerReportingModuleWidget:
     # Add the tree widget
     self.__markupTreeView = slicer.qMRMLTreeView()
     self.__markupTreeView.setMRMLScene(self.__logic.GetMRMLScene())
-    nodeTypes = ['vtkMRMLDisplayableHierarchyNode', 'vtkMRMLAnnotationHierarchyNode', 'vtkMRMLAnnotationNode', 'vtkMRMLVolumeNode']
+    nodeTypes = ['vtkMRMLDisplayableHierarchyNode', 'vtkMRMLAnnotationHierarchyNode', 'vtkMRMLAnnotationNode', 'vtkMRMLVolumeNode', 'vtkMRMLReportingReportNode']
     self.__markupTreeView.nodeTypes = nodeTypes
     self.__markupTreeView.listenNodeModifiedEvent = 1
     self.__markupTreeView.sceneModelType = "Displayable"
+    # show these nodes even if they're hidden by being children of hidden hierarchy nodes
+    showHiddenNodeTypes = ['vtkMRMLAnnotationNode', 'vtkMRMLVolumeNode', 'vtkMRMLDisplayableHierarchyNode'] 
+    self.__markupTreeView.model().showHiddenForTypes = showHiddenNodeTypes    
 
     markupFrameLayout.addRow(self.__markupTreeView)
 
@@ -147,7 +150,7 @@ class qSlicerReportingModuleWidget:
   def onMRMLSceneChanged(self, mrmlScene):
     #self.__volumeSelector.setMRMLScene(slicer.mrmlScene)
     self.__reportSelector.setMRMLScene(slicer.mrmlScene)
-    print 'Current report node: ',self.__reportSelector.currentNode()
+    # print 'Current report node: ',self.__reportSelector.currentNode()
     
     # self.onAnnotatedVolumeNodeChanged()
     
@@ -173,15 +176,17 @@ class qSlicerReportingModuleWidget:
       # TODO: rotate all slices into acq plane
       # print "Calling logic to set up hierarchy"
       self.__logic.InitializeHierarchyForVolume(self.__vNode)
-      # make the tree view update
       self.updateTreeView()
 
   def onReportNodeChanged(self):
     # TODO
     #  -- initialize annotations and markup frames based on the report node
     #  content
-    print 'Selected report has changed to ',
-    self.__reportSelector.currentNode()
+    self.__rNode = self.__reportSelector.currentNode()
+    # print 'Selected report has changed to ',self.__rNode
+    if self.__rNode != None:
+      self.__logic.InitializeHierarchyForReport(self.__rNode)
+      self.updateTreeView()
 
   '''
   Load report and initialize GUI based on .xml report file content

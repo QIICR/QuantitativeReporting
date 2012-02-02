@@ -36,6 +36,7 @@
 
 class vtkMRMLAnnotationNode;
 class vtkMRMLVolumeNode;
+class vtkMRMLReportingReportNode;
 /// \ingroup Slicer_QtModules_ExtensionTemplate
 class VTK_SLICER_REPORTINGMODULE_MODULE_LOGIC_EXPORT vtkSlicerReportingModuleLogic :
   public vtkSlicerModuleLogic
@@ -57,7 +58,7 @@ public:
   char *GetTopLevelHierarchyNodeID();
   
   /// Set up the hierarchy for the newly selected report node
-  void InitializeHierarchyForReport(vtkMRMLNode *node);
+  void InitializeHierarchyForReport(vtkMRMLReportingReportNode *node);
   
   /// Set up the hierarchy for the newly selected volume node
   void InitializeHierarchyForVolume(vtkMRMLVolumeNode *node);
