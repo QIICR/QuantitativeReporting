@@ -20,13 +20,13 @@ set(module_widgets_include_directories
   
 # Source files
 set(module_widgets_SRCS
-  qMRMLReportingAnnotationWidget.cxx
-  qMRMLReportingAnnotationWidget.h
+  qMRMLReportingAnnotationRANOWidget.cxx
+  qMRMLReportingAnnotationRANOWidget.h
  )
 
 # Headers that should run through moc
 set(module_widgets_MOC_SRCS
-  qMRMLReportingAnnotationWidget.h
+  qMRMLReportingAnnotationRANOWidget.h
   )
 
 # UI files
