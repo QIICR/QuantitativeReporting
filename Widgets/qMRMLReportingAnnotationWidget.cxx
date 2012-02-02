@@ -22,6 +22,10 @@
 // qMRML includes
 #include "qMRMLReportingAnnotationWidget.h"
 
+// Qt includes
+#include <QFormLayout>
+#include <QLabel>
+
 class qMRMLReportingAnnotationWidgetPrivate: public QWidget // Ui_qMRMLReportingAnnotationWidget
 {
   Q_DECLARE_PUBLIC(qMRMLReportingAnnotationWidget);
@@ -31,7 +35,6 @@ protected:
 public:
   qMRMLReportingAnnotationWidgetPrivate(qMRMLReportingAnnotationWidget& object);
   void init();
-  
 };
 
 qMRMLReportingAnnotationWidgetPrivate::qMRMLReportingAnnotationWidgetPrivate(qMRMLReportingAnnotationWidget& object) : q_ptr(&object)
@@ -41,7 +44,11 @@ qMRMLReportingAnnotationWidgetPrivate::qMRMLReportingAnnotationWidgetPrivate(qMR
 void qMRMLReportingAnnotationWidgetPrivate::init()
 {
   Q_Q(qMRMLReportingAnnotationWidget);
-  //this->setupUi(q);
+  QFormLayout *layout = new QFormLayout();
+  QLabel *label = new QLabel("1 - Measurable Disease");
+  layout->addRow(label);
+  this->setLayout(layout);
+  std::cout << "::init() is finished" << std::endl;
 }
 
 //------------------------------------------------------------------------------
@@ -53,6 +60,7 @@ qMRMLReportingAnnotationWidget::qMRMLReportingAnnotationWidget(QWidget* widget)
   , d_ptr(new qMRMLReportingAnnotationWidgetPrivate(*this))
 {
   Q_D(qMRMLReportingAnnotationWidget);
+  std::cout << "Constructor called here!" << std::endl;
   d->init();
 }
 

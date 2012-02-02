@@ -100,6 +100,15 @@ class qSlicerReportingModuleWidget:
     
     self.layout.addWidget(self.__annotationsFrame)
 
+    annotationWidget = slicer.qMRMLReportingAnnotationWidget()
+    annotationWidget.setMRMLScene(slicer.mrmlScene)
+    
+    label = qt.QLabel('Annotated volume: ')
+    annotationsFrameLayout.addRow(label)
+    annotationsFrameLayout.addRow(annotationWidget)
+    label = qt.QLabel('Annotated volume: ')
+    annotationsFrameLayout.addRow(label)
+    annotationWidget.show()
 
     self.__markupFrame = ctk.ctkCollapsibleButton()
     self.__markupFrame.text = "Markup"

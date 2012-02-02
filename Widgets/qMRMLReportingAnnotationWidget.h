@@ -25,6 +25,7 @@
 #include "ctkVTKObject.h"
 
 // qMRML includes
+#include "qMRMLWidget.h"
 #include "qSlicerReportingModuleWidgetsExport.h"
 
 // MRML includes
