@@ -53,6 +53,39 @@ public:
   int flairIndex;
 };
 
+CTK_GET_CPP(qMRMLReportingAnnotationRANOWidget, int, measurableDiseaseIndex, measurableDiseaseIndex)
+void qMRMLReportingAnnotationRANOWidget::setMeasurableDiseaseIndex(int index)
+{
+  Q_D(qMRMLReportingAnnotationRANOWidget);
+  if(index != d->measurableDiseaseIndex)
+  {
+    d->measurableDiseaseIndex = index;
+    // this->updateWidgetFromMRML(); // AF ASK: why would I do this? Who updates the MRML?
+  }
+}
+
+CTK_GET_CPP(qMRMLReportingAnnotationRANOWidget, int, nonmeasurableDiseaseIndex, nonmeasurableDiseaseIndex)
+void qMRMLReportingAnnotationRANOWidget::setNonmeasurableDiseaseIndex(int index)
+{
+  Q_D(qMRMLReportingAnnotationRANOWidget);
+  if(index != d->nonmeasurableDiseaseIndex)
+  {
+    d->nonmeasurableDiseaseIndex = index;
+    // this->updateWidgetFromMRML(); // AF ASK: why would I do this? Who updates the MRML?
+  }
+}
+
+CTK_GET_CPP(qMRMLReportingAnnotationRANOWidget, int, flairIndex, flairIndex)
+void qMRMLReportingAnnotationRANOWidget::setFlairIndex(int index)
+{
+  Q_D(qMRMLReportingAnnotationRANOWidget);
+  if(index != d->flairIndex)
+  {
+    d->flairIndex = index;
+    // this->updateWidgetFromMRML(); // AF ASK: why would I do this? Who updates the MRML?
+  }
+}
+
 qMRMLReportingAnnotationRANOWidgetPrivate::qMRMLReportingAnnotationRANOWidgetPrivate(qMRMLReportingAnnotationRANOWidget& object)
   : q_ptr(&object)
 {
