@@ -49,6 +49,13 @@ public:
   /// Return a custom icon for the module
   virtual QIcon icon()const;
 
+  /// Return the categories
+  virtual QStringList categories() const;
+
+  /// Return the dependencies
+  virtual QStringList dependencies() const;
+
+
 protected:
 
   /// Initialize the module. Register the volumes reader/writer

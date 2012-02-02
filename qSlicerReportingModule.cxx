@@ -88,6 +88,18 @@ QIcon qSlicerReportingModule::icon()const
 }
 
 //-----------------------------------------------------------------------------
+QStringList qSlicerVectorImageExplorerModule::categories() const 
+{ 
+  return QStringList() << "Informatics"; 
+}
+
+//-----------------------------------------------------------------------------
+QStringList qSlicerVectorImageExplorerModule::dependencies() const
+{
+  return QStringList() << "Annotations" << "Volumes";
+}
+
+//-----------------------------------------------------------------------------
 void qSlicerReportingModule::setup()
 {
   this->Superclass::setup();
