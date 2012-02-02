@@ -100,6 +100,10 @@ class qSlicerReportingModuleWidget:
     
     self.layout.addWidget(self.__annotationsFrame)
 
+    self.__annotationWidget = slicer.qMRMLReportingAnnotationRANOWidget()
+    self.__annotationWidget.setMRMLScene(slicer.mrmlScene)
+    
+    annotationsFrameLayout.addRow(self.__annotationWidget)
 
     self.__markupFrame = ctk.ctkCollapsibleButton()
     self.__markupFrame.text = "Markup"
@@ -122,12 +126,12 @@ class qSlicerReportingModuleWidget:
     markupFrameLayout.addRow(self.__markupTreeView)
 
     # save/load report using AIM XML serialization
-    button = qt.QPushButton('Save Report')
-    button.connect('clicked()', self.onReportImport)
+    button = qt.QPushButton('Save Report ...')
+    button.connect('clicked()', self.onReportExport)
     self.layout.addWidget(button)
 
-    button = qt.QPushButton('Load Report')
-    button.connect('clicked()', self.onReportExport)
+    button = qt.QPushButton('Load Report ...')
+    button.connect('clicked()', self.onReportImport)
     self.layout.addWidget(button)
 
   def enter(self):
@@ -208,3 +212,8 @@ class qSlicerReportingModuleWidget:
     #  -- translate populated annotation frame into AIM
     #  -- traverse markup hierarchy and translate
     print 'onReprtingReportExport'
+    md = self.__annotationWidget.measurableDiseaseIndex
+    nmd = self.__annotationWidget.nonmeasurableDiseaseIndex
+    f = self.__annotationWidget.flairIndex
+
+    print "Indices of interest: ", md,' ',nmd,' ',f

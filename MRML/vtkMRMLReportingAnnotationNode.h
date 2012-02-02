@@ -11,14 +11,14 @@
   Version:   $Revision: 1.3 $
 
 =========================================================================auto=*/
-// .NAME vtkMRMLAnnotationReportingNode Node to keep the conent and possibly describe the structure of a structured report 
+// .NAME vtkMRMLReportingAnnotationNode Node to keep the conent and possibly describe the structure of a structured report 
 // .SECTION Description
 // This node stores the content and possible structure of the report
 //
 //
 
-#ifndef __vtkMRMLAnnotationReportingNode_h
-#define __vtkMRMLAnnotationReportingNode_h
+#ifndef __vtkMRMLReportingAnnotationNode_h
+#define __vtkMRMLReportingAnnotationNode_h
 
 // MRML includes
 #include "vtkDoubleArray.h"
@@ -28,13 +28,13 @@
 #include <vtkSlicerReportingModuleMRMLExport.h>
 
 
-/// \ingroup Slicer_QtModules_AnnotationReportingNode
-class VTK_SLICER_REPORTING_MODULE_MRML_EXPORT vtkMRMLAnnotationReportingNode : public vtkMRMLNode
+/// \ingroup Slicer_QtModules_ReportingAnnotationNode
+class VTK_SLICER_REPORTING_MODULE_MRML_EXPORT vtkMRMLReportingAnnotationNode : public vtkMRMLNode
 {
   public:   
 
-  static vtkMRMLAnnotationReportingNode *New();
-  vtkTypeMacro(vtkMRMLAnnotationReportingNode,vtkMRMLNode);
+  static vtkMRMLReportingAnnotationNode *New();
+  vtkTypeMacro(vtkMRMLReportingAnnotationNode,vtkMRMLNode);
   void PrintSelf(ostream& os, vtkIndent indent);
 
   virtual vtkMRMLNode* CreateNodeInstance();
@@ -49,7 +49,7 @@ class VTK_SLICER_REPORTING_MODULE_MRML_EXPORT vtkMRMLAnnotationReportingNode : p
   virtual void Copy(vtkMRMLNode *node);
 
   /// Get node XML tag name (like Volume, Model)
-  virtual const char* GetNodeTagName() {return "MRMLAnnotationReporting";};
+  virtual const char* GetNodeTagName() {return "MRMLReportingAnnotation";};
 
   /// Update the stored reference to another node in the scene
   //virtual void UpdateReferenceID(const char *oldID, const char *newID);
@@ -64,10 +64,10 @@ class VTK_SLICER_REPORTING_MODULE_MRML_EXPORT vtkMRMLAnnotationReportingNode : p
   //virtual void ProcessMRMLEvents ( vtkObject *caller, unsigned long event, void *callData);
 
 protected:
-  vtkMRMLAnnotationReportingNode();
-  ~vtkMRMLAnnotationReportingNode();
-  vtkMRMLAnnotationReportingNode(const vtkMRMLAnnotationReportingNode&);
-  void operator=(const vtkMRMLAnnotationReportingNode&);
+  vtkMRMLReportingAnnotationNode();
+  ~vtkMRMLReportingAnnotationNode();
+  vtkMRMLReportingAnnotationNode(const vtkMRMLReportingAnnotationNode&);
+  void operator=(const vtkMRMLReportingAnnotationNode&);
 };
 
 #endif
