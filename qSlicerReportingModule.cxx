@@ -88,13 +88,13 @@ QIcon qSlicerReportingModule::icon()const
 }
 
 //-----------------------------------------------------------------------------
-QStringList qSlicerVectorImageExplorerModule::categories() const 
+QStringList qSlicerReportingModule::categories() const 
 { 
   return QStringList() << "Informatics"; 
 }
 
 //-----------------------------------------------------------------------------
-QStringList qSlicerVectorImageExplorerModule::dependencies() const
+QStringList qSlicerReportingModule::dependencies() const
 {
   return QStringList() << "Annotations" << "Volumes";
 }
