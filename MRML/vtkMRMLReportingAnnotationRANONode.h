@@ -27,6 +27,9 @@
 #include "vtkMRMLScene.h"
 #include <vtkSlicerReportingModuleMRMLExport.h>
 
+class QString;
+class QStringList;
+class qMRMLReportingAnnotationRANOWidget;
 
 /// \ingroup Slicer_QtModules_ReportingAnnotationRANONode
 class VTK_SLICER_REPORTING_MODULE_MRML_EXPORT vtkMRMLReportingAnnotationRANONode : public vtkMRMLNode
@@ -49,7 +52,7 @@ class VTK_SLICER_REPORTING_MODULE_MRML_EXPORT vtkMRMLReportingAnnotationRANONode
   virtual void Copy(vtkMRMLNode *node);
 
   /// Get node XML tag name (like Volume, Model)
-  virtual const char* GetNodeTagName() {return "MRMLReportingAnnotation";};
+  virtual const char* GetNodeTagName() {return "MRMLReportingAnnotationRANO";};
 
   /// Update the stored reference to another node in the scene
   //virtual void UpdateReferenceID(const char *oldID, const char *newID);
@@ -63,11 +66,38 @@ class VTK_SLICER_REPORTING_MODULE_MRML_EXPORT vtkMRMLReportingAnnotationRANONode
 
   //virtual void ProcessMRMLEvents ( vtkObject *caller, unsigned long event, void *callData);
 
+  /*
+  QString ConvertCodeToMeaning(QString);
+  QString ConvertMeaningToCode(QString);
+
+  QString GetMeasurableDiseaseCode() const;
+  QString GetNonmeasurableDiseaseCode() const;
+  QString GetFlairCode() const;
+
+  void SetMeasurableDiseaseCode(QString);
+  void SetNonmeasurableDiseaseCode(QString);
+  void SetFlairCode(QString);
+  */
+  typedef std::pair<QString,QString> StringPairType;
+
+  friend class qMRMLReportingAnnotationRANOWidget;
+
 protected:
   vtkMRMLReportingAnnotationRANONode();
   ~vtkMRMLReportingAnnotationRANONode();
   vtkMRMLReportingAnnotationRANONode(const vtkMRMLReportingAnnotationRANONode&);
   void operator=(const vtkMRMLReportingAnnotationRANONode&);
+
+  // Structure
+  // -- pairs <component,description> to initialize the GUI
+  std::vector<StringPairType> componentDescriptionList;
+  // -- map code ID -> code meaning
+  std::map<QString,QString> codeToMeaningMap;
+  // -- list codes that will be used to initialize each component (same order as components)
+  std::vector<QStringList> componentCodeList;
+
+  // -- list of components selected (same order as components)
+  std::vector<QString> selectedCodeList;
 };
 
 #endif
