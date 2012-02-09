@@ -154,20 +154,23 @@ void qMRMLReportingAnnotationRANOWidget::init()
   {
     vtkMRMLReportingAnnotationRANONode::StringPairType cdPair;
     cdPair = an->componentDescriptionList[i];
-    QLabel *label = new QLabel(cdPair.first);
+    QLabel *label = new QLabel(cdPair.first.c_str());
     ctkComboBox *combo = new ctkComboBox();
-    label->setToolTip(cdPair.second);
-    combo->setToolTip(cdPair.second);
+    label->setToolTip(cdPair.second.c_str());
+    combo->setToolTip(cdPair.second.c_str());
     combo->setDefaultText("---");
 
     int nCodes = an->componentCodeList[i].size();
-
+    //std::vector<std::string> componentCode = an->codeToMeaningMap[an->componentCodeList[i]];
     for(int j=0;j<nCodes;j++)
-    {
+      {
       QString meaning = "";
-      meaning = an->codeToMeaningMap[an->componentCodeList[i].at(j)];
+      meaning = QString(an->codeToMeaningMap[an->componentCodeList[i].at(j)].c_str());
       combo->addItem(meaning);
-    }
+
+//      std::string meaningStr = componentCode[j];
+//      combo->addItem(QString(meaningStr));
+      }
     combo->setCurrentIndex(-1);
     layout->addRow(label, combo);
   }

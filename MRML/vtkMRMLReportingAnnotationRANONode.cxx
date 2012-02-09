@@ -24,10 +24,8 @@ Version:   $Revision: 1.2 $
 #include "vtkMRMLReportingAnnotationRANONode.h"
 
 // STD includes
+#include <string>
 
-// Qt includes
-#include <QString>
-#include <QStringList>
 
 //----------------------------------------------------------------------------
 vtkMRMLNodeNewMacro(vtkMRMLReportingAnnotationRANONode);
@@ -40,25 +38,35 @@ vtkMRMLReportingAnnotationRANONode::vtkMRMLReportingAnnotationRANONode()
   //this->flairCode = "";
 
   // initiate helpers
-  this->componentDescriptionList.push_back(StringPairType(QString("1 - Measurable Disease"),QString("Presence or Absence of Measurable Lesions")));
-  this->componentDescriptionList.push_back(StringPairType(QString("2 - Non-measurable Disease"),QString("Evaluation of Non-measurable Disease")));
-  this->componentDescriptionList.push_back(StringPairType(QString("3 - FLAIR"),QString("Tumor Evaluation on FLAIR")));
+  this->componentDescriptionList.push_back(StringPairType(std::string("1 - Measurable Disease"),std::string("Presence or Absence of Measurable Lesions")));
+  this->componentDescriptionList.push_back(StringPairType(std::string("2 - Non-measurable Disease"),std::string("Evaluation of Non-measurable Disease")));
+  this->componentDescriptionList.push_back(StringPairType(std::string("3 - FLAIR"),std::string("Tumor Evaluation on FLAIR")));
 
-  this->codeToMeaningMap[QString("RANO0")] = QString("Baseline");
-  this->codeToMeaningMap[QString("RANO1")] = QString("Stable Disease");
-  this->codeToMeaningMap[QString("RANO4")] = QString("Progressive Disease");
-  this->codeToMeaningMap[QString("RANO5")] = QString("Not Present");
-  this->codeToMeaningMap[QString("RANO6")] = QString("Non-evaluable");
-  this->codeToMeaningMap[QString("RANO7")] = QString("Yes");
-  this->codeToMeaningMap[QString("RANO8")] = QString("No");
+  this->codeToMeaningMap[std::string("RANO0")] = std::string("Baseline");
+  this->codeToMeaningMap[std::string("RANO1")] = std::string("Stable Disease");
+  this->codeToMeaningMap[std::string("RANO4")] = std::string("Progressive Disease");
+  this->codeToMeaningMap[std::string("RANO5")] = std::string("Not Present");
+  this->codeToMeaningMap[std::string("RANO6")] = std::string("Non-evaluable");
+  this->codeToMeaningMap[std::string("RANO7")] = std::string("Yes");
+  this->codeToMeaningMap[std::string("RANO8")] = std::string("No");
 
-  this->componentCodeList.push_back(QStringList() << "RANO7" << "RANO8" << "RANO6");
-  this->componentCodeList.push_back(QStringList() << "RANO1" << "RANO4" << "RANO0" << "RANO5" << "RANO6");
-  this->componentCodeList.push_back(QStringList() << "RANO1" << "RANO4" << "RANO0" << "RANO5" << "RANO6");
+  std::vector<std::string> componentVector;
+  componentVector.push_back(std::string("RANO7"));
+  componentVector.push_back(std::string("RANO8"));
+  componentVector.push_back(std::string("RANO6"));
+  this->componentCodeList.push_back(componentVector);
+  componentVector.clear();
+  componentVector.push_back(std::string("RANO1"));
+  componentVector.push_back(std::string("RANO4"));
+  componentVector.push_back(std::string("RANO0"));
+  componentVector.push_back(std::string("RANO5"));
+  componentVector.push_back(std::string("RANO6"));
+  this->componentCodeList.push_back(componentVector);
+  this->componentCodeList.push_back(componentVector);
 
-  this->selectedCodeList.push_back(QString());
-  this->selectedCodeList.push_back(QString());
-  this->selectedCodeList.push_back(QString());
+  this->selectedCodeList.push_back(std::string());
+  this->selectedCodeList.push_back(std::string());
+  this->selectedCodeList.push_back(std::string());
 }
 
 //----------------------------------------------------------------------------
@@ -93,37 +101,37 @@ void vtkMRMLReportingAnnotationRANONode::PrintSelf(ostream& os, vtkIndent indent
   Superclass::PrintSelf(os,indent);
 }
 /*
-QString vtkMRMLReportingAnnotationRANONode::ConvertCodeToMeaning(QString code)
+std::string vtkMRMLReportingAnnotationRANONode::ConvertCodeToMeaning(std::string code)
 {
   return code2meaningDict[code];
 }
 
-QString vtkMRMLReportingAnnotationRANONode::GetMeasurableDiseaseCode() const
+std::string vtkMRMLReportingAnnotationRANONode::GetMeasurableDiseaseCode() const
 {
   return this->measurableDiseaseCode;
 }
 
-QString vtkMRMLReportingAnnotationRANONode::GetNonmeasurableDiseaseCode() const
+std::string vtkMRMLReportingAnnotationRANONode::GetNonmeasurableDiseaseCode() const
 {
   return this->nonmeasurableDiseaseCode;
 }
 
-QString vtkMRMLReportingAnnotationRANONode::GetFlairCode() const
+std::string vtkMRMLReportingAnnotationRANONode::GetFlairCode() const
 {
   return this->flairCode;
 }
 
-void vtkMRMLReportingAnnotationRANONode::SetMeasurableDiseaseCode(QString code)
+void vtkMRMLReportingAnnotationRANONode::SetMeasurableDiseaseCode(std::string code)
 {
   this->measurableDiseaseCode = code;
 }
 
-void vtkMRMLReportingAnnotationRANONode::SetNonmeasurableDiseaseCode(QString code)
+void vtkMRMLReportingAnnotationRANONode::SetNonmeasurableDiseaseCode(std::string code)
 {
   this->nonmeasurableDiseaseCode = code;
 }
 
-void vtkMRMLReportingAnnotationRANONode::SetFlairCode(QString code)
+void vtkMRMLReportingAnnotationRANONode::SetFlairCode(std::string code)
 {
   this->flairCode = code;
 }

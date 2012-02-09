@@ -27,8 +27,6 @@
 #include "vtkMRMLScene.h"
 #include <vtkSlicerReportingModuleMRMLExport.h>
 
-class QString;
-class QStringList;
 class qMRMLReportingAnnotationRANOWidget;
 
 /// \ingroup Slicer_QtModules_ReportingAnnotationRANONode
@@ -67,18 +65,18 @@ class VTK_SLICER_REPORTING_MODULE_MRML_EXPORT vtkMRMLReportingAnnotationRANONode
   //virtual void ProcessMRMLEvents ( vtkObject *caller, unsigned long event, void *callData);
 
   /*
-  QString ConvertCodeToMeaning(QString);
-  QString ConvertMeaningToCode(QString);
+  std::string ConvertCodeToMeaning(std::string);
+  std::string ConvertMeaningToCode(std::string);
 
-  QString GetMeasurableDiseaseCode() const;
-  QString GetNonmeasurableDiseaseCode() const;
-  QString GetFlairCode() const;
+  std::string GetMeasurableDiseaseCode() const;
+  std::string GetNonmeasurableDiseaseCode() const;
+  std::string GetFlairCode() const;
 
-  void SetMeasurableDiseaseCode(QString);
-  void SetNonmeasurableDiseaseCode(QString);
-  void SetFlairCode(QString);
+  void SetMeasurableDiseaseCode(std::string);
+  void SetNonmeasurableDiseaseCode(std::string);
+  void SetFlairCode(std::string);
   */
-  typedef std::pair<QString,QString> StringPairType;
+  typedef std::pair<std::string,std::string> StringPairType;
 
   friend class qMRMLReportingAnnotationRANOWidget;
 
@@ -92,12 +90,12 @@ protected:
   // -- pairs <component,description> to initialize the GUI
   std::vector<StringPairType> componentDescriptionList;
   // -- map code ID -> code meaning
-  std::map<QString,QString> codeToMeaningMap;
+  std::map<std::string,std::string> codeToMeaningMap;
   // -- list codes that will be used to initialize each component (same order as components)
-  std::vector<QStringList> componentCodeList;
+  std::vector<std::vector<std::string> > componentCodeList;
 
   // -- list of components selected (same order as components)
-  std::vector<QString> selectedCodeList;
+  std::vector<std::string> selectedCodeList;
 };
 
 #endif
