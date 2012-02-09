@@ -295,7 +295,9 @@ void vtkSlicerReportingModuleLogic::InitializeHierarchyForReport(vtkMRMLReportin
   vtkMRMLHierarchyNode *hnode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(node->GetScene(), node->GetID());
   if (hnode)
     {
-    vtkWarningMacro("InitializeHierarchyForReport: report " << node->GetID() << " already has a hierarchy associated with it, " << hnode->GetID());
+    vtkDebugMacro("InitializeHierarchyForReport: report " << node->GetID() << " already has a hierarchy associated with it, " << hnode->GetID());
+    /// make the report hierarchy active 
+    this->SetActiveReportHierarchyID(hnode->GetID());
     return;
     }
     /// otherwise, create a 1:1 hierarchy for this node
@@ -346,7 +348,9 @@ void vtkSlicerReportingModuleLogic::InitializeHierarchyForVolume(vtkMRMLVolumeNo
   vtkMRMLHierarchyNode *hnode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(node->GetScene(), node->GetID());
   if (hnode)
     {
-    vtkWarningMacro("InitializeHierarchyForVolume: volume " << node->GetID() << " already has a hierarchy associated with it, " << hnode->GetID());
+    vtkDebugMacro("InitializeHierarchyForVolume: volume " << node->GetID() << " already has a hierarchy associated with it, " << hnode->GetID());
+    /// make the annotation hierarchy active 
+    this->SetActiveMarkupHierarchyID(hnode->GetID());
     return;
     }
   
@@ -433,4 +437,38 @@ void vtkSlicerReportingModuleLogic::SetActiveMarkupHierarchyIDToNull()
     delete [] this->ActiveMarkupHierarchyID;
     }
   this->ActiveMarkupHierarchyID = NULL;
+}
+
+//---------------------------------------------------------------------------
+char *vtkSlicerReportingModuleLogic::GetVolumeIDForReportNode(vtkMRMLReportingReportNode *node)
+{
+  if (!node)
+    {
+    return NULL;
+    }
+  // get the associated hierarchy node for this report
+  vtkMRMLHierarchyNode *hnode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(node->GetScene(), node->GetID());
+  if (!hnode)
+    {
+    vtkErrorMacro("GetVolumeIDForReportNode: no associated hierarchy node for reporting node " << node->GetID());
+    return NULL;
+    }
+  char *volumeID = NULL;
+  // get the children and look for the first volume node
+  std::vector< vtkMRMLHierarchyNode *> allChildren;
+  hnode->GetAllChildrenNodes(allChildren);
+  for (unsigned int i = 0; i < allChildren.size(); ++i)
+    {
+    vtkMRMLNode *mrmlNode = allChildren[i]->GetAssociatedNode();
+    if (mrmlNode)
+      {
+      if (mrmlNode->IsA("vtkMRMLVolumeNode"))
+        {      
+        volumeID = mrmlNode->GetID();
+        return volumeID;
+        }
+      }
+    }
+  
+  return volumeID;
 }

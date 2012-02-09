@@ -66,6 +66,9 @@ public:
   /// Set the active hierarchy from a node by looking for hierarchies
   void SetActiveMarkupHierarchyIDFromNode(vtkMRMLNode *node);
 
+  /// Return the active volume ID for the given report, returns NULL on error
+  char *GetVolumeIDForReportNode(vtkMRMLReportingReportNode *node);
+  
   /// utility methods to call from python
   char *ReturnActiveReportID() { return this->ActiveReportHierarchyID; };
   char *ReturnActiveHierarchyID() { return this->ActiveMarkupHierarchyID; };

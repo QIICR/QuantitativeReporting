@@ -167,8 +167,9 @@ class qSlicerReportingModuleWidget:
   def updateTreeView(self):
     # make the tree view update
     self.__markupTreeView.sceneModelType = "Displayable"
-    # set the root to be the reporting hierarchy root so don't see the annotation module hierarchies
-    rootNode = slicer.mrmlScene.GetFirstNodeByName("Reporting Hierarchy")
+    # set the root to be the current report hierarchy root 
+    rootNodeID = self.__logic.ReturnActiveReportID()
+    rootNode = slicer.mrmlScene.GetNodeByID(rootNodeID)
     if rootNode:
       self.__markupTreeView.setRootNode(rootNode)
 
@@ -188,10 +189,17 @@ class qSlicerReportingModuleWidget:
     #  content
     self.__rNode = self.__reportSelector.currentNode()
     # print 'Selected report has changed to ',self.__rNode
+    # set the volume to be none
+    self.__vNode = None
+    self.__volumeSelector.currentNodeId = None
     if self.__rNode != None:
       self.__logic.InitializeHierarchyForReport(self.__rNode)
       self.updateTreeView()
-
+      vID = self.__logic.GetVolumeIDForReportNode(self.__rNode)
+      if vID:
+        print "Got volume id for report of ",vID
+        self.__vNode = slicer.mrmlScene.GetNodeByID(vID)      
+        self.__volumeSelector.currentNodeId = vID
   '''
   Load report and initialize GUI based on .xml report file content
   '''
