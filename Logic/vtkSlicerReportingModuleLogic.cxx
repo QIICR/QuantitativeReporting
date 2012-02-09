@@ -25,6 +25,7 @@
 #include <vtkMRMLDisplayableHierarchyNode.h>
 #include <vtkMRMLReportingReportNode.h>
 #include <vtkMRMLScalarVolumeNode.h>
+#include <vtkMRMLReportingAnnotationRANONode.h>
 
 // VTK includes
 #include <vtkMatrix4x4.h>
@@ -89,7 +90,10 @@ void vtkSlicerReportingModuleLogic::RegisterNodes()
     return;
   vtkMRMLReportingReportNode *rn = vtkMRMLReportingReportNode::New();
   this->GetMRMLScene()->RegisterNodeClass(rn);
+  vtkMRMLReportingAnnotationRANONode *rano = vtkMRMLReportingAnnotationRANONode::New();
+  this->GetMRMLScene()->RegisterNodeClass(rano);
   rn->Delete();
+  rano->Delete();
 }
 
 //---------------------------------------------------------------------------

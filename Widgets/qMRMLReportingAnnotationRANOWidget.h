@@ -65,6 +65,7 @@ public:
 public slots:
   /// Set the MRML node
   void setMRMLAnnotationNode(vtkMRMLNode* node);
+  void updateWidgetFromMRML();
 
 private slots:
   void onMeasurableDiseaseChanged(int);
@@ -74,11 +75,11 @@ private slots:
 protected:
   QScopedPointer<qMRMLReportingAnnotationRANOWidgetPrivate> d_ptr;
 
+  void init();
+
 private:
   Q_DECLARE_PRIVATE(qMRMLReportingAnnotationRANOWidget);
   Q_DISABLE_COPY(qMRMLReportingAnnotationRANOWidget);
-
-  vtkMRMLReportingAnnotationNode* annotationNode;
 };
 
 #endif

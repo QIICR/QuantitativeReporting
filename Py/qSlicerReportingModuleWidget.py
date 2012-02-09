@@ -101,6 +101,10 @@ class qSlicerReportingModuleWidget:
     self.layout.addWidget(self.__annotationsFrame)
 
     self.__annotationWidget = slicer.qMRMLReportingAnnotationRANOWidget()
+    self.__annotationNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLReportingAnnotationRANONode')
+    slicer.mrmlScene.AddNode(self.__annotationNode)
+    self.__annotationNode.SetReferenceCount(1)
+    self.__annotationWidget.setMRMLAnnotationNode(self.__annotationNode)
     self.__annotationWidget.setMRMLScene(slicer.mrmlScene)
     
     annotationsFrameLayout.addRow(self.__annotationWidget)

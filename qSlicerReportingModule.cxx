@@ -88,6 +88,18 @@ QIcon qSlicerReportingModule::icon()const
 }
 
 //-----------------------------------------------------------------------------
+QStringList qSlicerReportingModule::categories() const 
+{ 
+  return QStringList() << "Informatics"; 
+}
+
+//-----------------------------------------------------------------------------
+QStringList qSlicerReportingModule::dependencies() const
+{
+  return QStringList() << "Annotations" << "Volumes";
+}
+
+//-----------------------------------------------------------------------------
 void qSlicerReportingModule::setup()
 {
   this->Superclass::setup();

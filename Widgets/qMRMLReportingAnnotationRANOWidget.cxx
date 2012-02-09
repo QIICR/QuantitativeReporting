@@ -17,7 +17,7 @@
 ==============================================================================*/
 
 // MRML includes
-#include <vtkMRMLReportingAnnotationNode.h>
+#include <vtkMRMLReportingAnnotationRANONode.h>
 
 // qMRML includes
 #include "qMRMLReportingAnnotationRANOWidget.h"
@@ -28,19 +28,19 @@
 // Qt includes
 #include <QFormLayout>
 #include <QLabel>
+#include <QString>
 
 class qMRMLReportingAnnotationRANOWidgetPrivate
 {
   Q_DECLARE_PUBLIC(qMRMLReportingAnnotationRANOWidget);
 protected:
   qMRMLReportingAnnotationRANOWidget* const q_ptr;
-  void setMRMLReportingAnnotationNode(vtkMRMLReportingAnnotationNode* newAnnotationNode);
+  void setMRMLReportingAnnotationNode(vtkMRMLReportingAnnotationRANONode* newAnnotationNode);
 
 public:
   qMRMLReportingAnnotationRANOWidgetPrivate(qMRMLReportingAnnotationRANOWidget& object);
-  void init();
 
-  vtkMRMLReportingAnnotationNode *annotationNode;
+  vtkMRMLReportingAnnotationRANONode *annotationNode;
 
   // widgets
   ctkComboBox *measurableDiseaseSelector;
@@ -100,14 +100,23 @@ qMRMLReportingAnnotationRANOWidgetPrivate::qMRMLReportingAnnotationRANOWidgetPri
   this->flairIndex = -1;
 }
 
-void qMRMLReportingAnnotationRANOWidgetPrivate::setMRMLReportingAnnotationNode(vtkMRMLReportingAnnotationNode *newNode)
+void qMRMLReportingAnnotationRANOWidgetPrivate::setMRMLReportingAnnotationNode(vtkMRMLReportingAnnotationRANONode *newNode)
 {
   Q_Q(qMRMLReportingAnnotationRANOWidget);
-  this->annotationNode = newNode;
-  // TODO: update the widget here
-  /*
 
-  */
+  q->qvtkReconnect(this->annotationNode, newNode, vtkCommand::ModifiedEvent,
+                   q, SLOT(updateWidgetFromMRML()));
+  this->annotationNode = newNode;
+
+  if(this->annotationNode)
+  {
+    if(!q->layout())
+    {
+      std::cout << "Before init()" << std::endl;
+      q->init();
+    }
+    q->updateWidgetFromMRML();
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -118,47 +127,50 @@ qMRMLReportingAnnotationRANOWidget::qMRMLReportingAnnotationRANOWidget(QWidget* 
   : Superclass(newParent)
   , d_ptr(new qMRMLReportingAnnotationRANOWidgetPrivate(*this))
 {
+}
+
+void qMRMLReportingAnnotationRANOWidget::init()
+{
   Q_D(qMRMLReportingAnnotationRANOWidget);
+
+  if(!d->annotationNode){
+    std::cout << "Annotation node not set!" << std::endl;
+    return;
+  }
+
   QFormLayout *layout = new QFormLayout();
   this->setLayout(layout);
-  QLabel *label = new QLabel("1 - Measurable Disease");
-  d->measurableDiseaseSelector = new ctkComboBox();
-  d->measurableDiseaseSelector->setDefaultText("---");
-  d->measurableDiseaseSelector->addItem("Yes");
-  d->measurableDiseaseSelector->addItem("No");
-  d->measurableDiseaseSelector->addItem("Not Evaluable");
-  d->measurableDiseaseSelector->setCurrentIndex(-1);
-  layout->addRow(label, d->measurableDiseaseSelector);
 
-  label = new QLabel("2 - Non-measurable Disease");
-  d->nonmeasurableDiseaseSelector = new ctkComboBox();
-  d->nonmeasurableDiseaseSelector->setDefaultText("---");
-  d->nonmeasurableDiseaseSelector->addItem("Stable Disease");
-  d->nonmeasurableDiseaseSelector->addItem("Progressive Disease");
-  d->nonmeasurableDiseaseSelector->addItem("Baseline");
-  d->nonmeasurableDiseaseSelector->addItem("Not Present");
-  d->nonmeasurableDiseaseSelector->addItem("Not Evaluable");
-  d->nonmeasurableDiseaseSelector->setCurrentIndex(-1);
-  layout->addRow(label, d->nonmeasurableDiseaseSelector);
+  vtkMRMLReportingAnnotationRANONode *an = d->annotationNode;
 
-  label = new QLabel("3 - FLAIR");
-  d->flairSelector = new ctkComboBox();
-  d->flairSelector->setDefaultText("---");
-  d->flairSelector->addItem("Stable Disease");
-  d->flairSelector->addItem("Progressive Disease");
-  d->flairSelector->addItem("Baseline");
-  d->flairSelector->addItem("Not Present");
-  d->flairSelector->addItem("Not Evaluable");
-  d->flairSelector->setCurrentIndex(-1);
-  layout->addRow(label, d->flairSelector);
+  if(an->componentDescriptionList.size() != an->componentCodeList.size())
+  {
+    std::cout << "Component size mismatch" << std::endl;
+    return;
+  }
 
-  // connect widgets to the variables
-  this->connect(d->measurableDiseaseSelector, SIGNAL(currentIndexChanged(int)),
-                this, SLOT(onMeasurableDiseaseChanged(int)));
-  this->connect(d->nonmeasurableDiseaseSelector, SIGNAL(currentIndexChanged(int)),
-                this, SLOT(onNonmeasurableDiseaseChanged(int)));
-  this->connect(d->flairSelector, SIGNAL(currentIndexChanged(int)),
-                this, SLOT(onFlairChanged(int)));
+  int nComponents = an->componentDescriptionList.size();
+  for(int i=0;i<nComponents;i++)
+  {
+    vtkMRMLReportingAnnotationRANONode::StringPairType cdPair;
+    cdPair = an->componentDescriptionList[i];
+    QLabel *label = new QLabel(cdPair.first);
+    ctkComboBox *combo = new ctkComboBox();
+    label->setToolTip(cdPair.second);
+    combo->setToolTip(cdPair.second);
+    combo->setDefaultText("---");
+
+    int nCodes = an->componentCodeList[i].size();
+
+    for(int j=0;j<nCodes;j++)
+    {
+      QString meaning = "";
+      meaning = an->codeToMeaningMap[an->componentCodeList[i].at(j)];
+      combo->addItem(meaning);
+    }
+    combo->setCurrentIndex(-1);
+    layout->addRow(label, combo);
+  }
 }
 
 // --------------------------------------------------------------------------
@@ -170,7 +182,8 @@ qMRMLReportingAnnotationRANOWidget::~qMRMLReportingAnnotationRANOWidget()
 void qMRMLReportingAnnotationRANOWidget::setMRMLAnnotationNode(vtkMRMLNode* newAnnotationNode)
 {
   Q_D(qMRMLReportingAnnotationRANOWidget);
-  d->setMRMLReportingAnnotationNode(vtkMRMLReportingAnnotationNode::SafeDownCast(newAnnotationNode));
+  std::cout << "Setting annotation node!" << std::endl;
+  d->setMRMLReportingAnnotationNode(vtkMRMLReportingAnnotationRANONode::SafeDownCast(newAnnotationNode));
 }
 
 //------------------------------------------------------------------------------
@@ -180,6 +193,8 @@ vtkMRMLScene* qMRMLReportingAnnotationRANOWidget::mrmlScene() const
     vtkMRMLScene *scene = NULL;
     return scene;
 }
+
+// AF NB: we do not need to handle individual events per element!
 
 //------------------------------------------------------------------------------
 void qMRMLReportingAnnotationRANOWidget::onNonmeasurableDiseaseChanged(int index)
@@ -203,4 +218,10 @@ void qMRMLReportingAnnotationRANOWidget::onFlairChanged(int index)
   Q_D(qMRMLReportingAnnotationRANOWidget);
 
   d->flairIndex = index;
+}
+
+void qMRMLReportingAnnotationRANOWidget::updateWidgetFromMRML()
+{
+  Q_D(qMRMLReportingAnnotationRANOWidget);
+  Q_ASSERT(d->annotationNode);
 }
