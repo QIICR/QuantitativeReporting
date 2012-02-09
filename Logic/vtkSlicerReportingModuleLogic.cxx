@@ -23,6 +23,7 @@
 #include <vtkMRMLAnnotationControlPointsNode.h>
 #include <vtkMRMLAnnotationHierarchyNode.h>
 #include <vtkMRMLDisplayableHierarchyNode.h>
+#include <vtkMRMLDisplayNode.h>
 #include <vtkMRMLReportingReportNode.h>
 #include <vtkMRMLScalarVolumeNode.h>
 #include <vtkMRMLReportingAnnotationRANONode.h>
@@ -475,4 +476,79 @@ char *vtkSlicerReportingModuleLogic::GetVolumeIDForReportNode(vtkMRMLReportingRe
     }
   
   return volumeID;
+}
+
+//---------------------------------------------------------------------------
+void vtkSlicerReportingModuleLogic::HideAnnotationsForOtherReports(vtkMRMLReportingReportNode *node)
+{
+  if (!node)
+    {
+    return;
+    }
+  // get the top level reporting module hierarchy
+  char *topNodeID = this->GetTopLevelHierarchyNodeID();
+  if (!topNodeID)
+    {
+    return;
+    }
+  vtkMRMLNode *topNode = this->GetMRMLScene()->GetNodeByID(topNodeID);
+  if (!topNode)
+    {
+    return;
+    }
+  vtkMRMLHierarchyNode *topHierarchyNode =  vtkMRMLHierarchyNode::SafeDownCast(topNode);
+  if (!topHierarchyNode)
+    {
+    vtkErrorMacro("HideAnnotationsForOtherReports: error casting top node with id " << topNodeID << " to a mrml hierarchy node");
+    return;
+    }
+  // get the associated hierarchy node for this report
+  vtkMRMLHierarchyNode *thisReportHierarchyNode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(node->GetScene(), node->GetID());
+  if (!thisReportHierarchyNode)
+    {
+    vtkErrorMacro("HideAnnotationsForOtherReports: no  hierarchy node for report node " << node->GetID());
+    return;
+    }
+  // get the children reporting nodes immediately under the top hierarchy node
+  std::vector< vtkMRMLHierarchyNode* > children = topHierarchyNode->GetChildrenNodes();
+  for (unsigned int i = 0; i < children.size(); ++i)
+    {
+    int visibFlag = 0;
+    // if it's this report hierarchy node, need to turn on annotations
+    if (strcmp(thisReportHierarchyNode->GetID(), children[i]->GetID()) == 0)
+      {
+      // turn on annotations
+      visibFlag = 1;
+      }
+    // get all the children of this report
+    std::vector< vtkMRMLHierarchyNode *> allChildren;
+    children[i]->GetAllChildrenNodes(allChildren);
+    for (unsigned int j = 0; j < allChildren.size(); ++j)
+      {
+      vtkMRMLNode *mrmlNode = allChildren[j]->GetAssociatedNode();
+      if (mrmlNode && mrmlNode->GetID() && mrmlNode->IsA("vtkMRMLAnnotationNode"))
+        {
+        vtkDebugMacro("HideAnnotationsForOtherReports: Found an annotation node " << mrmlNode->GetID() << ", visib flag = " << visibFlag);
+        // get it's display node
+        vtkMRMLAnnotationNode *annotationNode = vtkMRMLAnnotationNode::SafeDownCast(mrmlNode);
+        if (!annotationNode)
+          {
+          vtkErrorMacro("HideAnnotationsForOtherReports: unalbe to convert associated node to an annotation node, at " << mrmlNode->GetID());
+          return;
+          }
+        annotationNode->SetVisible(visibFlag);
+        int numDisplayNodes = annotationNode->GetNumberOfDisplayNodes();
+        for (int n = 0; n < numDisplayNodes; ++n)
+          {
+          vtkMRMLDisplayNode *displayNode = annotationNode->GetNthDisplayNode(n);
+          if (displayNode)
+            {
+            vtkDebugMacro("HideAnnotationsForOtherReports: Setting display node " << displayNode->GetID() << " visibility");
+            displayNode->SetVisibility(visibFlag);
+            }
+          }
+        }
+          
+      }
+    }
 }

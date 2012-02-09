@@ -201,9 +201,10 @@ class qSlicerReportingModuleWidget:
       self.updateTreeView()
       vID = self.__logic.GetVolumeIDForReportNode(self.__rNode)
       if vID:
-        print "Got volume id for report of ",vID
         self.__vNode = slicer.mrmlScene.GetNodeByID(vID)      
         self.__volumeSelector.currentNodeId = vID
+      # hide the annotations that go with other report nodes
+      self.__logic.HideAnnotationsForOtherReports(self.__rNode)
   '''
   Load report and initialize GUI based on .xml report file content
   '''

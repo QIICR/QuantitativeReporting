@@ -68,6 +68,9 @@ public:
 
   /// Return the active volume ID for the given report, returns NULL on error
   char *GetVolumeIDForReportNode(vtkMRMLReportingReportNode *node);
+
+  /// Hide reporting annotations that aren't under this report node
+  void HideAnnotationsForOtherReports(vtkMRMLReportingReportNode *node);
   
   /// utility methods to call from python
   char *ReturnActiveReportID() { return this->ActiveReportHierarchyID; };
