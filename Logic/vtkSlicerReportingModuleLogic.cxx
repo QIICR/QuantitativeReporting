@@ -354,8 +354,8 @@ void vtkSlicerReportingModuleLogic::InitializeHierarchyForVolume(vtkMRMLVolumeNo
   if (hnode)
     {
     vtkDebugMacro("InitializeHierarchyForVolume: volume " << node->GetID() << " already has a hierarchy associated with it, " << hnode->GetID());
-    /// make the annotation hierarchy active 
-    this->SetActiveMarkupHierarchyID(hnode->GetID());
+    /// make the annotation hierarchy associated with this volume active 
+    this->SetActiveMarkupHierarchyIDFromNode(node);
     return;
     }
   
