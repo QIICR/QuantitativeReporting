@@ -426,9 +426,31 @@ void vtkSlicerReportingModuleLogic::SetActiveMarkupHierarchyIDFromNode(vtkMRMLNo
                                                                    
   if (!mrmlNode)
     {
-    vtkWarningMacro("SetActiveMarkupHierarchyIDFromNode: didn't find markup node by name " << ahnodeName.c_str() << ", setting active hierarchy to null");
-    this->SetActiveMarkupHierarchyID(NULL);
-    return;
+    vtkDebugMacro("SetActiveMarkupHierarchyIDFromNode: didn't find markup node by name " << ahnodeName.c_str() << ", trying to find it in the volume's hierarchy");
+    // get the hierarchy node associated with this node
+    vtkMRMLHierarchyNode *hnode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(node->GetScene(), node->GetID());
+    if (hnode)
+      {
+      // get the first level children, one should be a markup annotation
+      // hierarchy
+      std::vector< vtkMRMLHierarchyNode* > children = hnode->GetChildrenNodes();
+      for (unsigned int i = 0; i < children.size(); ++i)
+        {
+        if (children[i]->IsA("vtkMRMLAnnotationHierarchyNode") &&
+            strncmp(children[i]->GetName(), "Markup", strlen("Markup")) == 0)
+          {
+          vtkDebugMacro("Found an annotation hierarchy node with a name that starts with Markup under this volume, using active markup hierarchy id " << children[i]->GetID());
+          this->SetActiveMarkupHierarchyID(children[i]->GetID());
+          return;
+          }
+        }
+      }
+    if (!mrmlNode)
+      {
+      vtkWarningMacro("SetActiveMarkupHierarchyIDFromNode: didn't find markup node in volume hierarchy, setting active hierarchy to null");
+      this->SetActiveMarkupHierarchyID(NULL);
+      return;
+      }
     }
   vtkDebugMacro("SetActiveMarkupHierarchyIDFromNode: Setting active markup hierarchy to " << mrmlNode->GetID());
   this->SetActiveMarkupHierarchyID(mrmlNode->GetID());
