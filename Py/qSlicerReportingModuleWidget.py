@@ -24,6 +24,10 @@ class qSlicerReportingModuleWidget:
       # set the logic's mrml scene
       self.__logic.SetMRMLScene(slicer.mrmlScene)
 
+    # for export
+    self.exportFileName = None
+    self.exportFileDialog = None
+
     if not parent:
       self.setup()
       self.parent.setMRMLScene( slicer.mrmlScene )
@@ -220,13 +224,30 @@ class qSlicerReportingModuleWidget:
   Save report to an xml file
   '''
   def onReportExport(self):
-    # TODO
-    #  -- popup file dialog prompting output file
-    #  -- translate populated annotation frame into AIM
-    #  -- traverse markup hierarchy and translate
     print 'onReprtingReportExport'
+    # TODO
+    #  -- translate populated annotation frame into AIM
     md = self.__annotationWidget.measurableDiseaseIndex
     nmd = self.__annotationWidget.nonmeasurableDiseaseIndex
     f = self.__annotationWidget.flairIndex
 
     print "Indices of interest: ", md,' ',nmd,' ',f
+
+    #  -- popup file dialog prompting output file
+    if not self.exportFileDialog:
+      self.exportFileDialog = qt.QFileDialog(self.parent)
+      self.exportFileDialog.acceptMode = 1 # save dialog
+      self.exportFileDialog.defaultSuffix = "xml"
+      self.exportFileDialog.setNameFilter("AIM XML files (*.xml)")
+      self.exportFileDialog.connect("fileSelected(QString)", self.onExportFileSelected)
+    self.exportFileDialog.show()
+
+  def onExportFileSelected(self,fileName):
+    # use the currently selected report
+    self.__rNode = self.__reportSelector.currentNode()
+    #  -- traverse markup hierarchy and translate
+    retval = self.__logic.SaveReportToAIM(self.__rNode, fileName)
+    if retval == 0:
+      print "Failed to save report to file '",fileName,"'"
+    else:
+      print "Saved report to file '",fileName,"'"

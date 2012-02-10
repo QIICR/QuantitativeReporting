@@ -21,7 +21,9 @@
 // MRML includes
 #include <vtkMRMLAnnotationNode.h>
 #include <vtkMRMLAnnotationControlPointsNode.h>
+#include <vtkMRMLAnnotationFiducialNode.h>
 #include <vtkMRMLAnnotationHierarchyNode.h>
+#include <vtkMRMLAnnotationRulerNode.h>
 #include <vtkMRMLDisplayableHierarchyNode.h>
 #include <vtkMRMLDisplayNode.h>
 #include <vtkMRMLReportingReportNode.h>
@@ -573,4 +575,119 @@ void vtkSlicerReportingModuleLogic::HideAnnotationsForOtherReports(vtkMRMLReport
           
       }
     }
+}
+
+//---------------------------------------------------------------------------
+int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *reportNode, const char *filename)
+{
+  if (!reportNode)
+    {
+    vtkErrorMacro("SaveReportToAIM: no report node given.");
+    return 0;
+    }
+  
+  if (!filename)
+    {
+    vtkErrorMacro("SaveReportToAIM: no file name given.");
+    return 0;
+    }
+
+  vtkDebugMacro("SaveReportToAIM: file name = " << filename);
+
+  vtkMRMLScalarVolumeNode *volumeNode = NULL;
+  vtkMRMLAnnotationHierarchyNode *markupHierarchyNode = NULL;
+  vtkMRMLReportingAnnotationRANONode *annotationNode = NULL;
+
+  // only one volume is allowed for now, so get the active one
+  char *volumeID = this->GetVolumeIDForReportNode(reportNode);
+  if (volumeID)
+    {
+    vtkMRMLNode *mrmlVolumeNode = this->GetMRMLScene()->GetNodeByID(volumeID);
+    if (!mrmlVolumeNode)
+      {
+      vtkErrorMacro("SaveReportToAIM: volume node not found by id: " << volumeID);
+      }
+    else
+      {
+      volumeNode = vtkMRMLScalarVolumeNode::SafeDownCast(mrmlVolumeNode);
+      }
+    }
+  if (volumeNode)
+    {
+    // set this volume's markup hierarchy to be active, just to make sure
+    this->SetActiveMarkupHierarchyIDFromNode(volumeNode);
+    // now get it
+    const char *markupID = this->GetActiveMarkupHierarchyID();
+    vtkMRMLNode *mrmlMarkupNode = this->GetMRMLScene()->GetNodeByID(markupID);
+    if (mrmlMarkupNode)
+      {
+      markupHierarchyNode = vtkMRMLAnnotationHierarchyNode::SafeDownCast(mrmlMarkupNode);
+      }
+    }
+
+  // get the annotation node for this report
+
+  // open the file for writing
+  
+  // and now print!
+  
+  // print out the report
+  if (reportNode)
+    {
+    std::cout << "SaveReportToAIM: saving report node " << reportNode->GetName() << std::endl;
+    }
+  
+  // print out the annotation
+  if (annotationNode)
+    {
+    std::cout << "SaveReportToAIM: saving annotation node " << annotationNode->GetName() << std::endl;
+    }
+  
+  // print out the volume
+  if (volumeNode)
+    {
+    std::cout << "SaveReportToAIM: saving volume node " << volumeNode->GetName() << std::endl;
+    }
+  
+  // print out the markups
+  if (markupHierarchyNode)
+    {
+    // get all the hierarchy nodes under the mark up node
+    std::vector< vtkMRMLHierarchyNode *> allChildren;
+    markupHierarchyNode->GetAllChildrenNodes(allChildren);
+    // get the associated markups and print them
+    for (unsigned int i = 0; i < allChildren.size(); ++i)
+      {
+      vtkMRMLNode *mrmlAssociatedNode = allChildren[i]->GetAssociatedNode();
+      if (mrmlAssociatedNode)
+        {
+        if (mrmlAssociatedNode->IsA("vtkMRMLAnnotationFiducialNode"))
+          {
+          // print out a point
+          vtkMRMLAnnotationFiducialNode *fidNode = vtkMRMLAnnotationFiducialNode::SafeDownCast(mrmlAssociatedNode);
+          if (fidNode)
+            {
+            std::cout << "SaveReportToAIM: saving point from node named " << fidNode->GetName() << std::endl;
+            }
+          }
+        else if (mrmlAssociatedNode->IsA("vtkMRMLAnnotationRulerNode"))
+          {
+          vtkMRMLAnnotationRulerNode *rulerNode = vtkMRMLAnnotationRulerNode::SafeDownCast(mrmlAssociatedNode);
+          if (rulerNode)
+            {
+            std::cout << "SaveReportToAIM: saving ruler from node named " << rulerNode->GetName() << std::endl;
+            }
+          }
+        else
+          {
+          vtkWarningMacro("SaveReportToAIM: unknown markup type, of class: " << mrmlAssociatedNode->GetClassName());
+          }
+        }
+      }
+    }
+
+  // close the file
+  
+  return 1;
+    
 }
