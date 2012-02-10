@@ -69,6 +69,10 @@ public:
   /// Return the active volume ID for the given report, returns NULL on error
   char *GetVolumeIDForReportNode(vtkMRMLReportingReportNode *node);
 
+  /// Return the annotation node id for the given report, returns NULL on
+  /// error
+  char *GetAnnotationIDForReportNode(vtkMRMLReportingReportNode *node);
+  
   /// Hide reporting annotations that aren't under this report node
   void HideAnnotationsForOtherReports(vtkMRMLReportingReportNode *node);
 

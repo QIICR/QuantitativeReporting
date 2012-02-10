@@ -105,10 +105,6 @@ class qSlicerReportingModuleWidget:
     self.layout.addWidget(self.__annotationsFrame)
 
     self.__annotationWidget = slicer.qMRMLReportingAnnotationRANOWidget()
-    self.__annotationNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLReportingAnnotationRANONode')
-    slicer.mrmlScene.AddNode(self.__annotationNode)
-    self.__annotationNode.SetReferenceCount(1)
-    self.__annotationWidget.setMRMLAnnotationNode(self.__annotationNode)
     self.__annotationWidget.setMRMLScene(slicer.mrmlScene)
     
     annotationsFrameLayout.addRow(self.__annotationWidget)
@@ -207,7 +203,13 @@ class qSlicerReportingModuleWidget:
       if vID:
         self.__vNode = slicer.mrmlScene.GetNodeByID(vID)      
         self.__volumeSelector.currentNodeId = vID
-      # hide the annotations that go with other report nodes
+      # get the annotation node for this report
+      aID = self.__logic.GetAnnotationIDForReportNode(self.__rNode)
+      if aID:
+        # set the node on the widget
+        self.__annotationNode = slicer.mrmlScene.GetNodeByID(aID)   
+        self.__annotationWidget.setMRMLAnnotationNode(self.__annotationNode)
+      # hide the markups that go with other report nodes
       self.__logic.HideAnnotationsForOtherReports(self.__rNode)
   '''
   Load report and initialize GUI based on .xml report file content
@@ -225,14 +227,7 @@ class qSlicerReportingModuleWidget:
   '''
   def onReportExport(self):
     print 'onReprtingReportExport'
-    # TODO
-    #  -- translate populated annotation frame into AIM
-    md = self.__annotationWidget.measurableDiseaseIndex
-    nmd = self.__annotationWidget.nonmeasurableDiseaseIndex
-    f = self.__annotationWidget.flairIndex
-
-    print "Indices of interest: ", md,' ',nmd,' ',f
-
+    
     #  -- popup file dialog prompting output file
     if not self.exportFileDialog:
       self.exportFileDialog = qt.QFileDialog(self.parent)
@@ -245,6 +240,23 @@ class qSlicerReportingModuleWidget:
   def onExportFileSelected(self,fileName):
     # use the currently selected report
     self.__rNode = self.__reportSelector.currentNode()
+    # TODO
+    #  -- translate populated annotation frame into AIM
+    md = self.__annotationWidget.measurableDiseaseIndex
+    nmd = self.__annotationWidget.nonmeasurableDiseaseIndex
+    f = self.__annotationWidget.flairIndex
+
+    print "Indices of interest: ", md,' ',nmd,' ',f
+
+    # get the annotation node and fill it in
+    aID = self.__logic.GetAnnotationIDForReportNode(self.__rNode)
+    if aID:
+      # get the node
+      self.__annotationNode = slicer.mrmlScene.GetNodeByID(aID) 
+      # TODO: 
+      # update the annotation node from te
+      # self.__annotationNode = 
+
     #  -- traverse markup hierarchy and translate
     retval = self.__logic.SaveReportToAIM(self.__rNode, fileName)
     if retval == 0:

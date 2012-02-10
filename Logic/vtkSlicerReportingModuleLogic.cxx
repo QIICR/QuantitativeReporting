@@ -329,8 +329,24 @@ void vtkSlicerReportingModuleLogic::InitializeHierarchyForReport(vtkMRMLReportin
   /// make the report hierarchy active 
   this->SetActiveReportHierarchyID(reportHierarchyNode->GetID());
   vtkDebugMacro("Set the active report hierarchy id = " << (reportHierarchyNode->GetID() ? reportHierarchyNode->GetID() : "null"));
+
+  /// create an annotation node with hierarchy
+  vtkMRMLHierarchyNode *ranoHierarchyNode = vtkMRMLHierarchyNode::New();
+  /// it's a stealth node:
+  ranoHierarchyNode->HideFromEditorsOn();
+  std::string ranohnodeName = std::string(node->GetName()) + std::string(" RANO Hierarchy");
+  ranoHierarchyNode->SetName(this->GetMRMLScene()->GetUniqueNameByString(ranohnodeName.c_str()));
+  this->GetMRMLScene()->AddNode(ranoHierarchyNode);
+  // make it the child of the report node
+  ranoHierarchyNode->SetParentNodeID(reportHierarchyNode->GetID());
+  
+  vtkMRMLReportingAnnotationRANONode *ranoNode = vtkMRMLReportingAnnotationRANONode::New();
+  this->GetMRMLScene()->AddNode(ranoNode);
+  ranoHierarchyNode->SetAssociatedNodeID(ranoNode->GetID());
   
   /// clean up
+  ranoNode->Delete();
+  ranoHierarchyNode->Delete();
   reportHierarchyNode->Delete();
 }
 
@@ -503,6 +519,41 @@ char *vtkSlicerReportingModuleLogic::GetVolumeIDForReportNode(vtkMRMLReportingRe
 }
 
 //---------------------------------------------------------------------------
+char *vtkSlicerReportingModuleLogic::GetAnnotationIDForReportNode(vtkMRMLReportingReportNode *node)
+{
+  if (!node)
+    {
+    return NULL;
+    }
+  // get the associated hierarchy node for this report
+  vtkMRMLHierarchyNode *hnode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(node->GetScene(), node->GetID());
+  if (!hnode)
+    {
+    vtkErrorMacro("GetAnnotationIDForReportNode: no associated hierarchy node for reporting node " << node->GetID());
+    return NULL;
+    }
+  char *annotationID = NULL;
+  // get the children and look for the first annotation node
+  std::vector< vtkMRMLHierarchyNode *> allChildren;
+  hnode->GetAllChildrenNodes(allChildren);
+  for (unsigned int i = 0; i < allChildren.size(); ++i)
+    {
+    vtkMRMLNode *mrmlNode = allChildren[i]->GetAssociatedNode();
+    if (mrmlNode)
+      {
+      // TODO: check for a superclass?
+      if (mrmlNode->IsA("vtkMRMLReportingAnnotationRANONode"))
+        {      
+        annotationID = mrmlNode->GetID();
+        return annotationID;
+        }
+      }
+    }
+  
+  return annotationID;
+}
+
+//---------------------------------------------------------------------------
 void vtkSlicerReportingModuleLogic::HideAnnotationsForOtherReports(vtkMRMLReportingReportNode *node)
 {
   if (!node)
@@ -626,7 +677,20 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     }
 
   // get the annotation node for this report
-
+  char *annotationID = this->GetAnnotationIDForReportNode(reportNode);
+  if (annotationID)
+    {
+    vtkMRMLNode *mrmlAnnotationNode = this->GetMRMLScene()->GetNodeByID(annotationID);
+    if (!mrmlAnnotationNode)
+      {
+      vtkErrorMacro("SaveReportToAIM: annotation node not found by id: " << annotationID);
+      }
+    else
+      {
+      annotationNode = vtkMRMLReportingAnnotationRANONode::SafeDownCast(mrmlAnnotationNode);
+      }
+    }
+  
   // open the file for writing
   
   // and now print!
