@@ -40,9 +40,6 @@ class Q_SLICER_MODULE_REPORTING_WIDGETS_EXPORT qMRMLReportingAnnotationRANOWidge
 {
   Q_OBJECT
   QVTK_OBJECT
-  Q_PROPERTY(int measurableDiseaseIndex READ measurableDiseaseIndex WRITE setMeasurableDiseaseIndex)
-  Q_PROPERTY(int nonmeasurableDiseaseIndex READ nonmeasurableDiseaseIndex WRITE setNonmeasurableDiseaseIndex)
-  Q_PROPERTY(int flairIndex READ flairIndex WRITE setFlairIndex)
 
 public:
   /// Superclass typedef
@@ -55,22 +52,13 @@ public:
   /// Utility function that returns the mrml scene of the layout manager
   vtkMRMLScene* mrmlScene()const;
 
-  int measurableDiseaseIndex() const;
-  void setMeasurableDiseaseIndex(int);
-  int nonmeasurableDiseaseIndex() const;
-  void setNonmeasurableDiseaseIndex(int);
-  int flairIndex() const;
-  void setFlairIndex(int);
-
 public slots:
   /// Set the MRML node
   void setMRMLAnnotationNode(vtkMRMLNode* node);
   void updateWidgetFromMRML();
+  void updateMRMLFromWidget();
 
 private slots:
-  void onMeasurableDiseaseChanged(int);
-  void onNonmeasurableDiseaseChanged(int);
-  void onFlairChanged(int);
 
 protected:
   QScopedPointer<qMRMLReportingAnnotationRANOWidgetPrivate> d_ptr;

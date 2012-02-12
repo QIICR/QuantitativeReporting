@@ -33,10 +33,6 @@ vtkMRMLNodeNewMacro(vtkMRMLReportingAnnotationRANONode);
 //----------------------------------------------------------------------------
 vtkMRMLReportingAnnotationRANONode::vtkMRMLReportingAnnotationRANONode()
 {
-  //this->measurableDiseaseCode = "";
-  //this->nonmeasurableDiseaseCode = "";
-  //this->flairCode = "";
-
   // initiate helpers
   this->componentDescriptionList.push_back(StringPairType(std::string("1 - Measurable Disease"),std::string("Presence or Absence of Measurable Lesions")));
   this->componentDescriptionList.push_back(StringPairType(std::string("2 - Non-measurable Disease"),std::string("Evaluation of Non-measurable Disease")));
@@ -64,9 +60,9 @@ vtkMRMLReportingAnnotationRANONode::vtkMRMLReportingAnnotationRANONode()
   this->componentCodeList.push_back(componentVector);
   this->componentCodeList.push_back(componentVector);
 
-  this->selectedCodeList.push_back(std::string());
-  this->selectedCodeList.push_back(std::string());
-  this->selectedCodeList.push_back(std::string());
+  this->selectedCodeList.push_back(std::string("---"));
+  this->selectedCodeList.push_back(std::string("---"));
+  this->selectedCodeList.push_back(std::string("---"));
 }
 
 //----------------------------------------------------------------------------
@@ -99,40 +95,25 @@ void vtkMRMLReportingAnnotationRANONode::Copy(vtkMRMLNode *anode)
 void vtkMRMLReportingAnnotationRANONode::PrintSelf(ostream& os, vtkIndent indent)
 {
   Superclass::PrintSelf(os,indent);
-}
-/*
-std::string vtkMRMLReportingAnnotationRANONode::ConvertCodeToMeaning(std::string code)
-{
-  return code2meaningDict[code];
-}
 
-std::string vtkMRMLReportingAnnotationRANONode::GetMeasurableDiseaseCode() const
-{
-  return this->measurableDiseaseCode;
-}
+  os << indent << "Components and descriptions:" << std::endl;
+  int nComponents = this->componentDescriptionList.size();
+  for(int i=0;i<nComponents;i++)
+  {
+    os << indent << " " << this->componentDescriptionList[i].first << ": " << this->componentDescriptionList[i].second << std::endl;
+    os << indent << " Allowed codes: ";
+    int nCodes = this->componentCodeList[i].size();
+    for(int j=0;j<nCodes;j++)
+      os << this->componentCodeList[i][j] << " ";
+    os << std::endl;
+    os << indent << " Selected code: ";
+    os << this->selectedCodeList[i] << " ";
+    os << std::endl;
+  }
 
-std::string vtkMRMLReportingAnnotationRANONode::GetNonmeasurableDiseaseCode() const
-{
-  return this->nonmeasurableDiseaseCode;
+  os << indent << "Code descriptions: " << std::endl;
+  int nCodes = this->codeToMeaningMap.size();
+  for(std::map<std::string,std::string>::iterator mIt=this->codeToMeaningMap.begin();
+      mIt!=this->codeToMeaningMap.end();++mIt)
+    os << indent << mIt->first << ": " << mIt->second << std::endl;
 }
-
-std::string vtkMRMLReportingAnnotationRANONode::GetFlairCode() const
-{
-  return this->flairCode;
-}
-
-void vtkMRMLReportingAnnotationRANONode::SetMeasurableDiseaseCode(std::string code)
-{
-  this->measurableDiseaseCode = code;
-}
-
-void vtkMRMLReportingAnnotationRANONode::SetNonmeasurableDiseaseCode(std::string code)
-{
-  this->nonmeasurableDiseaseCode = code;
-}
-
-void vtkMRMLReportingAnnotationRANONode::SetFlairCode(std::string code)
-{
-  this->flairCode = code;
-}
-*/

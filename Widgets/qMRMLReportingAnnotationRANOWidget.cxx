@@ -36,73 +36,29 @@ class qMRMLReportingAnnotationRANOWidgetPrivate
 protected:
   qMRMLReportingAnnotationRANOWidget* const q_ptr;
   void setMRMLReportingAnnotationNode(vtkMRMLReportingAnnotationRANONode* newAnnotationNode);
+  bool disableMRMLUpdates;
 
 public:
   qMRMLReportingAnnotationRANOWidgetPrivate(qMRMLReportingAnnotationRANOWidget& object);
 
   vtkMRMLReportingAnnotationRANONode *annotationNode;
 
-  // widgets
-  ctkComboBox *measurableDiseaseSelector;
-  ctkComboBox *nonmeasurableDiseaseSelector;
-  ctkComboBox *flairSelector;
-
-  // variables
-  int measurableDiseaseIndex;
-  int nonmeasurableDiseaseIndex;
-  int flairIndex;
+  std::vector<ctkComboBox*> comboBoxList;
 };
-
-CTK_GET_CPP(qMRMLReportingAnnotationRANOWidget, int, measurableDiseaseIndex, measurableDiseaseIndex)
-void qMRMLReportingAnnotationRANOWidget::setMeasurableDiseaseIndex(int index)
-{
-  Q_D(qMRMLReportingAnnotationRANOWidget);
-  if(index != d->measurableDiseaseIndex)
-  {
-    d->measurableDiseaseIndex = index;
-    // this->updateWidgetFromMRML(); // AF ASK: why would I do this? Who updates the MRML?
-  }
-}
-
-CTK_GET_CPP(qMRMLReportingAnnotationRANOWidget, int, nonmeasurableDiseaseIndex, nonmeasurableDiseaseIndex)
-void qMRMLReportingAnnotationRANOWidget::setNonmeasurableDiseaseIndex(int index)
-{
-  Q_D(qMRMLReportingAnnotationRANOWidget);
-  if(index != d->nonmeasurableDiseaseIndex)
-  {
-    d->nonmeasurableDiseaseIndex = index;
-    // this->updateWidgetFromMRML(); // AF ASK: why would I do this? Who updates the MRML?
-  }
-}
-
-CTK_GET_CPP(qMRMLReportingAnnotationRANOWidget, int, flairIndex, flairIndex)
-void qMRMLReportingAnnotationRANOWidget::setFlairIndex(int index)
-{
-  Q_D(qMRMLReportingAnnotationRANOWidget);
-  if(index != d->flairIndex)
-  {
-    d->flairIndex = index;
-    // this->updateWidgetFromMRML(); // AF ASK: why would I do this? Who updates the MRML?
-  }
-}
 
 qMRMLReportingAnnotationRANOWidgetPrivate::qMRMLReportingAnnotationRANOWidgetPrivate(qMRMLReportingAnnotationRANOWidget& object)
   : q_ptr(&object)
 {
   this->annotationNode = 0;
-
-  this->measurableDiseaseSelector = 0;
-  this->nonmeasurableDiseaseSelector = 0;
-  this->flairSelector = 0;
-
-  this->measurableDiseaseIndex = -1;
-  this->nonmeasurableDiseaseIndex = -1;
-  this->flairIndex = -1;
+  this->disableMRMLUpdates = false;
 }
 
 void qMRMLReportingAnnotationRANOWidgetPrivate::setMRMLReportingAnnotationNode(vtkMRMLReportingAnnotationRANONode *newNode)
 {
   Q_Q(qMRMLReportingAnnotationRANOWidget);
+
+  // do not update MRML based on the widget content during switchover to another annotation node
+  this->disableMRMLUpdates = true;
 
   q->qvtkReconnect(this->annotationNode, newNode, vtkCommand::ModifiedEvent,
                    q, SLOT(updateWidgetFromMRML()));
@@ -111,12 +67,11 @@ void qMRMLReportingAnnotationRANOWidgetPrivate::setMRMLReportingAnnotationNode(v
   if(this->annotationNode)
   {
     if(!q->layout())
-    {
-      std::cout << "Before init()" << std::endl;
       q->init();
-    }
     q->updateWidgetFromMRML();
   }
+
+  this->disableMRMLUpdates = false;
 }
 
 //------------------------------------------------------------------------------
@@ -163,16 +118,17 @@ void qMRMLReportingAnnotationRANOWidget::init()
     int nCodes = an->componentCodeList[i].size();
     //std::vector<std::string> componentCode = an->codeToMeaningMap[an->componentCodeList[i]];
     for(int j=0;j<nCodes;j++)
-      {
+    {
       QString meaning = "";
       meaning = QString(an->codeToMeaningMap[an->componentCodeList[i].at(j)].c_str());
       combo->addItem(meaning);
+    }
 
-//      std::string meaningStr = componentCode[j];
-//      combo->addItem(QString(meaningStr));
-      }
     combo->setCurrentIndex(-1);
     layout->addRow(label, combo);
+    d->comboBoxList.push_back(combo);
+    this->connect(combo, SIGNAL(currentIndexChanged(int)), this,
+                  SLOT(updateMRMLFromWidget()));
   }
 }
 
@@ -197,34 +153,56 @@ vtkMRMLScene* qMRMLReportingAnnotationRANOWidget::mrmlScene() const
     return scene;
 }
 
-// AF NB: we do not need to handle individual events per element!
-
-//------------------------------------------------------------------------------
-void qMRMLReportingAnnotationRANOWidget::onNonmeasurableDiseaseChanged(int index)
-{
-  Q_D(qMRMLReportingAnnotationRANOWidget);
-
-  d->nonmeasurableDiseaseIndex = index;
-}
-
-//------------------------------------------------------------------------------
-void qMRMLReportingAnnotationRANOWidget::onMeasurableDiseaseChanged(int index)
-{
-  Q_D(qMRMLReportingAnnotationRANOWidget);
-
-  d->measurableDiseaseIndex = index;
-}
-
-//------------------------------------------------------------------------------
-void qMRMLReportingAnnotationRANOWidget::onFlairChanged(int index)
-{
-  Q_D(qMRMLReportingAnnotationRANOWidget);
-
-  d->flairIndex = index;
-}
-
 void qMRMLReportingAnnotationRANOWidget::updateWidgetFromMRML()
 {
   Q_D(qMRMLReportingAnnotationRANOWidget);
-  Q_ASSERT(d->annotationNode);
+
+  if(!d->annotationNode)
+    return;
+
+  std::cout << "Current annotation node: ";
+  vtkIndent indent;
+  d->annotationNode->PrintSelf(std::cout, indent);
+  vtkMRMLReportingAnnotationRANONode* an = d->annotationNode;
+
+  int nComponents = an->componentDescriptionList.size();
+  for(int i=0;i<nComponents;i++)
+  {
+    int idx = -1;
+    std::string code = an->selectedCodeList[i];
+    std::cout << "Selected code: " << code << std::endl;
+    std::vector<std::string> codeList = an->componentCodeList[i];
+    std::vector<std::string>::iterator codeIt = std::find(codeList.begin(), codeList.end(), code);
+    if(codeIt != codeList.end())
+      idx = codeIt-codeList.begin();
+    std::cout << "Setting index to " << idx << std::endl;
+    d->comboBoxList[i]->setCurrentIndex(idx);
+  }
+}
+
+void qMRMLReportingAnnotationRANOWidget::updateMRMLFromWidget()
+{
+  Q_D(qMRMLReportingAnnotationRANOWidget);
+
+  if(!d->annotationNode || d->disableMRMLUpdates)
+    return;
+
+  vtkMRMLReportingAnnotationRANONode* an = d->annotationNode;
+  int nComponents = an->componentDescriptionList.size();
+  int nWidgets = d->comboBoxList.size();
+  Q_ASSERT(nComponents==nWidgets);
+
+  for(int i=0;i<nWidgets;i++)
+  {
+    int idx = d->comboBoxList[i]->currentIndex();
+    if(idx==-1)
+    {
+      an->selectedCodeList[i] = "";
+    }
+    else
+    {
+      Q_ASSERT(idx<an->componentCodeList[i].size());
+      an->selectedCodeList[i] = an->componentCodeList[i][idx];
+    }
+  }
 }
