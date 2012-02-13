@@ -24,7 +24,9 @@ Version:   $Revision: 1.2 $
 #include "vtkMRMLReportingAnnotationRANONode.h"
 
 // STD includes
+#include <iostream>
 #include <string>
+#include <sstream>
 
 
 //----------------------------------------------------------------------------
@@ -74,6 +76,59 @@ vtkMRMLReportingAnnotationRANONode::~vtkMRMLReportingAnnotationRANONode()
 void vtkMRMLReportingAnnotationRANONode::ReadXMLAttributes(const char** atts)
 {
   Superclass::ReadXMLAttributes(atts);
+
+  const char *attName;
+  const char *attValue;
+
+  std::vector<std::string> sv1, sv2;
+
+  while(*atts != NULL)
+  {
+    attName = *(atts++);
+    attValue = *(atts++);
+    if(!strcmp(attName, "componentDescriptionList"))
+    {
+      this->componentDescriptionList.clear();
+      sv1 = this->splitString(std::string(attValue), ';');
+      for(std::vector<std::string>::const_iterator vI=sv1.begin();vI!=sv1.end();++vI)
+      {
+        sv2 = this->splitString(*vI, ':');
+        this->componentDescriptionList.push_back(StringPairType(sv2[0], sv2[1]));
+      }
+    }
+    if(!strcmp(attName, "codeToMeaningMap"))
+    {
+      this->codeToMeaningMap.clear();
+      sv1 = this->splitString(std::string(attValue), ';');
+      for(std::vector<std::string>::const_iterator vI=sv1.begin();vI!=sv1.end();++vI)
+      {
+        sv2 = this->splitString(*vI, ':');
+        this->codeToMeaningMap[sv2[0]] = sv2[1];
+      }
+    }
+    if(!strcmp(attName, "componentCodeList"))
+    {
+      this->componentCodeList.clear();
+      sv1 = this->splitString(std::string(attValue), ';');
+      for(std::vector<std::string>::const_iterator vI=sv1.begin();vI!=sv1.end();++vI)
+      {
+        std::vector<std::string> codeList;
+        sv2 = this->splitString(*vI, ',');
+        for(std::vector<std::string>::const_iterator vI2=sv2.begin();vI2!=sv2.end();++vI2)
+          codeList.push_back(*vI2);
+
+        this->componentCodeList.push_back(codeList);
+      }
+    }
+    if(!strcmp(attName, "selectedCodeList"))
+    {
+      this->selectedCodeList.clear();
+      sv1 = this->splitString(std::string(attValue), ';');
+      for(std::vector<std::string>::const_iterator vI=sv1.begin();vI!=sv1.end();++vI)
+        this->selectedCodeList.push_back(*vI);
+    }
+  }
+
   this->WriteXML(std::cout,1);
 }
 
@@ -81,6 +136,55 @@ void vtkMRMLReportingAnnotationRANONode::ReadXMLAttributes(const char** atts)
 void vtkMRMLReportingAnnotationRANONode::WriteXML(ostream& of, int nIndent)
 {
   Superclass::WriteXML(of, nIndent);
+
+  int i;
+  vtkIndent indent(nIndent);
+  int nComponents = this->componentDescriptionList.size();
+
+  of << indent << " componentDescriptionList=\"";
+  for(int i=0;i<nComponents;i++)
+  {
+    of << this->componentDescriptionList[i].first << ":" << this->componentDescriptionList[i].second;
+    if(i<nComponents-1)
+      of << ";";
+  }
+  of << "\"" << std::endl;
+
+  int nCodes = this->codeToMeaningMap.size();
+  of << indent << " codeToMeaningMap=\"";
+  i = 0;
+  for(std::map<std::string,std::string>::const_iterator mI=this->codeToMeaningMap.begin();
+      mI!=this->codeToMeaningMap.end();++mI,i++)
+  {
+    of << mI->first << ":" << mI->second;
+    if(i!=nCodes)
+      of << ";";
+  }
+  of << "\"";
+
+  of << indent << " componentCodeList=\"";
+  for(int i=0;i<nComponents;i++)
+  {
+    int nCodes = this->componentCodeList[i].size();
+    for(int j=0;j<nCodes;j++)
+    {
+      of << this->componentCodeList[i][j];
+      if(j!=nCodes-1)
+        of << ",";
+    }
+    if(i!=nComponents-1)
+      of << ";";
+  }
+  of << "\"";
+
+  of << indent << " selectedCodeList=\"";
+  for(int i=0;i<nComponents;i++)
+  {
+    of << this->selectedCodeList[i];
+    if(i!=nComponents-1)
+      of << ";";
+  }
+  of << "\"";
 }
 
 //----------------------------------------------------------------------------
@@ -116,4 +220,14 @@ void vtkMRMLReportingAnnotationRANONode::PrintSelf(ostream& os, vtkIndent indent
   for(std::map<std::string,std::string>::iterator mIt=this->codeToMeaningMap.begin();
       mIt!=this->codeToMeaningMap.end();++mIt)
     os << indent << mIt->first << ": " << mIt->second << std::endl;
+}
+
+std::vector<std::string> vtkMRMLReportingAnnotationRANONode::splitString(std::string in, char sep)
+{
+  std::vector<std::string> out;
+  std::stringstream ss(in);
+  std::string item;
+  while(std::getline(ss, item, sep))
+    out.push_back(item);
+  return out;
 }

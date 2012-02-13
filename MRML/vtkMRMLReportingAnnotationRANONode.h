@@ -32,7 +32,7 @@ class qMRMLReportingAnnotationRANOWidget;
 /// \ingroup Slicer_QtModules_ReportingAnnotationRANONode
 class VTK_SLICER_REPORTING_MODULE_MRML_EXPORT vtkMRMLReportingAnnotationRANONode : public vtkMRMLNode
 {
-  public:   
+public:
 
   static vtkMRMLReportingAnnotationRANONode *New();
   vtkTypeMacro(vtkMRMLReportingAnnotationRANONode,vtkMRMLNode);
@@ -64,18 +64,6 @@ class VTK_SLICER_REPORTING_MODULE_MRML_EXPORT vtkMRMLReportingAnnotationRANONode
 
   //virtual void ProcessMRMLEvents ( vtkObject *caller, unsigned long event, void *callData);
 
-  /*
-  std::string ConvertCodeToMeaning(std::string);
-  std::string ConvertMeaningToCode(std::string);
-
-  std::string GetMeasurableDiseaseCode() const;
-  std::string GetNonmeasurableDiseaseCode() const;
-  std::string GetFlairCode() const;
-
-  void SetMeasurableDiseaseCode(std::string);
-  void SetNonmeasurableDiseaseCode(std::string);
-  void SetFlairCode(std::string);
-  */
   typedef std::pair<std::string,std::string> StringPairType;
 
   friend class qMRMLReportingAnnotationRANOWidget;
@@ -96,6 +84,9 @@ protected:
 
   // -- list of components selected (same order as components)
   std::vector<std::string> selectedCodeList;
+
+private:
+  std::vector<std::string> splitString(std::string, char);
 };
 
 #endif
