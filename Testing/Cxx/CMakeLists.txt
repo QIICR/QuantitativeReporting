@@ -1,3 +1,4 @@
+set(KIT Reporting)
 set(KIT_TEST_SRCS)
 set(KIT_TEST_NAMES)
 set(KIT_TEST_NAMES_CXX)
@@ -8,6 +9,7 @@ create_test_sourcelist(Tests ${EXTENSION_NAME}CxxTests.cxx
   ${KIT_TEST_NAMES_CXX}
   # Add source of your tests after this line.
   vtkSlicerReportingModuleLogicTest1.cxx
+  vtkMRMLReportingAnnotationRANONodeTest1.cxx
   #EXTRA_INCLUDE TestingMacros.h
   )
 list(REMOVE_ITEM Tests ${KIT_TEST_NAMES_CXX})
@@ -25,8 +27,23 @@ macro(SIMPLE_TEST TESTNAME)
   add_test(NAME ${TESTNAME} COMMAND ${Slicer_LAUNCH_COMMAND} $<TARGET_FILE:${EXTENSION_NAME}CxxTests> ${TESTNAME} ${ARGN})
 endmacro()
 
-foreach(testname ${KIT_TEST_NAMES})
-  SIMPLE_TEST( ${testname} )
+#
+# Add all the tests
+#
+foreach(test ${Tests})
+  get_filename_component(TESTNAME ${test} NAME_WE)
+  add_test(
+    NAME ${TESTNAME}
+    COMMAND ${Slicer_LAUNCH_COMMAND} $<TARGET_FILE:${KIT}CxxTests> ${TESTNAME}
+      -D ${CMAKE_CURRENT_SOURCE_DIR}/../
+      -T ${TEMP}
+      #-V Baseline/${TESTNAME}.png
+    )
 endforeach()
+
+
+#foreach(testname ${KIT_TEST_NAMES})
+#  SIMPLE_TEST( ${testname} )
+#endforeach()
 
 # Using SIMPLE_TEST(), you could add your test after this line.
