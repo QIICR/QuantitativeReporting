@@ -100,6 +100,13 @@ QStringList qSlicerReportingModule::dependencies() const
 }
 
 //-----------------------------------------------------------------------------
+QStringList qSlicerReportingModule::contributors() const
+{
+  return QStringList() << "Andrey Fedorov" << "Nicole Aucoin";
+}
+
+
+//-----------------------------------------------------------------------------
 void qSlicerReportingModule::setup()
 {
   this->Superclass::setup();
