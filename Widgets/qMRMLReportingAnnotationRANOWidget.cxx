@@ -172,9 +172,20 @@ void qMRMLReportingAnnotationRANOWidget::updateWidgetFromMRML()
     std::string code = an->selectedCodeList[i];
     std::cout << "Selected code: " << code << std::endl;
     std::vector<std::string> codeList = an->componentCodeList[i];
-    std::vector<std::string>::iterator codeIt = std::find(codeList.begin(), codeList.end(), code);
+    std::vector<std::string>::iterator codeIt = codeList.begin();
+    for (;
+         codeIt != codeList.end();
+         ++codeIt)
+      {
+      if (codeIt->compare(code) == 0)
+        {
+        break;
+        }
+      }
     if(codeIt != codeList.end())
+      {
       idx = codeIt-codeList.begin();
+      }
     std::cout << "Setting index to " << idx << std::endl;
     d->comboBoxList[i]->setCurrentIndex(idx);
   }
@@ -193,16 +204,16 @@ void qMRMLReportingAnnotationRANOWidget::updateMRMLFromWidget()
   Q_ASSERT(nComponents==nWidgets);
 
   for(int i=0;i<nWidgets;i++)
-  {
+    {
     int idx = d->comboBoxList[i]->currentIndex();
     if(idx==-1)
-    {
+      {
       an->selectedCodeList[i] = "";
-    }
+      }
     else
-    {
-      Q_ASSERT(idx<an->componentCodeList[i].size());
+      {
+      Q_ASSERT(idx<(int)(an->componentCodeList[i].size()));
       an->selectedCodeList[i] = an->componentCodeList[i][idx];
+      }
     }
-  }
 }
