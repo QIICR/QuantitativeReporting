@@ -88,11 +88,12 @@ class qSlicerReportingModuleWidget:
     self.__reportSelector = slicer.qMRMLNodeComboBox()
     self.__reportSelector.nodeTypes =  ['vtkMRMLReportingReportNode']
     self.__reportSelector.setMRMLScene(slicer.mrmlScene)
-    self.__reportSelector.connect('mrmlSceneChanged(vtkMRMLScene*)', self.onMRMLSceneChanged)
-    self.__reportSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onReportNodeChanged)
     self.__reportSelector.addEnabled = 1
     
     inputFrameLayout.addRow(label, self.__reportSelector)
+
+    self.__reportSelector.connect('mrmlSceneChanged(vtkMRMLScene*)', self.onMRMLSceneChanged)
+    self.__reportSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onReportNodeChanged)
  
     '''
     Choose the volume being annotated.
@@ -105,14 +106,13 @@ class qSlicerReportingModuleWidget:
     self.__volumeSelector = slicer.qMRMLNodeComboBox()
     self.__volumeSelector.nodeTypes = ['vtkMRMLScalarVolumeNode']
     self.__volumeSelector.setMRMLScene(slicer.mrmlScene)
-    self.__volumeSelector.connect('mrmlSceneChanged(vtkMRMLScene*)', self.onMRMLSceneChanged)
     # todo: move the connection to the report drop down
-    self.__volumeSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onAnnotatedVolumeNodeChanged)
     self.__volumeSelector.addEnabled = 0
     
     inputFrameLayout.addRow(label, self.__volumeSelector)
 
-
+    self.__volumeSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onAnnotatedVolumeNodeChanged)
+    self.__volumeSelector.connect('mrmlSceneChanged(vtkMRMLScene*)', self.onMRMLSceneChanged)
 
     self.__annotationsFrame = ctk.ctkCollapsibleButton()
     self.__annotationsFrame.text = "Annotations"
@@ -154,6 +154,10 @@ class qSlicerReportingModuleWidget:
     button = qt.QPushButton('Load Report ...')
     button.connect('clicked()', self.onReportImport)
     self.layout.addWidget(button)
+
+    self.__reportSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.enableWidgets)
+    self.__volumeSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.enableWidgets)
+    self.enableWidgets()
 
   def enter(self):
     # print "Reporting Enter"
@@ -217,14 +221,14 @@ class qSlicerReportingModuleWidget:
     # print 'Selected report has changed to ',self.__rNode
     # set the volume to be none
     self.__vNode = None
-    self.__volumeSelector.currentNodeId = None
+    self.__volumeSelector.setCurrentNode(None)
     if self.__rNode != None:
       self.__logic.InitializeHierarchyForReport(self.__rNode)
       self.updateTreeView()
       vID = self.__logic.GetVolumeIDForReportNode(self.__rNode)
       if vID:
         self.__vNode = slicer.mrmlScene.GetNodeByID(vID)      
-        self.__volumeSelector.currentNodeId = vID
+        self.__volumeSelector.setCurrentNode(Helper.getNodeByID(vID))
       # get the annotation node for this report
       aID = self.__logic.GetAnnotationIDForReportNode(self.__rNode)
       if aID:
@@ -233,6 +237,7 @@ class qSlicerReportingModuleWidget:
         self.__annotationWidget.setMRMLAnnotationNode(self.__annotationNode)
       # hide the markups that go with other report nodes
       self.__logic.HideAnnotationsForOtherReports(self.__rNode)
+
   '''
   Load report and initialize GUI based on .xml report file content
   '''
@@ -310,3 +315,23 @@ class qSlicerReportingModuleWidget:
       pn.SetParameter('reportID', report.GetID())
     if volume != None:
       pn.SetParameter('volumeID', volume.GetID())
+
+
+  def enableWidgets(self):
+    report = self.__reportSelector.currentNode()
+    volume = self.__volumeSelector.currentNode()
+
+    if report != None:
+      self.__volumeSelector.enabled = 1
+      
+      if volume != None:
+        self.__markupFrame.enabled = 1
+        self.__annotationsFrame.enabled = 1
+      else:
+        self.__markupFrame.enabled = 0
+        self.__annotationsFrame.enabled = 0
+
+    else:
+      self.__volumeSelector.enabled = 0
+      self.__markupFrame.enabled = 0
+      self.__annotationsFrame.enabled = 0
