@@ -36,6 +36,23 @@ class qSlicerReportingModuleWidget:
 
       self.parent.show()
 
+
+    # initialize parameter node
+    self.__parameterNode = None
+    nNodes = slicer.mrmlScene.GetNumberOfNodesByClass('vtkMRMLScriptedModuleNode')
+    for n in xrange(nNodes):
+      compNode = slicer.mrmlScene.GetNthNodeByClass(n, 'vtkMRMLScriptedModuleNode')
+      nodeid = None
+      if compNode.GetModuleName() == 'Reporting':
+        self.__parameterNode = compNode
+        print 'Found existing Reporting parameter node'
+        break
+    if self.__parameterNode == None:
+      self.__parameterNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScriptedModuleNode')
+      self.__parameterNode.SetModuleName('Reporting')
+      slicer.mrmlScene.AddNode(self.__parameterNode)
+ 
+
   def setup( self ):
     # Use the logic associated with the module
     #if not self.__logic:
@@ -147,10 +164,15 @@ class qSlicerReportingModuleWidget:
       self.__logic.SetActiveMarkupHierarchyIDFromNode(vnode)
       self.updateTreeView()
 
+    self.updateWidgetFromParameters()
+
   def exit(self):
+    self.updateParametersFromWidget()
+
     # print "Reporting Exit. setting active hierarchy to 0"
     # turn off the active mark up so new annotations can go elsewhere
     self.__logic.SetActiveMarkupHierarchyIDToNull()
+
      
   # AF: I am not exactly sure what are the situations when MRML scene would
   # change, but I recall handling of this is necessary, otherwise adding
@@ -263,3 +285,28 @@ class qSlicerReportingModuleWidget:
       print "Failed to save report to file '",fileName,"'"
     else:
       print "Saved report to file '",fileName,"'"
+
+  def updateWidgetFromParameters(self):
+    pn = self.__parameterNode
+    if pn == None:
+      return
+    reportID = pn.GetParameter('reportID')
+    volumeID = pn.GetParameter('volumeID')
+
+    if reportID != None:
+      self.__reportSelector.setCurrentNode(Helper.getNodeByID(reportID))
+    if volumeID != None:
+      self.__volumeSelector.setCurrentNode(Helper.getNodeByID(volumeID))
+
+  def updateParametersFromWidget(self):
+    pn = self.__parameterNode
+    if pn == None:
+      return
+
+    report = self.__reportSelector.currentNode()
+    volume = self.__volumeSelector.currentNode()
+  
+    if report != None:
+      pn.SetParameter('reportID', report.GetID())
+    if volume != None:
+      pn.SetParameter('volumeID', volume.GetID())
