@@ -42,24 +42,8 @@ int vtkMRMLReportingAnnotationRANONodeTest1(int , char * [] )
   
   std::string nodeTagName = node2->GetNodeTagName();
   std::cout << "Node Tag Name = " << nodeTagName << std::endl;
-
-  {
- //   double ctp[3] = { 1, 1, 1};
-//    node2->SetPosition1(ctp);
-  }
-  {
-    double ctp[3] = { 2, 2, 2};
-  //  node2->SetPosition2(ctp);
-  }
-  {
-    double ctp[3] = { 1, 2, 3};
-  //  node2->SetPositionCenter(ctp);
-  }
-
  
   vtkIndent ind;
-  //node2->PrintAnnotationInfo(cout,ind);
-
 
   cout << "Passed Adding and Deleting Data" << endl;
 
