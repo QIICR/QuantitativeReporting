@@ -369,38 +369,44 @@ void vtkSlicerReportingModuleLogic::InitializeHierarchyForVolume(vtkMRMLVolumeNo
 
   /// does the node already have a hierarchy set up for it?
   vtkMRMLHierarchyNode *hnode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(node->GetScene(), node->GetID());
+  char * volumeHierarchyNodeID = NULL;
   if (hnode)
     {
-    vtkDebugMacro("InitializeHierarchyForVolume: volume " << node->GetID() << " already has a hierarchy associated with it, " << hnode->GetID());
-    /// make the annotation hierarchy associated with this volume active 
-    this->SetActiveMarkupHierarchyIDFromNode(node);
-    return;
-    }
-  
-  /// otherwise, create a 1:1 hierarchy for this node
-  vtkMRMLDisplayableHierarchyNode *volumeHierarchyNode = vtkMRMLDisplayableHierarchyNode::New();
-  /// it's a stealth node:
-  volumeHierarchyNode->HideFromEditorsOn();
-  std::string hnodeName = std::string(node->GetName()) + std::string(" Hierarchy ");
-  volumeHierarchyNode->SetName(this->GetMRMLScene()->GetUniqueNameByString(hnodeName.c_str()));
-  this->GetMRMLScene()->AddNode(volumeHierarchyNode);
-  
-  // make it the child of the active report node
-  if (!this->GetActiveReportHierarchyID())
-    {
-    vtkWarningMacro("No active report, please select one!");
+    vtkDebugMacro("InitializeHierarchyForVolume: volume " << node->GetID() << " already has a hierarchy associated with it, " << hnode->GetID() << ", making it a child of " << (this->GetActiveReportHierarchyID() ? this->GetActiveReportHierarchyID() : "null"));
+    volumeHierarchyNodeID = hnode->GetID();
+    // make sure it's a child of the report
+    hnode->SetParentNodeID(this->GetActiveReportHierarchyID());
     }
   else
     {
-    vtkDebugMacro("Set volume hierarchy parent to active report id " << this->GetActiveReportHierarchyID());
+    /// otherwise, create a 1:1 hierarchy for this node
+    vtkMRMLDisplayableHierarchyNode *volumeHierarchyNode = vtkMRMLDisplayableHierarchyNode::New();
+    /// it's a stealth node:
+    volumeHierarchyNode->HideFromEditorsOn();
+    std::string hnodeName = std::string(node->GetName()) + std::string(" Hierarchy ");
+    volumeHierarchyNode->SetName(this->GetMRMLScene()->GetUniqueNameByString(hnodeName.c_str()));
+    this->GetMRMLScene()->AddNode(volumeHierarchyNode);
+    volumeHierarchyNodeID = volumeHierarchyNode->GetID();
+    
+    // make it the child of the active report node
+    if (!this->GetActiveReportHierarchyID())
+      {
+      vtkWarningMacro("No active report, please select one!");
+      }
+    else
+      {
+      vtkDebugMacro("Set volume hierarchy parent to active report id " << this->GetActiveReportHierarchyID());
+      }
+    volumeHierarchyNode->SetParentNodeID(this->GetActiveReportHierarchyID());
+    
+    // set the displayable node id to point to this volume node
+    node->SetDisableModifiedEvent(1);
+    volumeHierarchyNode->SetDisplayableNodeID(node->GetID());
+    node->SetDisableModifiedEvent(0);
+    /// clean up
+    volumeHierarchyNode->Delete();
     }
-  volumeHierarchyNode->SetParentNodeID(this->GetActiveReportHierarchyID());
   
-  // set the displayable node id to point to this volume node
-  node->SetDisableModifiedEvent(1);
-  volumeHierarchyNode->SetDisplayableNodeID(node->GetID());
-  node->SetDisableModifiedEvent(0);
-
   /// add an annotations hierarchy if it doesn't exist
   std::string ahnodeName = std::string("Markup ") + std::string(node->GetName());
   vtkMRMLNode *mrmlNode = this->GetMRMLScene()->GetFirstNodeByName(ahnodeName.c_str());
@@ -413,7 +419,8 @@ void vtkSlicerReportingModuleLogic::InitializeHierarchyForVolume(vtkMRMLVolumeNo
     this->GetMRMLScene()->AddNode(ahnode);
     ahnodeID = ahnode->GetID();
     // make it a child of the volume
-    ahnode->SetParentNodeID(volumeHierarchyNode->GetID());
+    vtkDebugMacro("Setting annotation markup hierarchy's parent to volume hierarchy id " << volumeHierarchyNodeID);
+    ahnode->SetParentNodeID(volumeHierarchyNodeID);
     ahnode->Delete();
     }
   else
@@ -423,9 +430,6 @@ void vtkSlicerReportingModuleLogic::InitializeHierarchyForVolume(vtkMRMLVolumeNo
   /// make the annotation hierarchy active so new ones will get added to it
   this->SetActiveMarkupHierarchyID(ahnodeID);
   vtkDebugMacro("Set the active markup hierarchy id from node id = " << (ahnodeID ? ahnodeID : "null"));
-  
-  /// clean up
-  volumeHierarchyNode->Delete();
 }
 
 //---------------------------------------------------------------------------
