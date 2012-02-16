@@ -198,7 +198,7 @@ class qSlicerReportingModuleWidget:
     # make the tree view update
     self.__markupTreeView.sceneModelType = "Displayable"
     # set the root to be the current report hierarchy root 
-    rootNodeID = self.__logic.ReturnActiveReportID()
+    rootNodeID = self.__parameterNode.GetParameter('reportID')
     rootNode = slicer.mrmlScene.GetNodeByID(rootNodeID)
     if rootNode:
       self.__markupTreeView.setRootNode(rootNode)
