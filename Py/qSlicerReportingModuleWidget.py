@@ -275,7 +275,9 @@ class qSlicerReportingModuleWidget:
     fileName = exportFileDialog.getOpenFileName()
     '''
 
-    fileName='/Users/fedorov/Temp/aim.xml'
+    saveFileDialog = qt.QFileDialog()
+    fileName = saveFileDialog.getSaveFileName()
+
     print 'Will export to ', fileName
 
     # use the currently selected report

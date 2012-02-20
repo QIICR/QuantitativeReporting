@@ -824,6 +824,9 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   QString xml = doc.toString();
   std::cout << qPrintable(xml);
 
+  std::ofstream outputFile(filename);
+  outputFile << qPrintable(xml);
+
   return EXIT_SUCCESS;
     
 }
