@@ -38,6 +38,10 @@
 // STD includes
 #include <cassert>
 
+// Qt includes
+#include <QtXml>
+#include <QDomDocument>
+
 //----------------------------------------------------------------------------
 vtkStandardNewMacro(vtkSlicerReportingModuleLogic);
 
@@ -638,13 +642,13 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   if (!reportNode)
     {
     vtkErrorMacro("SaveReportToAIM: no report node given.");
-    return 0;
+    return EXIT_FAILURE;
     }
   
   if (!filename)
     {
     vtkErrorMacro("SaveReportToAIM: no file name given.");
-    return 0;
+    return EXIT_FAILURE;
     }
 
   vtkDebugMacro("SaveReportToAIM: file name = " << filename);
@@ -677,6 +681,11 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     if (mrmlMarkupNode)
       {
       markupHierarchyNode = vtkMRMLAnnotationHierarchyNode::SafeDownCast(mrmlMarkupNode);
+      if(!markupHierarchyNode)
+      {
+        std::cerr << "ERROR: markupHierarchyNode not found!" << std::endl;
+        return EXIT_FAILURE;
+      }
       }
     }
 
@@ -697,6 +706,25 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   
   // open the file for writing
   
+  // generated the document and parent elements
+  QDomDocument doc;
+  QDomProcessingInstruction xmlDecl = doc.createProcessingInstruction("xml","version=\"1.0\"");
+  doc.appendChild(xmlDecl);
+  QDomElement root = doc.createElement("ImageAnnotation");
+  doc.appendChild(root);
+
+  QDomElement user = doc.createElement("user");
+  doc.appendChild(user);
+
+  QDomElement equipment = doc.createElement("equipment");
+  doc.appendChild(equipment);
+
+  QDomElement gsc = doc.createElement("geometricShapeCollection");
+  doc.appendChild(gsc);
+
+  QDomElement person = doc.createElement("person");
+  doc.appendChild(person);
+
   // and now print!
   
   // print out the report
@@ -718,6 +746,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     }
   
   // print out the markups
+  int shapeId = 0;
   if (markupHierarchyNode)
     {
     // get all the hierarchy nodes under the mark up node
@@ -732,10 +761,45 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
         if (mrmlAssociatedNode->IsA("vtkMRMLAnnotationFiducialNode"))
           {
           // print out a point
-          vtkMRMLAnnotationFiducialNode *fidNode = vtkMRMLAnnotationFiducialNode::SafeDownCast(mrmlAssociatedNode);
+          vtkMRMLAnnotationFiducialNode *fidNode = vtkMRMLAnnotationFiducialNode::SafeDownCast(mrmlAssociatedNode);          
           if (fidNode)
             {
-            std::cout << "SaveReportToAIM: saving point from node named " << fidNode->GetName() << std::endl;
+            std::cerr << "SaveReportToAIM: saving point from node named " << fidNode->GetName() << std::endl;
+
+            QString sliceUID = this->GetSliceUIDFromMarkUp(fidNode);
+            if(sliceUID == "NONE")
+            {
+              std::cout << "Cannot save AIM report: volumes being annotated are not DICOM volumes!";
+              return EXIT_FAILURE;
+            }
+            QStringList fidCoordStr = this->GetMarkupPointCoordinatesStr(fidNode);
+            if(fidCoordStr.size()<2)
+            {
+              vtkErrorMacro("Failed to obtain fiducial points for markup point!");
+              return EXIT_FAILURE;
+            }
+
+            QDomElement fid = doc.createElement("GeometricShape");
+            fid.setAttribute("xsi:type","Point");
+            fid.setAttribute("shapeIdentifier",shapeId++);
+            fid.setAttribute("includeFlag", "true");
+            fid.setAttribute("cagridId","0");
+            gsc.appendChild(fid);
+
+            QDomElement fidscC = doc.createElement("spatialCoordinateCollection");
+            fid.appendChild(fidscC);
+
+            QDomElement sc = doc.createElement("SpatialCoordinate");
+            fidscC.appendChild(sc);
+
+            sc.setAttribute("cagridId","0");
+            sc.setAttribute("coordinateIndex","0");
+            sc.setAttribute("imageReferenceUID",sliceUID);
+            sc.setAttribute("referenceFrameNumber","1"); // TODO: maybe add handling of multiframe DICOM?
+            sc.setAttribute("xsi:type", "TwoDimensionSpatialCoordinate");
+            sc.setAttribute("x", fidCoordStr[0]);
+            sc.setAttribute("y", fidCoordStr[1]);
+
             }
           }
         else if (mrmlAssociatedNode->IsA("vtkMRMLAnnotationRulerNode"))
@@ -756,6 +820,102 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
 
   // close the file
   
-  return 1;
+  std::cout << "Here comes the AIM: " << std::endl;
+  QString xml = doc.toString();
+  std::cout << qPrintable(xml);
+
+  return EXIT_SUCCESS;
     
+}
+
+vtkMRMLScalarVolumeNode* vtkSlicerReportingModuleLogic::GetMarkupVolumeNode(vtkMRMLAnnotationNode *node)
+{
+  if (!node)
+    {
+    vtkErrorMacro("GetSliceUIDFromMarkUp: no input node!");
+    return  0;
+    }
+
+  if (!this->GetMRMLScene())
+    {
+    vtkErrorMacro("GetSliceUIDFromMarkUp: No MRML Scene defined!");
+    return 0;
+    }
+
+  vtkMRMLAnnotationControlPointsNode *cpNode = vtkMRMLAnnotationControlPointsNode::SafeDownCast(node);
+  if (!node)
+    {
+    vtkErrorMacro("GetSliceUIDFromMarkUp: Input node is not a control points node!");
+    return 0;
+    }
+
+  int numPoints = cpNode->GetNumberOfControlPoints();
+  vtkDebugMacro("GetSliceUIDFromMarkUp: have a control points node with " << numPoints << " points");
+
+  // get the associated node
+  const char *associatedNodeID = cpNode->GetAttribute("AssociatedNodeID");
+  if (!associatedNodeID)
+    {
+    vtkErrorMacro("GetSliceUIDFromMarkUp: No AssociatedNodeID on the annotation node");
+    return 0;
+    }
+  vtkMRMLScalarVolumeNode *volumeNode = NULL;
+  vtkMRMLNode *mrmlNode = this->GetMRMLScene()->GetNodeByID(associatedNodeID);
+  if (!mrmlNode)
+    {
+    vtkErrorMacro("GetSliceUIDFromMarkUp: Associated node not found by id: " << associatedNodeID);
+    return 0;
+    }
+  volumeNode = vtkMRMLScalarVolumeNode::SafeDownCast(mrmlNode);
+  if (!volumeNode)
+    {
+    vtkErrorMacro("GetSliceUIDFromMarkUp: Associated node with id: " << associatedNodeID << " is not a volume node!");
+    return 0;
+    }
+  std::cout << "Associated volume node ID: " << volumeNode->GetID() << std::endl;
+  vtkIndent ind;
+  volumeNode->PrintSelf(std::cout,ind);
+  return volumeNode;
+}
+
+QStringList vtkSlicerReportingModuleLogic::GetMarkupPointCoordinatesStr(vtkMRMLAnnotationNode *ann)
+{
+  QStringList sl;
+  vtkMRMLAnnotationControlPointsNode *cpNode = vtkMRMLAnnotationControlPointsNode::SafeDownCast(ann);
+  if (!cpNode)
+    {
+    vtkErrorMacro("GetMarkupPointCoordinatesStr: Input node is not a control points node!");
+    return sl;
+    }
+
+  int numPoints = cpNode->GetNumberOfControlPoints();
+
+  vtkMRMLScalarVolumeNode *vol = this->GetMarkupVolumeNode(ann);
+  if(!vol)
+  {
+    vtkErrorMacro("Failed to obtain volume pointer!");
+    return sl;
+  }
+  vtkSmartPointer<vtkMatrix4x4> ras2ijk = vtkSmartPointer<vtkMatrix4x4>::New();
+  vol->GetRASToIJKMatrix(ras2ijk);
+
+  for(int i=0;i<numPoints;i++)
+  {
+    double ras[4] = {0.0, 0.0, 0.0, 1.0};
+    cpNode->GetControlPointWorldCoordinates(i, ras);
+    // convert point from ras to ijk
+    double ijk[4] = {0.0, 0.0, 0.0, 1.0};
+    ras2ijk->MultiplyPoint(ras, ijk);
+    // TODO: may need special handling, because this assumes IS acquisition direction
+    std::ostringstream ss;
+
+    ss << ijk[0];
+    sl << QString(ss.str().c_str());
+    ss.clear();
+    ss << ijk[1];
+    sl << QString(ss.str().c_str());
+
+  }
+
+  return sl;
 }

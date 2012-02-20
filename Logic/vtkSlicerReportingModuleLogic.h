@@ -37,6 +37,10 @@
 class vtkMRMLAnnotationNode;
 class vtkMRMLVolumeNode;
 class vtkMRMLReportingReportNode;
+class vtkMRMLScalarVolumeNode;
+
+class QStringList;
+
 /// \ingroup Slicer_QtModules_ExtensionTemplate
 class VTK_SLICER_REPORTINGMODULE_MODULE_LOGIC_EXPORT vtkSlicerReportingModuleLogic :
   public vtkSlicerModuleLogic
@@ -114,6 +118,9 @@ private:
 
   vtkSlicerReportingModuleLogic(const vtkSlicerReportingModuleLogic&); // Not implemented
   void operator=(const vtkSlicerReportingModuleLogic&);               // Not implemented
+
+  QStringList GetMarkupPointCoordinatesStr(vtkMRMLAnnotationNode *ann);
+  vtkMRMLScalarVolumeNode* GetMarkupVolumeNode(vtkMRMLAnnotationNode *ann);
 
   /// the currently active report hierarchy
   char *ActiveReportHierarchyID;

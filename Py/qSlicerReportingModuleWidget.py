@@ -2,6 +2,8 @@ from __main__ import vtk, qt, ctk, slicer
 
 from Helper import *
 
+EXIT_SUCCESS=0
+
 class qSlicerReportingModuleWidget:
   def __init__( self, parent=None ):
 
@@ -253,27 +255,31 @@ class qSlicerReportingModuleWidget:
   Save report to an xml file
   '''
   def onReportExport(self):
-    print 'onReprtingReportExport'
+    print 'onReportingReportExport'
     
     #  -- popup file dialog prompting output file
-    if not self.exportFileDialog:
-      self.exportFileDialog = qt.QFileDialog(self.parent)
-      self.exportFileDialog.acceptMode = 1 # save dialog
-      self.exportFileDialog.defaultSuffix = "xml"
-      self.exportFileDialog.setNameFilter("AIM XML files (*.xml)")
-      self.exportFileDialog.connect("fileSelected(QString)", self.onExportFileSelected)
-    self.exportFileDialog.show()
 
-  def onExportFileSelected(self,fileName):
+    '''
+    AF FIXME: Qt dialog does not have the correct "save" behavior
+    '''
+
+    '''
+    exportFileDialog = qt.QFileDialog()
+    exportFileDialog.acceptMode = 1 # save dialog
+    exportFileDialog.defaultSuffix = "xml"
+    exportFileDialog.setNameFilter("AIM XML files (*.xml)")
+    fileName = exportFileDialog.getOpenFileName()
+
+    fileName = exportFileDialog.getOpenFileName()
+    '''
+
+    fileName='/Users/fedorov/Temp/aim.xml'
+    print 'Will export to ', fileName
+
     # use the currently selected report
     self.__rNode = self.__reportSelector.currentNode()
-    # TODO
-    #  -- translate populated annotation frame into AIM
-    md = self.__annotationWidget.measurableDiseaseIndex
-    nmd = self.__annotationWidget.nonmeasurableDiseaseIndex
-    f = self.__annotationWidget.flairIndex
-
-    print "Indices of interest: ", md,' ',nmd,' ',f
+    if self.__rNode == None:
+      return
 
     # get the annotation node and fill it in
     aID = self.__logic.GetAnnotationIDForReportNode(self.__rNode)
@@ -286,7 +292,7 @@ class qSlicerReportingModuleWidget:
 
     #  -- traverse markup hierarchy and translate
     retval = self.__logic.SaveReportToAIM(self.__rNode, fileName)
-    if retval == 0:
+    if retval == EXIT_FAILURE:
       print "Failed to save report to file '",fileName,"'"
     else:
       print "Saved report to file '",fileName,"'"
