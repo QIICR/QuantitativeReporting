@@ -1,5 +1,5 @@
 # slicer imports
-from __main__ import vtk, slicer
+from __main__ import vtk, slicer, tcl
 
 # python includes
 import sys
@@ -85,6 +85,11 @@ class Helper( object ):
     selectionNode.SetReferenceActiveVolumeID(bg)
     selectionNode.SetReferenceSecondaryVolumeID(fg)
     appLogic.PropagateVolumeSelection()
+
+  @staticmethod
+  def RotateToVolumePlanes():
+    # AF TODO: check with Steve if this has any undesired consequences
+    tcl('EffectSWidget::RotateToVolumePlanes')
 
   @staticmethod
   def SetLabelVolume(lb):

@@ -215,6 +215,8 @@ class qSlicerReportingModuleWidget:
       self.__logic.InitializeHierarchyForVolume(self.__vNode)
       self.updateTreeView()
 
+      Helper.RotateToVolumePlanes()
+
   def onReportNodeChanged(self):
     # TODO
     #  -- initialize annotations and markup frames based on the report node
