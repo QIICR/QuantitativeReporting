@@ -876,8 +876,11 @@ vtkMRMLScalarVolumeNode* vtkSlicerReportingModuleLogic::GetMarkupVolumeNode(vtkM
     return 0;
     }
   std::cout << "Associated volume node ID: " << volumeNode->GetID() << std::endl;
-  vtkIndent ind;
-  volumeNode->PrintSelf(std::cout,ind);
+  if (this->GetDebug())
+    {
+    vtkIndent ind;
+    volumeNode->PrintSelf(std::cout,ind);
+    }
   return volumeNode;
 }
 
