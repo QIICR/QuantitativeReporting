@@ -160,9 +160,9 @@ void qMRMLReportingAnnotationRANOWidget::updateWidgetFromMRML()
   if(!d->annotationNode)
     return;
 
-  std::cout << "Current annotation node: ";
-  vtkIndent indent;
-  d->annotationNode->PrintSelf(std::cout, indent);
+  //std::cout << "Current annotation node: ";
+  //vtkIndent indent;
+  //d->annotationNode->PrintSelf(std::cout, indent);
   vtkMRMLReportingAnnotationRANONode* an = d->annotationNode;
 
   int nComponents = an->componentDescriptionList.size();

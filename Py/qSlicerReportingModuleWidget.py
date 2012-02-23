@@ -202,27 +202,33 @@ class qSlicerReportingModuleWidget:
     # self.__logic.GetMRMLManager().SetMRMLScene(mrmlScene)
     
   def updateTreeView(self):
+    print "updateTreeView()"
     # make the tree view update
-    self.__markupTreeView.sceneModelType = "Displayable"
     # set the root to be the current report hierarchy root 
-    rootNodeID = self.__parameterNode.GetParameter('reportID')
-    rootNode = slicer.mrmlScene.GetNodeByID(rootNodeID)
-    if rootNode:
-      self.__markupTreeView.setRootNode(rootNode)
+    if self.__rNode == None:
+      print "updateTreeView: report node is not initialized!"
+      return
+    else:
+      print " setting tree view root to be ",self.__rNode.GetID()
+      self.__markupTreeView.sceneModelType = "Displayable"
+      self.__markupTreeView.setRootNode(self.__rNode)
 
   def onAnnotatedVolumeNodeChanged(self):
+    print "onAnnotatedVolumeNodeChanged()"
     # get the current volume node
     self.__vNode = self.__volumeSelector.currentNode()
     if self.__vNode != None:
       Helper.SetBgFgVolumes(self.__vNode.GetID(), '')
-      # TODO: rotate all slices into acq plane
-      # print "Calling logic to set up hierarchy"
-      self.__logic.InitializeHierarchyForVolume(self.__vNode)
-      self.updateTreeView()
-
       Helper.RotateToVolumePlanes()
 
+      # print "Calling logic to set up hierarchy"
+      self.__logic.InitializeHierarchyForVolume(self.__vNode)
+      # AF: do we need this call here?
+      self.updateTreeView()
+
+
   def onReportNodeChanged(self):
+    print "onReportNodeChanged()"
     # TODO
     #  -- initialize annotations and markup frames based on the report node
     #  content
@@ -237,7 +243,7 @@ class qSlicerReportingModuleWidget:
       vID = self.__logic.GetVolumeIDForReportNode(self.__rNode)
       if vID:
         self.__vNode = slicer.mrmlScene.GetNodeByID(vID)      
-        self.__volumeSelector.setCurrentNode(Helper.getNodeByID(vID))
+        self.__volumeSelector.setCurrentNode(self.__vNode)
       # get the annotation node for this report
       aID = self.__logic.GetAnnotationIDForReportNode(self.__rNode)
       if aID:
@@ -246,6 +252,9 @@ class qSlicerReportingModuleWidget:
         self.__annotationWidget.setMRMLAnnotationNode(self.__annotationNode)
       # hide the markups that go with other report nodes
       self.__logic.HideAnnotationsForOtherReports(self.__rNode)
+
+      # update the parameter node
+      self.__parameterNode.SetParameter("reportID", self.__rNode.GetID())
 
   '''
   Load report and initialize GUI based on .xml report file content
