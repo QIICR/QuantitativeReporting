@@ -202,16 +202,18 @@ class qSlicerReportingModuleWidget:
     # self.__logic.GetMRMLManager().SetMRMLScene(mrmlScene)
     
   def updateTreeView(self):
-    print "updateTreeView()"
+    # print "updateTreeView()"
     # make the tree view update
     # set the root to be the current report hierarchy root 
     if self.__rNode == None:
       print "updateTreeView: report node is not initialized!"
       return
     else:
-      print " setting tree view root to be ",self.__rNode.GetID()
+      # the tree root node has to be a hierarchy node, so get the associated hierarchy node for the active report node
+      rootNode = slicer.vtkMRMLHierarchyNode().GetAssociatedHierarchyNode(self.__rNode.GetScene(), self.__rNode.GetID())
+      # print " setting tree view root to be ",rootNode.GetID()
       self.__markupTreeView.sceneModelType = "Displayable"
-      self.__markupTreeView.setRootNode(self.__rNode)
+      self.__markupTreeView.setRootNode(rootNode)
 
   def onAnnotatedVolumeNodeChanged(self):
     print "onAnnotatedVolumeNodeChanged()"
