@@ -53,6 +53,10 @@ class qSlicerReportingModuleWidget:
       self.__parameterNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScriptedModuleNode')
       self.__parameterNode.SetModuleName('Reporting')
       slicer.mrmlScene.AddNode(self.__parameterNode)
+
+      # keep active report and volume
+      self.__rNode = None
+      self.__vNode = None
  
 
   def setup( self ):
@@ -164,13 +168,14 @@ class qSlicerReportingModuleWidget:
   def enter(self):
     # print "Reporting Enter"
     # update the logic active markup
+    self.updateWidgetFromParameters()
+
     vnode = self.__volumeSelector.currentNode()
     if vnode != None:
       # print "Enter: setting active hierarchy from node ",vnode.GetID()
       self.__logic.SetActiveMarkupHierarchyIDFromNode(vnode)
       self.updateTreeView()
 
-    self.updateWidgetFromParameters()
 
   def exit(self):
     self.updateParametersFromWidget()
@@ -290,12 +295,9 @@ class qSlicerReportingModuleWidget:
     if pn == None:
       return
     reportID = pn.GetParameter('reportID')
-    volumeID = pn.GetParameter('volumeID')
 
     if reportID != None:
       self.__reportSelector.setCurrentNode(Helper.getNodeByID(reportID))
-    if volumeID != None:
-      self.__volumeSelector.setCurrentNode(Helper.getNodeByID(volumeID))
 
   def updateParametersFromWidget(self):
     pn = self.__parameterNode
@@ -303,12 +305,9 @@ class qSlicerReportingModuleWidget:
       return
 
     report = self.__reportSelector.currentNode()
-    volume = self.__volumeSelector.currentNode()
   
     if report != None:
       pn.SetParameter('reportID', report.GetID())
-    if volume != None:
-      pn.SetParameter('volumeID', volume.GetID())
 
 
   def enableWidgets(self):
