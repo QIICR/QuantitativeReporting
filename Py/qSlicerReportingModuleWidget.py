@@ -260,23 +260,7 @@ class qSlicerReportingModuleWidget:
     print 'onReportingReportExport'
     
     #  -- popup file dialog prompting output file
-
-    '''
-    AF FIXME: Qt dialog does not have the correct "save" behavior
-    '''
-
-    '''
-    exportFileDialog = qt.QFileDialog()
-    exportFileDialog.acceptMode = 1 # save dialog
-    exportFileDialog.defaultSuffix = "xml"
-    exportFileDialog.setNameFilter("AIM XML files (*.xml)")
-    fileName = exportFileDialog.getOpenFileName()
-
-    fileName = exportFileDialog.getOpenFileName()
-    '''
-
-    saveFileDialog = qt.QFileDialog()
-    fileName = saveFileDialog.getSaveFileName()
+    fileName = qt.QFileDialog.getSaveFileName(self.parent, "Save AIM","/","XML Files (*.xml)")
 
     print 'Will export to ', fileName
 
