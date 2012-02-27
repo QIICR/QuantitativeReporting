@@ -68,6 +68,12 @@ public:
 
   friend class qMRMLReportingAnnotationRANOWidget;
 
+  std::string GetSelectedCode(int i){ return selectedCodeList[i];};  
+  void SetSelectedCode(int i, std::string code){
+    this->selectedCodeList[i] = code;
+  }
+
+
 protected:
   vtkMRMLReportingAnnotationRANONode();
   ~vtkMRMLReportingAnnotationRANONode();

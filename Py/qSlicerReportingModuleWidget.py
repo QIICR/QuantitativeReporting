@@ -1,6 +1,10 @@
 from __main__ import vtk, qt, ctk, slicer
 
+import xml.dom.minidom
+
 from Helper import *
+
+import DICOMLib # for loading a volume on AIM import
 
 EXIT_SUCCESS=0
 
@@ -269,6 +273,163 @@ class qSlicerReportingModuleWidget:
     #  content, markup hierarchy and content
     print 'onReportImport'
 
+    ann = self.__annotationNode
+
+    # initialize the report hierarchy
+    #  -- assume that report node has been created and is in the selector
+
+    fileName = qt.QFileDialog.getOpenFileName(self.parent, "Open AIM report","/","XML Files (*.xml)")
+    dom = xml.dom.minidom.parse(fileName)
+
+    print 'Read AIM report:'
+    print dom.toxml()
+
+    volumeList = []
+    volumesLogic = slicer.modules.volumes.logic()
+
+    ddb = slicer.dicomDatabase
+    volId = 1
+    volume = None
+    # pull all the volumes that are referenced into the scene
+    for node in dom.getElementsByTagName('ImageSeries'):
+      instanceUID = node.getAttribute('instanceUID')
+      filelist = ddb.filesForSeries(instanceUID)
+
+      volName = 'AIM volume '+str(volId)
+
+      '''
+      strarray = vtk.vtkStringArray()
+      for f in filelist:
+        strarray.InsertNextValue(f)
+
+      print 'Found series ',instanceUID,', file list: ',filelist
+      volId = volId+1
+      volume = volumesLogic.AddArchetypeVolume(filelist[0], volName, 0, strarray)
+      # get the list of instance UIDs for this volume
+      instanceUIDs = ""
+      instanceUIDList = []
+      instanceUIDTag = "0008,0018"
+      for f in filelist:
+        ddb.loadFileHeader(f)
+        d = ddb.headerValue(instanceUIDTag)
+        try:
+          uid = d[d.index('[')+1:d.index(']')]
+        except ValueError:
+          q
+          uid = "Unknown"
+        instanceUIDs += uid + " "
+        instanceUIDList.append(uid)
+
+      instanceUIDs = instanceUIDs[:-1]
+      volume.SetAttribute('DICOM.instanceUIDs',instanceUIDs)
+
+      '''
+
+      loader = DICOMLib.DICOMLoader(filelist, volName)
+      volume = loader.volumeNode
+
+      if volume == None:
+        print 'Failed to read series!'
+        return
+
+      volumeList.append(volume)
+      self.__logic.InitializeHierarchyForVolume(volume)
+
+    if len(volumeList) != 1:
+      print 'ERROR: AIM does not allow to have more than one volume per file!'
+      return
+
+    if volume != None:
+      self.__volumeSelector.setCurrentNode(volume)
+
+    instanceUIDs = volume.GetAttribute('DICOM.instanceUIDs')
+    instanceUIDList = instanceUIDs.split()
+    print 'Volume added. UID list: ',instanceUIDList
+
+    # populate the annotation node
+    # AF TODO: need to add accessor methods to RANO node
+    # for node in dom.getElementsByTagName('Inference'):
+
+    # AF: GeometricShape is inside geometricShapeCollection, but
+    # there's no need to parse at that level, I think 
+    # 
+    # geometricShapeCollection
+    #  |
+    #  +-spatialCoordinateCollection
+    #     |
+    #     +-SpatialCoordinate
+    #
+
+    inferences = dom.getElementsByTagName('Inference')
+
+    for i in range(len(inferences)):
+      inf = inferences[i]
+      ann.SetSelectedCode(i, inf.getAttribute('codeValue'))
+
+    for node in dom.getElementsByTagName('GeometricShape'):
+
+      ijCoordList = []
+      rasPointList = []
+      uidList = []
+      elementType = node.getAttribute('xsi:type')
+ 
+      for child in node.childNodes:
+        if child.nodeName == 'spatialCoordinateCollection':
+          for coord in child.childNodes:
+            if coord.nodeName == 'SpatialCoordinate':
+              ijCoordList.append(float(coord.getAttribute('x')))
+              ijCoordList.append(float(coord.getAttribute('y')))
+              uid = coord.getAttribute('imageReferenceUID')
+              uidList.append(uid)
+   
+      print 'Coordinate list: ', ijCoordList
+
+      ijk2ras = vtk.vtkMatrix4x4()
+      volume.GetIJKToRASMatrix(ijk2ras)
+
+
+      # convert each point from IJ to RAS
+      for ij in range(len(uidList)):
+        pointUID = uidList[ij]
+        # locate the UID in the list assigned to the volume
+        totalSlices = len(instanceUIDList)
+        for k in range(len(instanceUIDList)):
+          if pointUID == instanceUIDList[k]:
+            break
+
+        # AF: hack -- need to detect scan direction
+        pointIJK = [ijCoordList[ij*2], ijCoordList[ij*2+1], totalSlices-k, 1.]
+        pointRAS = ijk2ras.MultiplyPoint(pointIJK)
+        print 'Input point: ',pointIJK
+        print 'Converted point: ',pointRAS
+        rasPointList.append(pointRAS[0:3])
+
+      # instantiate the markup elements
+      if elementType == 'Point':
+        print "Importing a fiducial!"
+        if len(ijCoordList) != 2:
+          print 'Number of coordinates not good for a fiducial'
+          return
+        fiducial = slicer.mrmlScene.CreateNodeByClass('vtkMRMLAnnotationFiducialNode')
+        ruler.SetPosition1(rasPointList[0])
+        ruler.Initialize(slicer.mrmlScene)
+
+      if elementType == 'MultiPoint':
+        print "Importing a ruler!"
+        if len(ijCoordList) != 4:
+          print 'Number of coordinates not good for a ruler'
+
+        ruler = slicer.mrmlScene.CreateNodeByClass('vtkMRMLAnnotationRulerNode')
+        print 'Initializing with points ',rasPointList[0],' and ',rasPointList[1]
+        ruler.SetPosition1(rasPointList[0])
+        ruler.SetPosition2(rasPointList[1])
+        ruler.Initialize(slicer.mrmlScene)
+        # AF: Initialize() adds to the scene ...
+
+    # update the GUI
+    self.onReportNodeChanged()
+    
+
   '''
   Save report to an xml file
   '''
@@ -276,7 +437,7 @@ class qSlicerReportingModuleWidget:
     print 'onReportingReportExport'
     
     #  -- popup file dialog prompting output file
-    fileName = qt.QFileDialog.getSaveFileName(self.parent, "Save AIM","/","XML Files (*.xml)")
+    fileName = qt.QFileDialog.getSaveFileName(self.parent, "Save AIM report","/","XML Files (*.xml)")
 
     print 'Will export to ', fileName
 
