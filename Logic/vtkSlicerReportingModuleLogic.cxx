@@ -257,6 +257,12 @@ const char *vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotati
       // assumption is that the dicom UIDs are in order by k
       UID = uidVector[ijk[2]];
       }
+    else
+      {
+      // multiframe data? set UID to the first one, but will need to store the
+      // frame number on AIM import
+      UID = uidVector[0];
+      }
     }  
   return UID.c_str();
 
@@ -707,23 +713,85 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   // open the file for writing
   
   // generated the document and parent elements
+  //
+  // (Step 1) Initialize ImageAnnotation and attributes
   QDomDocument doc;
   QDomProcessingInstruction xmlDecl = doc.createProcessingInstruction("xml","version=\"1.0\"");
   doc.appendChild(xmlDecl);
+
   QDomElement root = doc.createElement("ImageAnnotation");
+  root.setAttribute("xmlns","gme://caCORE.caCORE/3.2/edu.northwestern.radiology.AIM");
+  root.setAttribute("aimVersion","3.0");
+  root.setAttribute("cagridId","0");
+
+  root.setAttribute("codeMeaning","Response Assessment in Neuro-Oncology");
+  root.setAttribute("codeValue", "RANO");
+  root.setAttribute("codeSchemeDesignator", "RANO");
+  root.setAttribute("dateTime","2012-02-29T00:00:00");
+  root.setAttribute("name","123456_andrey");
+  root.setAttribute("uniqueIdentifier","n.a");
+  root.setAttribute("xmlns:xsi","http://www.w3.org/2001/XMLSchema-instance");
+  root.setAttribute("xsi:schemaLocation","gme://caCORE.caCORE/3.2/edu.northwestern.radiology.AIM AIM_v3_rv11_XML.xsd");
+  
   doc.appendChild(root);
 
+
+  // (Step 2) Create inference collection and initialize each of the inference
+  // objects based on the content of the annotation node
+  QDomElement inferenceCollection = doc.createElement("inferenceCollection");
+  root.appendChild(inferenceCollection);
+
+  std::vector<std::string> selectedCodes = annotationNode->GetSelectedCodeList();
+  std::map<std::string, std::string> codeToMeaningMap = annotationNode->GetCodeToMeaningMap();
+
+  for(std::vector<std::string>::const_iterator it=selectedCodes.begin();
+    it!=selectedCodes.end();++it)
+    {
+    std::string code = (*it);
+    std::string meaning = codeToMeaningMap[*it];
+
+    QDomElement inference = doc.createElement("Inference");
+    inference.setAttribute("cagridId","0");
+    inference.setAttribute("codeMeaning",meaning.c_str());
+    inference.setAttribute("codeValue",code.c_str());
+    inference.setAttribute("codingSchemeDesignator","RANO");
+    inference.setAttribute("codingSchemeVersion","");
+    inference.setAttribute("imageEvidence","True");
+
+    inferenceCollection.appendChild(inference);
+    }
+
+  // (Step 3) Initialize user/equipment/person (these have no meaning for now
+  // here)
   QDomElement user = doc.createElement("user");
-  doc.appendChild(user);
+  user.setAttribute("cagridId","0");
+  user.setAttribute("loginName","slicer");
+  user.setAttribute("name","slicer");
+  user.setAttribute("numberWithinRoleOfClinicalTrial","1");
+  user.setAttribute("roleInTrial","Performing");
+  root.appendChild(user);
 
   QDomElement equipment = doc.createElement("equipment");
-  doc.appendChild(equipment);
-
-  QDomElement gsc = doc.createElement("geometricShapeCollection");
-  doc.appendChild(gsc);
+  equipment.setAttribute("cagridId","0");
+  equipment.setAttribute("manufacturerModelName","3D_Slicer_4_Reporting");
+  equipment.setAttribute("manufacturerName","Brigham and Women's Hospital");
+  equipment.setAttribute("softwareVersion","0.0.1");
+  root.appendChild(equipment);
 
   QDomElement person = doc.createElement("person");
-  doc.appendChild(person);
+  person.setAttribute("birthDate","1990-01-01T00:00:00");
+  person.setAttribute("cagridId","0");
+  person.setAttribute("id","123456");
+  person.setAttribute("name","Anonymous");
+  person.setAttribute("sex","M");
+  root.appendChild(person);
+
+  // (Step 4) Go over the markup elements and add them to the geometric shape
+  // collection. Here we might want to keep track of the volume being
+  // referenced, but since one AIM file is for one volume, we don't really
+  // need to do this.
+  QDomElement gsc = doc.createElement("geometricShapeCollection");
+  root.appendChild(gsc);
 
   // and now print!
   
@@ -766,6 +834,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
             {
             std::cerr << "SaveReportToAIM: saving point from node named " << fidNode->GetName() << std::endl;
 
+            // TODO: need to handle the case of multiframe data .. ?
             QString sliceUID = this->GetSliceUIDFromMarkUp(fidNode);
             if(sliceUID == "NONE")
             {

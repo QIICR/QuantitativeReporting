@@ -68,11 +68,11 @@ public:
 
   friend class qMRMLReportingAnnotationRANOWidget;
 
-  std::string GetSelectedCode(int i){ return selectedCodeList[i];};  
-  void SetSelectedCode(int i, std::string code){
-    this->selectedCodeList[i] = code;
-  }
+  std::string GetSelectedCode(int i);  
+  void SetSelectedCode(int i, std::string code);
 
+  std::vector<std::string> GetSelectedCodeList();
+  std::map<std::string, std::string> GetCodeToMeaningMap();
 
 protected:
   vtkMRMLReportingAnnotationRANONode();

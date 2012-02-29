@@ -231,3 +231,27 @@ std::vector<std::string> vtkMRMLReportingAnnotationRANONode::splitString(std::st
     out.push_back(item);
   return out;
 }
+
+std::string vtkMRMLReportingAnnotationRANONode::GetSelectedCode(int i)
+{
+  if(i>this->selectedCodeList.size()-1)
+    return std::string();
+  else
+    return this->selectedCodeList[i];
+}
+
+void vtkMRMLReportingAnnotationRANONode::SetSelectedCode(int i, std::string code)
+{
+  if(i<this->selectedCodeList.size())
+    this->selectedCodeList[i] = code;
+}
+
+std::map<std::string, std::string> vtkMRMLReportingAnnotationRANONode::GetCodeToMeaningMap()
+{
+  return this->codeToMeaningMap;
+}
+
+std::vector<std::string> vtkMRMLReportingAnnotationRANONode::GetSelectedCodeList()
+{
+  return this->selectedCodeList;
+}
