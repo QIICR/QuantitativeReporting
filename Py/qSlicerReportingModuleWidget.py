@@ -279,6 +279,9 @@ class qSlicerReportingModuleWidget:
     #  -- assume that report node has been created and is in the selector
 
     fileName = qt.QFileDialog.getOpenFileName(self.parent, "Open AIM report","/","XML Files (*.xml)")
+    if fileName == '':
+      return
+
     dom = xml.dom.minidom.parse(fileName)
 
     print 'Read AIM report:'
@@ -438,6 +441,8 @@ class qSlicerReportingModuleWidget:
     
     #  -- popup file dialog prompting output file
     fileName = qt.QFileDialog.getSaveFileName(self.parent, "Save AIM report","/","XML Files (*.xml)")
+    if fileName == '':
+      return
 
     print 'Will export to ', fileName
 

@@ -39,6 +39,8 @@ class vtkMRMLVolumeNode;
 class vtkMRMLReportingReportNode;
 class vtkMRMLScalarVolumeNode;
 
+class QDomDocument;
+class QDomElement;
 class QStringList;
 
 /// \ingroup Slicer_QtModules_ExtensionTemplate
@@ -113,6 +115,8 @@ protected:
   /// set/get the currently active markup hierarchy
   vtkGetStringMacro(ActiveMarkupHierarchyID);
   vtkSetStringMacro(ActiveMarkupHierarchyID);
+
+  int AddSpatialCoordinateCollectionElement(QDomDocument&, QDomElement&, QStringList&, QStringList&);
   
 private:
 

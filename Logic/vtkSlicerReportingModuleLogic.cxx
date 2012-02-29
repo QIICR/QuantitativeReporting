@@ -826,66 +826,77 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
       vtkMRMLNode *mrmlAssociatedNode = allChildren[i]->GetAssociatedNode();
       if (mrmlAssociatedNode)
         {
-        if (mrmlAssociatedNode->IsA("vtkMRMLAnnotationFiducialNode"))
+        vtkMRMLAnnotationNode *annNode = vtkMRMLAnnotationNode::SafeDownCast(mrmlAssociatedNode);
+        // print out a point
+        vtkMRMLAnnotationFiducialNode *fidNode = vtkMRMLAnnotationFiducialNode::SafeDownCast(mrmlAssociatedNode);          
+        vtkMRMLAnnotationRulerNode *rulerNode = vtkMRMLAnnotationRulerNode::SafeDownCast(mrmlAssociatedNode);
+
+        if(fidNode || rulerNode)
           {
-          // print out a point
-          vtkMRMLAnnotationFiducialNode *fidNode = vtkMRMLAnnotationFiducialNode::SafeDownCast(mrmlAssociatedNode);          
+          // TODO: need to handle the case of multiframe data .. ?
+          QString sliceUID = this->GetSliceUIDFromMarkUp(annNode);
+
+          QStringList sliceUIDList;
+          sliceUIDList << sliceUID;
+
+          if(sliceUID == "NONE")
+            {
+            std::cout << "Cannot save AIM report: volumes being annotated are not DICOM volumes!";
+            return EXIT_FAILURE;
+            }
+
+          QStringList coordStr = this->GetMarkupPointCoordinatesStr(annNode);
+
+          QDomElement gs = doc.createElement("GeometricShape");
+
+          // GeometricShape markup-specific initialization
+
+          // Fiducial = AIM Point
           if (fidNode)
             {
-            std::cerr << "SaveReportToAIM: saving point from node named " << fidNode->GetName() << std::endl;
+            std::cerr << "SaveReportToAIM: saving Point from node named " << fidNode->GetName() << std::endl;
 
-            // TODO: need to handle the case of multiframe data .. ?
-            QString sliceUID = this->GetSliceUIDFromMarkUp(fidNode);
-            if(sliceUID == "NONE")
-            {
-              std::cout << "Cannot save AIM report: volumes being annotated are not DICOM volumes!";
-              return EXIT_FAILURE;
-            }
-            QStringList fidCoordStr = this->GetMarkupPointCoordinatesStr(fidNode);
-            if(fidCoordStr.size()<2)
-            {
+            if(coordStr.size()!=2)
+              {
               vtkErrorMacro("Failed to obtain fiducial points for markup point!");
               return EXIT_FAILURE;
+              }
+
+            gs.setAttribute("xsi:type","Point");
+            gs.setAttribute("shapeIdentifier",shapeId++);
+            gs.setAttribute("includeFlag", "true");
+            gs.setAttribute("cagridId","0");
             }
-
-            QDomElement fid = doc.createElement("GeometricShape");
-            fid.setAttribute("xsi:type","Point");
-            fid.setAttribute("shapeIdentifier",shapeId++);
-            fid.setAttribute("includeFlag", "true");
-            fid.setAttribute("cagridId","0");
-            gsc.appendChild(fid);
-
-            QDomElement fidscC = doc.createElement("spatialCoordinateCollection");
-            fid.appendChild(fidscC);
-
-            QDomElement sc = doc.createElement("SpatialCoordinate");
-            fidscC.appendChild(sc);
-
-            sc.setAttribute("cagridId","0");
-            sc.setAttribute("coordinateIndex","0");
-            sc.setAttribute("imageReferenceUID",sliceUID);
-            sc.setAttribute("referenceFrameNumber","1"); // TODO: maybe add handling of multiframe DICOM?
-            sc.setAttribute("xsi:type", "TwoDimensionSpatialCoordinate");
-            sc.setAttribute("x", fidCoordStr[0]);
-            sc.setAttribute("y", fidCoordStr[1]);
-
-            }
-          }
-        else if (mrmlAssociatedNode->IsA("vtkMRMLAnnotationRulerNode"))
-          {
-          vtkMRMLAnnotationRulerNode *rulerNode = vtkMRMLAnnotationRulerNode::SafeDownCast(mrmlAssociatedNode);
+          
+          // Ruler = AIM MultiPoint
           if (rulerNode)
             {
-            std::cout << "SaveReportToAIM: saving ruler from node named " << rulerNode->GetName() << std::endl;
+            std::cerr << "SaveReportToAIM: saving MultiPoint from node named " << rulerNode->GetName() << std::endl;
+
+            if(coordStr.size()!=4)
+              {
+              vtkErrorMacro("Failed to obtain fiducial points for markup point!");
+              return EXIT_FAILURE;
+              }
+
+            gs.setAttribute("xsi:type","MultiPoint");
+            gs.setAttribute("shapeIdentifier",shapeId++);
+            gs.setAttribute("includeFlag", "true");
+            gs.setAttribute("cagridId","0");
             }
-          }
-        else
-          {
-          vtkWarningMacro("SaveReportToAIM: unknown markup type, of class: " << mrmlAssociatedNode->GetClassName());
-          }
+ 
+          // Procedure for saving the list of points should be the same for
+          // all markup elements
+          this->AddSpatialCoordinateCollectionElement(doc, gs, coordStr, sliceUIDList);
+          gsc.appendChild(gs);
+        }
+      else
+        {
+        vtkWarningMacro("SaveReportToAIM: unsupported markup type, of class: " << mrmlAssociatedNode->GetClassName());
         }
       }
     }
+  }
 
   // close the file
   
@@ -898,6 +909,34 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
 
   return EXIT_SUCCESS;
     
+}
+
+int vtkSlicerReportingModuleLogic::AddSpatialCoordinateCollectionElement(QDomDocument &doc, QDomElement &parent,
+  QStringList &coordList, QStringList &sliceUIDList)
+{
+  QDomElement fidscC = doc.createElement("spatialCoordinateCollection");
+  parent.appendChild(fidscC);
+
+  // All points should have the same slice UID, because coordinates are
+  // defined on the slice
+  //if(coordList.size()/2 != sliceUIDList.size())
+  //  return EXIT_FAILURE;
+
+  for(int i=0;i<coordList.size()/2;i++)
+    {
+    QDomElement sc = doc.createElement("SpatialCoordinate");
+    fidscC.appendChild(sc);
+
+    sc.setAttribute("cagridId","0");
+    sc.setAttribute("coordinateIndex","0");
+    sc.setAttribute("imageReferenceUID",sliceUIDList[0]);
+    sc.setAttribute("referenceFrameNumber","1"); // TODO: maybe add handling of multiframe DICOM?
+    sc.setAttribute("xsi:type", "TwoDimensionSpatialCoordinate");
+    sc.setAttribute("x", coordList[i*2]);
+    sc.setAttribute("y", coordList[i*2+1]);
+    }
+
+  return EXIT_SUCCESS;
 }
 
 vtkMRMLScalarVolumeNode* vtkSlicerReportingModuleLogic::GetMarkupVolumeNode(vtkMRMLAnnotationNode *node)
