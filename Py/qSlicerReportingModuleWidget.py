@@ -295,34 +295,6 @@ class qSlicerReportingModuleWidget:
 
       volName = 'AIM volume '+str(volId)
 
-      '''
-      strarray = vtk.vtkStringArray()
-      for f in filelist:
-        strarray.InsertNextValue(f)
-
-      print 'Found series ',instanceUID,', file list: ',filelist
-      volId = volId+1
-      volume = volumesLogic.AddArchetypeVolume(filelist[0], volName, 0, strarray)
-      # get the list of instance UIDs for this volume
-      instanceUIDs = ""
-      instanceUIDList = []
-      instanceUIDTag = "0008,0018"
-      for f in filelist:
-        ddb.loadFileHeader(f)
-        d = ddb.headerValue(instanceUIDTag)
-        try:
-          uid = d[d.index('[')+1:d.index(']')]
-        except ValueError:
-          q
-          uid = "Unknown"
-        instanceUIDs += uid + " "
-        instanceUIDList.append(uid)
-
-      instanceUIDs = instanceUIDs[:-1]
-      volume.SetAttribute('DICOM.instanceUIDs',instanceUIDs)
-
-      '''
-
       loader = DICOMLib.DICOMLoader(filelist, volName)
       volume = loader.volumeNode
 
@@ -342,11 +314,6 @@ class qSlicerReportingModuleWidget:
 
     instanceUIDs = volume.GetAttribute('DICOM.instanceUIDs')
     instanceUIDList = instanceUIDs.split()
-    print 'Volume added. UID list: ',instanceUIDList
-
-    # populate the annotation node
-    # AF TODO: need to add accessor methods to RANO node
-    # for node in dom.getElementsByTagName('Inference'):
 
     # AF: GeometricShape is inside geometricShapeCollection, but
     # there's no need to parse at that level, I think 
