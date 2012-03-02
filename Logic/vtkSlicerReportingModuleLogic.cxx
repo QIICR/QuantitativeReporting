@@ -847,7 +847,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   // print out the markups
   //   keep the list of referenced slice UIDs so that they can be saved in the
   //   final step
-  std::vector<QStringList> volumeUIDLists;
+  QStringList allInstanceUIDs;
   int shapeId = 0;
   if (markupHierarchyNode)
     {
@@ -872,6 +872,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
 
           QStringList sliceUIDList;
           sliceUIDList << sliceUID;
+          allInstanceUIDs << sliceUID;
 
           if(sliceUID == "NONE")
             {
@@ -923,9 +924,6 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
           // all markup elements
           this->AddSpatialCoordinateCollectionElement(doc, gs, coordStr, sliceUIDList);
           gsc.appendChild(gs);
-
-          // keep the list of slice UIDs
-          volumeUIDLists.push_back(sliceUIDList);
         }
       else
         {
@@ -944,26 +942,16 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   //              +-ImageSeries
   //                 +-imageCollection
   //                    +-Image -- whooh ...
-  QDomElement irc = doc.createElement("imageReferenceCollection");
-  root.appendChild(irc);
 
-  for(std::vector<QStringList>::const_iterator it=volumeUIDLists.begin();
-    it!=volumeUIDLists.end();++it)
+  // iterate over all instance UIDs and find all the series and corresponding
+  // study/series UIDs referenced by the markups we have
+  std::map<QString, QStringList> seriesToImageList;  // seriesUID to the list of unique imageUIDs
+  std::map<QString, QStringList> studyToSeriesList;  // studyUID to the list of unique seriesUIDs
+  for(int i=0;i<allInstanceUIDs.size();i++)
     {
-    
-    QStringList uidList = *it;
-    if(!uidList.size())
-      continue;
-
-    // for each list, create a new ImageReference element
-    QDomElement ir = doc.createElement("ImageReference");
-    ir.setAttribute("cagridId","0");
-    ir.setAttribute("xsi:type","DICOMImageReference");
-    irc.appendChild(ir);
-
     // query db only for the first UID in the list, since they should all
     // belong to the same series
-    this->DICOMDatabase->loadInstanceHeader(uidList[0].toLatin1().data());
+    this->DICOMDatabase->loadInstanceHeader(allInstanceUIDs[i].toLatin1().data());
     QString imageUID = this->DICOMDatabase->headerValue("0008,0018");
     QString studyUID = this->DICOMDatabase->headerValue("0020,000d");
     QString seriesUID = this->DICOMDatabase->headerValue("0020,000e");
@@ -980,41 +968,78 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     imageUID = imageUID.split("]")[0].split("[")[1];
     studyUID = studyUID.split("]")[0].split("[")[1];
     seriesUID = seriesUID.split("]")[0].split("[")[1];
-//    classUID = classUID.split("]")[0].split("[")[1];
-    std::cout << "Found series UID: " << seriesUID.toLatin1().data() << std::endl;
 
-    QDomElement study = doc.createElement("imageStudy");
-    ir.appendChild(study);
-
-    QDomElement study1 = doc.createElement("ImageStudy");
-    study1.setAttribute("cagridId","0");
-    study1.setAttribute("instanceUID",studyUID.toLatin1().data());
-    study1.setAttribute("startDate","2000-01-01T00:00:00");
-    study1.setAttribute("startTime","000000");
-    study.appendChild(study1);
-
-    // 
-    QDomElement series = doc.createElement("imageSeries");
-    study1.appendChild(series);
-
-    QDomElement series1 = doc.createElement("ImageSeries");
-    series1.setAttribute("cagridId","0");
-    series1.setAttribute("instanceUID",seriesUID.toLatin1().data());
-    series.appendChild(series1);
-
-    QDomElement ic = doc.createElement("imageCollection");
-    series.appendChild(ic);
-
-    for(int i=0;i<uidList.size();i++)
-      {
-      QDomElement image = doc.createElement("Image");
-      image.setAttribute("cagridId","0");
-      image.setAttribute("sopClassUID",classUID);
-      image.setAttribute("sopInstanceUID",imageUID);
-      ic.appendChild(image);
-      }
-
+    if(seriesToImageList.find(seriesUID) == seriesToImageList.end())
+      seriesToImageList[seriesUID] = QStringList() << imageUID;
+    else
+      if(seriesToImageList[seriesUID].indexOf(imageUID) == -1)
+        seriesToImageList[seriesUID] << imageUID;
+    
+    if(studyToSeriesList.find(studyUID) == seriesToImageList.end())
+      studyToSeriesList[studyUID] = QStringList() << seriesUID;
+    else
+      if(studyToSeriesList[studyUID].indexOf(seriesUID) == -1)
+        studyToSeriesList[studyUID] << seriesUID;
     }
+
+  QDomElement irc = doc.createElement("imageReferenceCollection");
+  root.appendChild(irc);
+
+  //for(std::vector<QStringList>::const_iterator it=volumeUIDLists.begin();
+  //  it!=volumeUIDLists.end();++it)
+  //  {
+  for(std::map<QString,QStringList>::const_iterator mIt=studyToSeriesList.begin();
+    mIt!=studyToSeriesList.end();++mIt)
+    {
+
+    QString studyUID = mIt->first;
+    QStringList seriesUIDs = mIt->second;
+
+    for(int ser=0;ser<seriesUIDs.size();++ser)
+      {
+
+      QString seriesUID = seriesUIDs[ser];
+
+      // for each list, create a new ImageReference element
+      QDomElement ir = doc.createElement("ImageReference");
+      ir.setAttribute("cagridId","0");
+      ir.setAttribute("xsi:type","DICOMImageReference");
+      irc.appendChild(ir);
+
+      QDomElement study = doc.createElement("imageStudy");
+      ir.appendChild(study);
+
+      QDomElement study1 = doc.createElement("ImageStudy");
+      study1.setAttribute("cagridId","0");
+      study1.setAttribute("instanceUID",studyUID.toLatin1().data());
+      study1.setAttribute("startDate","2000-01-01T00:00:00");
+      study1.setAttribute("startTime","000000");
+      study.appendChild(study1);
+
+      // 
+      QDomElement series = doc.createElement("imageSeries");
+      study1.appendChild(series);
+
+      QDomElement series1 = doc.createElement("ImageSeries");
+      series1.setAttribute("cagridId","0");
+      series1.setAttribute("instanceUID",seriesUID.toLatin1().data());
+      series.appendChild(series1);
+
+      QDomElement ic = doc.createElement("imageCollection");
+      series.appendChild(ic);
+
+      QStringList uidList = seriesToImageList[seriesUID];
+
+      for(int i=0;i<uidList.size();i++)
+      {
+        QDomElement image = doc.createElement("Image");
+        image.setAttribute("cagridId","0");
+        image.setAttribute("sopClassUID","NA"); // FIXME
+        image.setAttribute("sopInstanceUID",uidList[i]);
+        ic.appendChild(image);
+      }
+    }
+  }
 
   // close the file
   
