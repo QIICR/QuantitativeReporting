@@ -39,8 +39,13 @@
 #include <cassert>
 
 // Qt includes
-#include <QtXml>
 #include <QDomDocument>
+#include <QSettings>
+#include <QSqlDatabase>
+#include <QtXml>
+
+// CTK includes
+#include "ctkDICOMDatabase.h"
 
 //----------------------------------------------------------------------------
 vtkStandardNewMacro(vtkSlicerReportingModuleLogic);
@@ -50,6 +55,7 @@ vtkSlicerReportingModuleLogic::vtkSlicerReportingModuleLogic()
 {
   this->ActiveReportHierarchyID = NULL;
   this->ActiveMarkupHierarchyID = NULL;
+  this->DICOMDatabase = NULL;
 }
 
 //----------------------------------------------------------------------------
@@ -75,6 +81,27 @@ void vtkSlicerReportingModuleLogic::PrintSelf(ostream& os, vtkIndent indent)
   os << indent << "Active Report Hierarchy ID = " << (this->GetActiveReportHierarchyID() ? this->GetActiveReportHierarchyID() : "null") << "\n";
   os << indent << "Active Markup Hierarchy ID = " << (this->GetActiveMarkupHierarchyID() ? this->GetActiveMarkupHierarchyID() : "null") << "\n";
 
+}
+
+//---------------------------------------------------------------------------
+bool vtkSlicerReportingModuleLogic::InitializeDICOMDatabase()
+{
+  QSettings settings;
+  QString dbPath = settings.value("DatabaseDirectory","").toString();
+  std::cout << "Reporting will use database at this location: " << dbPath.toLatin1().data() << std::endl;
+
+  bool success = false;
+
+  if(dbPath != "")
+    {
+    this->DICOMDatabase = new ctkDICOMDatabase();
+    this->DICOMDatabase->openDatabase(dbPath+"/ctkDICOM.sql","Reporting");
+    success = this->DICOMDatabase->isOpen();
+    //QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
+    //db.setDatabaseName(dbPath+"/ctkDICOM.sql");
+    //success = db.open();
+    }
+  return success;
 }
 
 //---------------------------------------------------------------------------
@@ -642,9 +669,14 @@ void vtkSlicerReportingModuleLogic::HideAnnotationsForOtherReports(vtkMRMLReport
     }
 }
 
-//---------------------------------------------------------------------------
 int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *reportNode, const char *filename)
 {
+  if(!this->DICOMDatabase)
+    {
+    vtkErrorMacro("SaveReportToAIM: DICOM database not initialized!");
+    return EXIT_FAILURE;
+    }
+
   if (!reportNode)
     {
     vtkErrorMacro("SaveReportToAIM: no report node given.");
@@ -735,7 +767,6 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   
   doc.appendChild(root);
 
-
   // (Step 2) Create inference collection and initialize each of the inference
   // objects based on the content of the annotation node
   QDomElement inferenceCollection = doc.createElement("inferenceCollection");
@@ -814,6 +845,9 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     }
   
   // print out the markups
+  //   keep the list of referenced slice UIDs so that they can be saved in the
+  //   final step
+  std::vector<QStringList> volumeUIDLists;
   int shapeId = 0;
   if (markupHierarchyNode)
     {
@@ -889,6 +923,9 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
           // all markup elements
           this->AddSpatialCoordinateCollectionElement(doc, gs, coordStr, sliceUIDList);
           gsc.appendChild(gs);
+
+          // keep the list of slice UIDs
+          volumeUIDLists.push_back(sliceUIDList);
         }
       else
         {
@@ -897,6 +934,87 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
       }
     }
   }
+
+  // (Step 5) Iterate over referenced volume UIDs and add to the report
+  // imageReferenceCollection
+  //  +-ImageReference
+  //     +-imageStudy
+  //        +-ImageStudy (why do they have this nesting?)
+  //           +-imageSeries
+  //              +-ImageSeries
+  //                 +-imageCollection
+  //                    +-Image -- whooh ...
+  QDomElement irc = doc.createElement("imageReferenceCollection");
+  root.appendChild(irc);
+
+  for(std::vector<QStringList>::const_iterator it=volumeUIDLists.begin();
+    it!=volumeUIDLists.end();++it)
+    {
+    
+    QStringList uidList = *it;
+    if(!uidList.size())
+      continue;
+
+    // for each list, create a new ImageReference element
+    QDomElement ir = doc.createElement("ImageReference");
+    ir.setAttribute("cagridId","0");
+    ir.setAttribute("xsi:type","DICOMImageReference");
+    irc.appendChild(ir);
+
+    // query db only for the first UID in the list, since they should all
+    // belong to the same series
+    this->DICOMDatabase->loadInstanceHeader(uidList[0].toLatin1().data());
+    QString imageUID = this->DICOMDatabase->headerValue("0008,0018");
+    QString studyUID = this->DICOMDatabase->headerValue("0020,000d");
+    QString seriesUID = this->DICOMDatabase->headerValue("0020,000e");
+    QString classUID = QString("uninitialized");
+//    QString classUID = this->DICOMDatabase->headerValue("0008,0016");
+//    TODO: classUID is not stored correctly in the database for now, skip it
+    // AF: why not keep the actual values in the database?
+
+    std::cout << "imageUID = " << imageUID.toLatin1().data() << std::endl;
+    std::cout << "studyUID = " << studyUID.toLatin1().data() << std::endl;
+    std::cout << "seriesUID = " << seriesUID.toLatin1().data() << std::endl;
+//   std::cout << "sclassUID = " << classUID.toLatin1().data() << std::endl;
+
+    imageUID = imageUID.split("]")[0].split("[")[1];
+    studyUID = studyUID.split("]")[0].split("[")[1];
+    seriesUID = seriesUID.split("]")[0].split("[")[1];
+//    classUID = classUID.split("]")[0].split("[")[1];
+    std::cout << "Found series UID: " << seriesUID.toLatin1().data() << std::endl;
+
+    QDomElement study = doc.createElement("imageStudy");
+    ir.appendChild(study);
+
+    QDomElement study1 = doc.createElement("ImageStudy");
+    study1.setAttribute("cagridId","0");
+    study1.setAttribute("instanceUID",studyUID.toLatin1().data());
+    study1.setAttribute("startDate","2000-01-01T00:00:00");
+    study1.setAttribute("startTime","000000");
+    study.appendChild(study1);
+
+    // 
+    QDomElement series = doc.createElement("imageSeries");
+    study1.appendChild(series);
+
+    QDomElement series1 = doc.createElement("ImageSeries");
+    series1.setAttribute("cagridId","0");
+    series1.setAttribute("instanceUID",seriesUID.toLatin1().data());
+    series.appendChild(series1);
+
+    QDomElement ic = doc.createElement("imageCollection");
+    series.appendChild(ic);
+
+    for(int i=0;i<uidList.size();i++)
+      {
+      QDomElement image = doc.createElement("Image");
+      image.setAttribute("cagridId","0");
+      image.setAttribute("sopClassUID",classUID);
+      image.setAttribute("sopInstanceUID",imageUID);
+      ic.appendChild(image);
+      }
+
+    }
 
   // close the file
   
@@ -922,7 +1040,7 @@ int vtkSlicerReportingModuleLogic::AddSpatialCoordinateCollectionElement(QDomDoc
   //if(coordList.size()/2 != sliceUIDList.size())
   //  return EXIT_FAILURE;
 
-  for(int i=0;i<coordList.size()/2;i++)
+  for(int i=0;i<coordList.size();i+=2)
     {
     QDomElement sc = doc.createElement("SpatialCoordinate");
     fidscC.appendChild(sc);
@@ -932,8 +1050,8 @@ int vtkSlicerReportingModuleLogic::AddSpatialCoordinateCollectionElement(QDomDoc
     sc.setAttribute("imageReferenceUID",sliceUIDList[0]);
     sc.setAttribute("referenceFrameNumber","1"); // TODO: maybe add handling of multiframe DICOM?
     sc.setAttribute("xsi:type", "TwoDimensionSpatialCoordinate");
-    sc.setAttribute("x", coordList[i*2]);
-    sc.setAttribute("y", coordList[i*2+1]);
+    sc.setAttribute("x", coordList[i]);
+    sc.setAttribute("y", coordList[i+1]);
     }
 
   return EXIT_SUCCESS;
@@ -1021,13 +1139,14 @@ QStringList vtkSlicerReportingModuleLogic::GetMarkupPointCoordinatesStr(vtkMRMLA
     double ijk[4] = {0.0, 0.0, 0.0, 1.0};
     ras2ijk->MultiplyPoint(ras, ijk);
     // TODO: may need special handling, because this assumes IS acquisition direction
-    std::ostringstream ss;
+    std::ostringstream ss1, ss2;
 
-    ss << ijk[0];
-    sl << QString(ss.str().c_str());
-    ss.clear();
-    ss << ijk[1];
-    sl << QString(ss.str().c_str());
+    ss1 << ijk[0];
+    sl << QString(ss1.str().c_str());
+    std::cout << "Coordinate: " << ss1.str().c_str() << std::endl;
+    ss2 << ijk[1];
+    sl << QString(ss2.str().c_str());
+    std::cout << "Coordinate: " << ss2.str().c_str() << std::endl;
 
   }
 

@@ -24,6 +24,11 @@ class qSlicerReportingModuleWidget:
 
     # Reference to the logic
     self.__logic = slicer.modulelogic.vtkSlicerReportingModuleLogic()
+    if self.__logic.InitializeDICOMDatabase():
+      print 'DICOM database initialized correctly!'
+    else:
+      print 'Failed to initialize DICOM database'
+
     # print 'Logic is ',self.__logic
 
     if not self.__logic.GetMRMLScene():
@@ -69,16 +74,6 @@ class qSlicerReportingModuleWidget:
     #  self.__logic = self.parent.module().logic()
 
     self.parent.connect('mrmlSceneChanged(vtkMRMLScene*)', self.onMRMLSceneChanged)
-    
-    '''
-    # if we don't like the parent widget layout
-    w = qt.QWidget()
-    layout = qt.QFormLayout()
-    w.setLayout(layout)
-    self.layout.addWidget(w)
-    w.show()
-    self.layout = layout
-    '''
     
     self.__inputFrame = ctk.ctkCollapsibleButton()
     self.__inputFrame.text = "Input"
@@ -342,8 +337,8 @@ class qSlicerReportingModuleWidget:
       print 'ERROR: AIM does not allow to have more than one volume per file!'
       return
 
-    if volume != None:
-      self.__volumeSelector.setCurrentNode(volume)
+    #if volume != None:
+    #  self.__volumeSelector.setCurrentNode(volume)
 
     instanceUIDs = volume.GetAttribute('DICOM.instanceUIDs')
     instanceUIDList = instanceUIDs.split()
@@ -414,8 +409,9 @@ class qSlicerReportingModuleWidget:
           print 'Number of coordinates not good for a fiducial'
           return
         fiducial = slicer.mrmlScene.CreateNodeByClass('vtkMRMLAnnotationFiducialNode')
-        ruler.SetPosition1(rasPointList[0])
-        ruler.Initialize(slicer.mrmlScene)
+        # ??? Why the API is so inconsistent -- there's no SetPosition1() ???
+        fiducial.SetFiducialCoordinates(rasPointList[0])
+        fiducial.Initialize(slicer.mrmlScene)
 
       if elementType == 'MultiPoint':
         print "Importing a ruler!"

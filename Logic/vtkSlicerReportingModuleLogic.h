@@ -43,6 +43,8 @@ class QDomDocument;
 class QDomElement;
 class QStringList;
 
+class ctkDICOMDatabase;
+
 /// \ingroup Slicer_QtModules_ExtensionTemplate
 class VTK_SLICER_REPORTINGMODULE_MODULE_LOGIC_EXPORT vtkSlicerReportingModuleLogic :
   public vtkSlicerModuleLogic
@@ -90,6 +92,7 @@ public:
   char *ReturnActiveHierarchyID() { return this->ActiveMarkupHierarchyID; };
   void SetActiveMarkupHierarchyIDToNull();
   
+  bool InitializeDICOMDatabase();
   
 protected:
   vtkSlicerReportingModuleLogic();
@@ -117,7 +120,7 @@ protected:
   vtkSetStringMacro(ActiveMarkupHierarchyID);
 
   int AddSpatialCoordinateCollectionElement(QDomDocument&, QDomElement&, QStringList&, QStringList&);
-  
+
 private:
 
   vtkSlicerReportingModuleLogic(const vtkSlicerReportingModuleLogic&); // Not implemented
@@ -130,6 +133,8 @@ private:
   char *ActiveReportHierarchyID;
   /// the currently active markup hierarchy
   char *ActiveMarkupHierarchyID;
+
+  ctkDICOMDatabase *DICOMDatabase;
 };
 
 #endif
