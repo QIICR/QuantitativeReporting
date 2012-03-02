@@ -268,6 +268,12 @@ class qSlicerReportingModuleWidget:
     #  content, markup hierarchy and content
     print 'onReportImport'
 
+    # For now, always create a new report node
+    newReport = slicer.mrmlScene.CreateNodeByClass('vtkMRMLReportingReportNode')
+    slicer.mrmlScene.AddNode(newReport)
+    self.__reportSelector.setCurrentNode(newReport)
+    self.onReportNodeChanged()
+
     ann = self.__annotationNode
 
     # initialize the report hierarchy
