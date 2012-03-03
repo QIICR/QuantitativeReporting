@@ -165,6 +165,10 @@ class qSlicerReportingModuleWidget:
     self.enableWidgets()
 
   def enter(self):
+    # switch to Two-over-Two layout
+    lm = slicer.app.layoutManager()
+    lm.setLayout(26) # two over two
+
     # print "Reporting Enter"
     # update the logic active markup
     self.updateWidgetFromParameters()
