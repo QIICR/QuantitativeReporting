@@ -130,33 +130,22 @@ void qMRMLReportingTreeViewPrivate::init()
 void qMRMLReportingTreeViewPrivate::updateTreeViewModel()
 {
   Q_Q(qMRMLReportingTreeView); 
-  //p->qMRMLTreeView::setModel(new qMRMLItemModel(p));
-  //this->SceneModel = new qMRMLSceneDisplayableHierarchyModel(q);
-  //this->SceneModel->setColumnCount(6);
+
   this->setSortFilterProxyModel(new qMRMLSortFilterDisplayableHierarchyProxyModel(q));
+  q->setSceneModelType(QString("DisplayableHierarchy"));
 
-  this->SceneModel = new qMRMLSceneDisplayableHierarchyModel(q);
-
-  q->setSceneModel(this->SceneModel, "DisplayableHierarchy");
-//  q->setSceneModelType(QString("DisplayableHierarchy"));
-  
-
-
-  //this->SortFilterModel = new qMRMLSortFilterDisplayableHierarchyProxyModel(q);
   // we only want to show nodeTypes = ['vtkMRMLDisplayableHierarchyNode', 'vtkMRMLAnnotationHierarchyNode', 'vtkMRMLAnnotationNode', 'vtkMRMLVolumeNode', 'vtkMRMLReportingReportNode']
   QStringList nodeTypes = QStringList();
   nodeTypes.append("vtkMRMLAnnotationNode");
   nodeTypes.append("vtkMRMLAnnotationHierarchyNode");
   nodeTypes.append("vtkMRMLVolumeNode");
   nodeTypes.append("vtkMRMLReportingReportNode");
-//  nodeTypes.append("vtkMRMLDisplayableHierarchyNode");
+  nodeTypes.append("vtkMRMLDisplayableHierarchyNode");
 
-  //this->SortFilterModel->setNodeTypes(nodeTypes);
   q->setNodeTypes(nodeTypes);
-  this->SortFilterModel = q->sortFilterProxyModel();
 
-  //this->SortFilterModel->setSourceModel(this->SceneModel);
-  //q->qMRMLTreeView::setModel(this->SortFilterModel);
+  // hide the visibility column for now
+  //q->sceneModel()->setVisibilityColumn(-1);
 }
 
 //------------------------------------------------------------------------------
@@ -893,4 +882,12 @@ const char * qMRMLReportingTreeView::firstSelectedNode()
     }
 
   return d->SortFilterModel->mrmlNodeFromIndex(index)->GetID();
+}
+
+//-----------------------------------------------------------------------------
+void qMRMLReportingTreeView::updateTreeView()
+{
+  Q_D(qMRMLReportingTreeView);
+
+  d->updateTreeViewModel();
 }

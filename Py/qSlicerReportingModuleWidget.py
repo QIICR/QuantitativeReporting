@@ -139,7 +139,7 @@ class qSlicerReportingModuleWidget:
     self.layout.addWidget(self.__markupFrame)
 
     # Add a flag to switch between different tree view models
-    self.__useNewTreeView = 0 
+    self.__useNewTreeView = 1
 
     # Add the tree widget
     if self.__useNewTreeView == 1:
@@ -210,7 +210,7 @@ class qSlicerReportingModuleWidget:
     # print "updateTreeView()"
     # make the tree view update
     if self.__useNewTreeView == 1:
-      self.__markupTreeView.sceneModelType = "DisplayableHierarchy"
+      self.__markupTreeView.updateTreeView()
     else:
       self.__markupTreeView.sceneModelType = "Displayable"
       nodeTypes = ['vtkMRMLDisplayableHierarchyNode', 'vtkMRMLAnnotationHierarchyNode', 'vtkMRMLAnnotationNode', 'vtkMRMLVolumeNode', 'vtkMRMLReportingReportNode']

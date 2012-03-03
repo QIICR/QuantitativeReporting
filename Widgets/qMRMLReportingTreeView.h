@@ -142,6 +142,9 @@ public slots:
 
   /// jump to the slice with the selected annotation on it
   void jumpToAnnotation();
+
+  /// provide a way to update the tree from python
+  void updateTreeView();
   
 signals:
   void currentNodeChanged(vtkMRMLNode* node);
