@@ -24,6 +24,11 @@ class qSlicerReportingModuleWidget:
 
     # Reference to the logic
     self.__logic = slicer.modulelogic.vtkSlicerReportingModuleLogic()
+    if self.__logic.InitializeDICOMDatabase():
+      print 'DICOM database initialized correctly!'
+    else:
+      print 'Failed to initialize DICOM database'
+
     # print 'Logic is ',self.__logic
 
     if not self.__logic.GetMRMLScene():
@@ -69,16 +74,6 @@ class qSlicerReportingModuleWidget:
     #  self.__logic = self.parent.module().logic()
 
     self.parent.connect('mrmlSceneChanged(vtkMRMLScene*)', self.onMRMLSceneChanged)
-    
-    '''
-    # if we don't like the parent widget layout
-    w = qt.QWidget()
-    layout = qt.QFormLayout()
-    w.setLayout(layout)
-    self.layout.addWidget(w)
-    w.show()
-    self.layout = layout
-    '''
     
     self.__inputFrame = ctk.ctkCollapsibleButton()
     self.__inputFrame.text = "Input"
@@ -172,6 +167,10 @@ class qSlicerReportingModuleWidget:
     self.enableWidgets()
 
   def enter(self):
+    # switch to Two-over-Two layout
+    lm = slicer.app.layoutManager()
+    lm.setLayout(26) # two over two
+
     # print "Reporting Enter"
     # update the logic active markup
     self.updateWidgetFromParameters()
@@ -287,6 +286,12 @@ class qSlicerReportingModuleWidget:
     #  content, markup hierarchy and content
     print 'onReportImport'
 
+    # For now, always create a new report node
+    newReport = slicer.mrmlScene.CreateNodeByClass('vtkMRMLReportingReportNode')
+    slicer.mrmlScene.AddNode(newReport)
+    self.__reportSelector.setCurrentNode(newReport)
+    self.onReportNodeChanged()
+
     ann = self.__annotationNode
 
     # initialize the report hierarchy
@@ -314,34 +319,6 @@ class qSlicerReportingModuleWidget:
 
       volName = 'AIM volume '+str(volId)
 
-      '''
-      strarray = vtk.vtkStringArray()
-      for f in filelist:
-        strarray.InsertNextValue(f)
-
-      print 'Found series ',instanceUID,', file list: ',filelist
-      volId = volId+1
-      volume = volumesLogic.AddArchetypeVolume(filelist[0], volName, 0, strarray)
-      # get the list of instance UIDs for this volume
-      instanceUIDs = ""
-      instanceUIDList = []
-      instanceUIDTag = "0008,0018"
-      for f in filelist:
-        ddb.loadFileHeader(f)
-        d = ddb.headerValue(instanceUIDTag)
-        try:
-          uid = d[d.index('[')+1:d.index(']')]
-        except ValueError:
-          q
-          uid = "Unknown"
-        instanceUIDs += uid + " "
-        instanceUIDList.append(uid)
-
-      instanceUIDs = instanceUIDs[:-1]
-      volume.SetAttribute('DICOM.instanceUIDs',instanceUIDs)
-
-      '''
-
       loader = DICOMLib.DICOMLoader(filelist, volName)
       volume = loader.volumeNode
 
@@ -356,16 +333,11 @@ class qSlicerReportingModuleWidget:
       print 'ERROR: AIM does not allow to have more than one volume per file!'
       return
 
-    if volume != None:
-      self.__volumeSelector.setCurrentNode(volume)
+    #if volume != None:
+    #  self.__volumeSelector.setCurrentNode(volume)
 
     instanceUIDs = volume.GetAttribute('DICOM.instanceUIDs')
     instanceUIDList = instanceUIDs.split()
-    print 'Volume added. UID list: ',instanceUIDList
-
-    # populate the annotation node
-    # AF TODO: need to add accessor methods to RANO node
-    # for node in dom.getElementsByTagName('Inference'):
 
     # AF: GeometricShape is inside geometricShapeCollection, but
     # there's no need to parse at that level, I think 
@@ -428,8 +400,9 @@ class qSlicerReportingModuleWidget:
           print 'Number of coordinates not good for a fiducial'
           return
         fiducial = slicer.mrmlScene.CreateNodeByClass('vtkMRMLAnnotationFiducialNode')
-        ruler.SetPosition1(rasPointList[0])
-        ruler.Initialize(slicer.mrmlScene)
+        # ??? Why the API is so inconsistent -- there's no SetPosition1() ???
+        fiducial.SetFiducialCoordinates(rasPointList[0])
+        fiducial.Initialize(slicer.mrmlScene)
 
       if elementType == 'MultiPoint':
         print "Importing a ruler!"

@@ -9,6 +9,10 @@ if(POLICY CMP0017)
   cmake_policy(SET CMP0017 OLD)
 endif()
 
+# include SQL not included by default
+list(APPEND Slicer_REQUIRED_QT_MODULES SQL)
+include(SlicerBlockFindQtAndCheckVersion)
+
 #-----------------------------------------------------------------------------
 # Module name
 #   - Usually identique to the directory name)
@@ -21,9 +25,9 @@ set(qt_module_name "Reporting")
 #-----------------------------------------------------------------------------
 if(NOT Slicer_SOURCE_DIR)
   set(EXTENSION_HOMEPAGE "http://www.slicer.org/slicerWiki/index.php/Slicer4:Developers:Projects:QtSlicer/Tutorials/ExtensionWriting")
-  set(EXTENSION_CATEGORY "Examples")
+  set(EXTENSION_CATEGORY "Informatics")
   set(EXTENSION_STATUS "Beta")
-  set(EXTENSION_DESCRIPTION "This is an example of Qt loadable module built as an extension")
+  set(EXTENSION_DESCRIPTION "")
   set(EXTENSION_DEPENDS CLIExtensionTemplate) # Specified as a space separated list or 'NA' if any
 
   find_package(Slicer REQUIRED)
