@@ -430,7 +430,11 @@ void vtkSlicerReportingModuleLogic::InitializeHierarchyForVolume(vtkMRMLVolumeNo
     ahnodeID = ahnode->GetID();
     // make it a child of the volume
     vtkDebugMacro("Setting annotation markup hierarchy's parent to volume hierarchy id " << volumeHierarchyNodeID);
+    //this->GetMRMLScene()->GetNodeByID(volumeHierarchyNodeID)->SetDisableModifiedEvent(1);
+    ahnode->SetDisableModifiedEvent(1);
     ahnode->SetParentNodeID(volumeHierarchyNodeID);
+    //this->GetMRMLScene()->GetNodeByID(volumeHierarchyNodeID)->SetDisableModifiedEvent(0);
+    ahnode->SetDisableModifiedEvent(0);
     ahnode->Delete();
     }
   else

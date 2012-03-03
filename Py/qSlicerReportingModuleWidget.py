@@ -144,15 +144,17 @@ class qSlicerReportingModuleWidget:
     self.layout.addWidget(self.__markupFrame)
  
     # Add the tree widget
-    self.__markupTreeView = slicer.qMRMLTreeView()
+    self.__markupTreeView = slicer.qMRMLReportingTreeView()
     self.__markupTreeView.setMRMLScene(self.__logic.GetMRMLScene())
-    nodeTypes = ['vtkMRMLDisplayableHierarchyNode', 'vtkMRMLAnnotationHierarchyNode', 'vtkMRMLAnnotationNode', 'vtkMRMLVolumeNode', 'vtkMRMLReportingReportNode']
-    self.__markupTreeView.nodeTypes = nodeTypes
-    self.__markupTreeView.listenNodeModifiedEvent = 1
-    self.__markupTreeView.sceneModelType = "Displayable"
+    # moved to custom tree view
+    #nodeTypes = ['vtkMRMLDisplayableHierarchyNode', 'vtkMRMLAnnotationHierarchyNode', 'vtkMRMLAnnotationNode', 'vtkMRMLVolumeNode', 'vtkMRMLReportingReportNode']
+    #self.__markupTreeView.nodeTypes = nodeTypes
+    #self.__markupTreeView.listenNodeModifiedEvent = 1
+    #self.__markupTreeView.sceneModelType = "DisplayableHierarchy"
+    # self.__markupTreeView.sceneModelType = "Displayable"
     # show these nodes even if they're hidden by being children of hidden hierarchy nodes
-    showHiddenNodeTypes = ['vtkMRMLAnnotationNode', 'vtkMRMLVolumeNode', 'vtkMRMLDisplayableHierarchyNode'] 
-    self.__markupTreeView.model().showHiddenForTypes = showHiddenNodeTypes    
+    # showHiddenNodeTypes = ['vtkMRMLAnnotationNode', 'vtkMRMLVolumeNode', 'vtkMRMLDisplayableHierarchyNode'] 
+    # self.__markupTreeView.model().showHiddenForTypes = showHiddenNodeTypes    
 
     markupFrameLayout.addRow(self.__markupTreeView)
 
@@ -208,6 +210,7 @@ class qSlicerReportingModuleWidget:
   def updateTreeView(self):
     # print "updateTreeView()"
     # make the tree view update
+    self.__markupTreeView.sceneModelType = "DisplayableHierarchy"
     # set the root to be the current report hierarchy root 
     if self.__rNode == None:
       print "updateTreeView: report node is not initialized!"
@@ -215,9 +218,9 @@ class qSlicerReportingModuleWidget:
     else:
       # the tree root node has to be a hierarchy node, so get the associated hierarchy node for the active report node
       rootNode = slicer.vtkMRMLHierarchyNode().GetAssociatedHierarchyNode(self.__rNode.GetScene(), self.__rNode.GetID())
-      # print " setting tree view root to be ",rootNode.GetID()
-      self.__markupTreeView.sceneModelType = "Displayable"
-      self.__markupTreeView.setRootNode(rootNode)
+      if rootNode:
+        self.__markupTreeView.setRootNode(rootNode)
+        print " setting tree view root to be ",rootNode.GetID()
 
   def onAnnotatedVolumeNodeChanged(self):
     print "onAnnotatedVolumeNodeChanged()"

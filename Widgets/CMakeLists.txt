@@ -22,11 +22,21 @@ set(module_widgets_include_directories
 set(module_widgets_SRCS
   qMRMLReportingAnnotationRANOWidget.cxx
   qMRMLReportingAnnotationRANOWidget.h
+  qMRMLReportingTreeView.cxx
+  qMRMLReportingTreeView.h
+  qMRMLReportingTreeView_p.h
+  qMRMLSceneDisplayableHierarchyModel.cxx
+  qMRMLSceneDisplayableHierarchyModel.h
+  qMRMLSortFilterDisplayableHierarchyProxyModel.cxx
+  qMRMLSortFilterDisplayableHierarchyProxyModel.h
  )
 
 # Headers that should run through moc
 set(module_widgets_MOC_SRCS
   qMRMLReportingAnnotationRANOWidget.h
+  qMRMLReportingTreeView.h
+  qMRMLSceneDisplayableHierarchyModel.h
+  qMRMLSortFilterDisplayableHierarchyProxyModel.h
   )
 
 # UI files
@@ -40,6 +50,7 @@ set(module_widgets_resources
 # Additional Target libraries
 set(module_widgets_target_libraries
   vtkSlicerReportingModuleMRML
+  vtkSlicerAnnotationsModuleMRML
   )
 
 SlicerMacroBuildModuleWidgets(
