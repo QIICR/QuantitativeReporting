@@ -71,14 +71,16 @@ qSlicerReportingModule::~qSlicerReportingModule()
 //-----------------------------------------------------------------------------
 QString qSlicerReportingModule::helpText()const
 {
-  return "This ReportingModule module illustrates how a loadable module should "
-      "be implemented.";
+  return "Reporting module provides support for structured markup and annotation, and \
+    some support of AIM import/export. This is work in progress, see details \
+    <a href=\"http://wiki.na-mic.org/Wiki/index.php/Projects:QIN:3D_Slicer_Annotation_Image_Markup\">\
+    QIN:3D Slicer Annotation Image Markup</a>.";
 }
 
 //-----------------------------------------------------------------------------
 QString qSlicerReportingModule::acknowledgementText()const
 {
-  return "This work was supported by ...";
+  return "This work was supported by a supplement to NIH grant U01CA151261 (PI Fiona Fennessy).";
 }
 
 //-----------------------------------------------------------------------------
@@ -90,19 +92,24 @@ QIcon qSlicerReportingModule::icon()const
 //-----------------------------------------------------------------------------
 QStringList qSlicerReportingModule::categories() const 
 { 
-  return QStringList() << "Informatics"; 
+  return QStringList() << "Work in Progress.Informatics"; 
 }
 
 //-----------------------------------------------------------------------------
 QStringList qSlicerReportingModule::dependencies() const
 {
-  return QStringList() << "Annotations" << "Volumes";
+  return QStringList() << "Annotations" << "Volumes" << "DICOM";
 }
 
 //-----------------------------------------------------------------------------
 QStringList qSlicerReportingModule::contributors() const
 {
-  return QStringList() << "Andrey Fedorov" << "Nicole Aucoin";
+  QStringList contributors;
+  contributors << "Andrey Fedorov (SPL, BWH)";
+  contributors << "Nicole Aucoin (SPL, BWH)";
+  contributors << "Steve Pieper (Isomics)";
+
+  return contributors;
 }
 
 
