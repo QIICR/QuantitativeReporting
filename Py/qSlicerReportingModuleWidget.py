@@ -245,6 +245,23 @@ class qSlicerReportingModuleWidget:
       Helper.SetBgFgVolumes(self.__vNode.GetID(), '')
       Helper.RotateToVolumePlanes()
 
+      # figure out scan order
+      mat = vtk.vtkMatrix4x4()
+      self.__vNode.GetIJKToRASMatrix(mat)
+      scanOrder = ""
+      scanOrder = self.__vNode.ComputeScanOrderFromIJKToRAS(mat)
+      orientation = "Unknown"
+      if scanOrder == "LR" or scanOrder == "RL":
+        orientation = "Sagittal"
+      elif scanOrder == "PA" or scanOrder == "AP":
+        orientation = "Coronal"
+      elif scanOrder == "IS" or scanOrder == "SI":
+        orientation = "Axial"
+      if orientation == "Unknown":
+        print "Unable to detect orientation from IJK to RAS matrix of volume"
+      else:
+        print "Orientation of volume is ",orientation,". Please place mark ups in the ",orientation," slice viewer."
+
       # print "Calling logic to set up hierarchy"
       self.__logic.InitializeHierarchyForVolume(self.__vNode)
       # AF: do we need this call here?
