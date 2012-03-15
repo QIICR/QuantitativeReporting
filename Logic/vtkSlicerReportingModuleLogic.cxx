@@ -566,6 +566,11 @@ char *vtkSlicerReportingModuleLogic::GetVolumeIDForReportNode(vtkMRMLReportingRe
 //---------------------------------------------------------------------------
 char *vtkSlicerReportingModuleLogic::GetAnnotationIDForReportNode(vtkMRMLReportingReportNode *node)
 {
+
+  vtkErrorMacro("GetAnnotationIDForReportNode: This method is deprecated! Should not be here!");
+  assert(0);
+
+
   if (!node)
     {
     return NULL;
@@ -697,7 +702,6 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
 
   vtkMRMLScalarVolumeNode *volumeNode = NULL;
   vtkMRMLAnnotationHierarchyNode *markupHierarchyNode = NULL;
-  vtkMRMLReportingAnnotationRANONode *annotationNode = NULL;
 
   // only one volume is allowed for now, so get the active one
   char *volumeID = this->GetVolumeIDForReportNode(reportNode);
@@ -731,21 +735,6 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
       }
     }
 
-  // get the annotation node for this report
-  char *annotationID = this->GetAnnotationIDForReportNode(reportNode);
-  if (annotationID)
-    {
-    vtkMRMLNode *mrmlAnnotationNode = this->GetMRMLScene()->GetNodeByID(annotationID);
-    if (!mrmlAnnotationNode)
-      {
-      vtkErrorMacro("SaveReportToAIM: annotation node not found by id: " << annotationID);
-      }
-    else
-      {
-      annotationNode = vtkMRMLReportingAnnotationRANONode::SafeDownCast(mrmlAnnotationNode);
-      }
-    }
-  
   // open the file for writing
   
   // generated the document and parent elements
@@ -764,7 +753,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   root.setAttribute("codeValue", "RANO");
   root.setAttribute("codeSchemeDesignator", "RANO");
   root.setAttribute("dateTime","2012-02-29T00:00:00");
-  root.setAttribute("name","123456_andrey");
+  root.setAttribute("name",reportNode->GetDescription());
   root.setAttribute("uniqueIdentifier","n.a");
   root.setAttribute("xmlns:xsi","http://www.w3.org/2001/XMLSchema-instance");
   root.setAttribute("xsi:schemaLocation","gme://caCORE.caCORE/3.2/edu.northwestern.radiology.AIM AIM_v3_rv11_XML.xsd");
@@ -773,29 +762,9 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
 
   // (Step 2) Create inference collection and initialize each of the inference
   // objects based on the content of the annotation node
-  QDomElement inferenceCollection = doc.createElement("inferenceCollection");
-  root.appendChild(inferenceCollection);
-
-  std::vector<std::string> selectedCodes = annotationNode->GetSelectedCodeList();
-  std::map<std::string, std::string> codeToMeaningMap = annotationNode->GetCodeToMeaningMap();
-
-  for(std::vector<std::string>::const_iterator it=selectedCodes.begin();
-    it!=selectedCodes.end();++it)
-    {
-    std::string code = (*it);
-    std::string meaning = codeToMeaningMap[*it];
-
-    QDomElement inference = doc.createElement("Inference");
-    inference.setAttribute("cagridId","0");
-    inference.setAttribute("codeMeaning",meaning.c_str());
-    inference.setAttribute("codeValue",code.c_str());
-    inference.setAttribute("codingSchemeDesignator","RANO");
-    inference.setAttribute("codingSchemeVersion","");
-    inference.setAttribute("imageEvidence","True");
-
-    inferenceCollection.appendChild(inference);
-    }
-
+  //
+  // Deprecated
+  
   // (Step 3) Initialize user/equipment/person (these have no meaning for now
   // here)
   QDomElement user = doc.createElement("user");
@@ -834,12 +803,6 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   if (reportNode)
     {
     std::cout << "SaveReportToAIM: saving report node " << reportNode->GetName() << std::endl;
-    }
-  
-  // print out the annotation
-  if (annotationNode)
-    {
-    std::cout << "SaveReportToAIM: saving annotation node " << annotationNode->GetName() << std::endl;
     }
   
   // print out the volume

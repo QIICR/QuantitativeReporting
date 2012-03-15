@@ -120,16 +120,17 @@ class qSlicerReportingModuleWidget:
     self.__volumeSelector.connect('mrmlSceneChanged(vtkMRMLScene*)', self.onMRMLSceneChanged)
 
     self.__annotationsFrame = ctk.ctkCollapsibleButton()
-    self.__annotationsFrame.text = "Annotations"
+    self.__annotationsFrame.text = "Annotation"
     self.__annotationsFrame.collapsed = 0
     annotationsFrameLayout = qt.QFormLayout(self.__annotationsFrame)
     
     self.layout.addWidget(self.__annotationsFrame)
 
-    self.__annotationWidget = slicer.qMRMLReportingAnnotationRANOWidget()
-    self.__annotationWidget.setMRMLScene(slicer.mrmlScene)
-    
-    annotationsFrameLayout.addRow(self.__annotationWidget)
+    label = qt.QLabel('Annotation name')
+    self.__annotationName = qt.QLineEdit()
+    self.__annotationName.connect('textChanged(QString)',self.annotationNameChanged)
+
+    annotationsFrameLayout.addRow(label, self.__annotationName)
 
     self.__markupFrame = ctk.ctkCollapsibleButton()
     self.__markupFrame.text = "Markup"
@@ -206,6 +207,10 @@ class qSlicerReportingModuleWidget:
     # AF: need to look what this means ...
     # self.__logic.GetMRMLManager().SetMRMLScene(mrmlScene)
     
+  def annotationNameChanged(self, newName):
+    if self.__rNode != None:
+      self.__rNode.SetDescription(newName)
+
   def updateTreeView(self):
     # print "updateTreeView()"
     # make the tree view update
@@ -257,18 +262,16 @@ class qSlicerReportingModuleWidget:
     self.__vNode = None
     self.__volumeSelector.setCurrentNode(None)
     if self.__rNode != None:
+
+      self.__annotationName.text = self.__rNode.GetDescription()
+
       self.__logic.InitializeHierarchyForReport(self.__rNode)
       self.updateTreeView()
       vID = self.__logic.GetVolumeIDForReportNode(self.__rNode)
       if vID:
         self.__vNode = slicer.mrmlScene.GetNodeByID(vID)      
         self.__volumeSelector.setCurrentNode(self.__vNode)
-      # get the annotation node for this report
-      aID = self.__logic.GetAnnotationIDForReportNode(self.__rNode)
-      if aID:
-        # set the node on the widget
-        self.__annotationNode = slicer.mrmlScene.GetNodeByID(aID)   
-        self.__annotationWidget.setMRMLAnnotationNode(self.__annotationNode)
+
       # hide the markups that go with other report nodes
       self.__logic.HideAnnotationsForOtherReports(self.__rNode)
 
@@ -292,8 +295,6 @@ class qSlicerReportingModuleWidget:
     self.__reportSelector.setCurrentNode(newReport)
     self.onReportNodeChanged()
 
-    ann = self.__annotationNode
-
     # initialize the report hierarchy
     #  -- assume that report node has been created and is in the selector
 
@@ -312,6 +313,15 @@ class qSlicerReportingModuleWidget:
     ddb = slicer.dicomDatabase
     volId = 1
     volume = None
+  
+    # get the annotation element and retrieve its name
+    annotations = dom.getElementsByTagName('ImageAnnotation')
+    if len(annotations) == 0:
+      print 'AIM file does not contain any annotations!'
+      return
+    ann = annotations[0]
+    newReport.SetDescription(ann.getAttribute('name'))
+
     # pull all the volumes that are referenced into the scene
     for node in dom.getElementsByTagName('ImageSeries'):
       instanceUID = node.getAttribute('instanceUID')
@@ -348,12 +358,6 @@ class qSlicerReportingModuleWidget:
     #     |
     #     +-SpatialCoordinate
     #
-
-    inferences = dom.getElementsByTagName('Inference')
-
-    for i in range(len(inferences)):
-      inf = inferences[i]
-      ann.SetSelectedCode(i, inf.getAttribute('codeValue'))
 
     for node in dom.getElementsByTagName('GeometricShape'):
 
@@ -437,15 +441,6 @@ class qSlicerReportingModuleWidget:
     self.__rNode = self.__reportSelector.currentNode()
     if self.__rNode == None:
       return
-
-    # get the annotation node and fill it in
-    aID = self.__logic.GetAnnotationIDForReportNode(self.__rNode)
-    if aID:
-      # get the node
-      self.__annotationNode = slicer.mrmlScene.GetNodeByID(aID) 
-      # TODO: 
-      # update the annotation node from te
-      # self.__annotationNode = 
 
     #  -- traverse markup hierarchy and translate
     retval = self.__logic.SaveReportToAIM(self.__rNode, fileName)
