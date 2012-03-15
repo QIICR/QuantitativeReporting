@@ -186,6 +186,24 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     {
     hnode->SetParentNodeID(this->GetActiveMarkupHierarchyID());
     }
+
+  // rename it from the reporting node
+  vtkMRMLAnnotationNode *annotationNode = vtkMRMLAnnotationNode::SafeDownCast(node);
+  vtkMRMLNode *reportNode = NULL;
+  vtkMRMLNode *activeReport = this->GetMRMLScene()->GetNodeByID(this->GetActiveReportHierarchyID());
+  if (activeReport)
+    {
+    vtkMRMLDisplayableHierarchyNode *reportHierarchyNode = vtkMRMLDisplayableHierarchyNode::SafeDownCast(activeReport);
+    if (reportHierarchyNode)
+      {
+      reportNode = reportHierarchyNode->GetAssociatedNode();
+      }
+    }
+  if (annotationNode && reportNode)
+    {
+    annotationNode->SetName(annotationNode->GetScene()->GetUniqueNameByString(reportNode->GetDescription()));
+    }
+  
   // TODO: sanity check to make sure that the annotation's AssociatedNodeID
   // attribute points to the current volume
 }
