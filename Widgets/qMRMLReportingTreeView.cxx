@@ -647,16 +647,18 @@ void qMRMLReportingTreeView::onClicked(const QModelIndex& index)
 void qMRMLReportingTreeView::toggleVisibility(const QModelIndex& index)
 {
   vtkMRMLNode* node = this->sortFilterProxyModel()->mrmlNodeFromIndex(index);
+  
+  vtkMRMLAnnotationNode *annotationNode = vtkMRMLAnnotationNode::SafeDownCast(node);
   vtkMRMLDisplayNode* displayNode =
     vtkMRMLDisplayNode::SafeDownCast(node);
   vtkMRMLDisplayableNode* displayableNode =
     vtkMRMLDisplayableNode::SafeDownCast(node);
   vtkMRMLDisplayableHierarchyNode* displayableHierarchyNode =
       vtkMRMLDisplayableHierarchyNode::SafeDownCast(node);
+  int visibility = -1;
   if (displayableHierarchyNode)
     {
     vtkMRMLDisplayNode *hierDisplayNode = displayableHierarchyNode->GetDisplayNode();
-    int visibility = 1;
     if (hierDisplayNode)
       {
       visibility = (hierDisplayNode->GetVisibility() ? 0 : 1);
@@ -665,14 +667,22 @@ void qMRMLReportingTreeView::toggleVisibility(const QModelIndex& index)
     vtkMRMLModelHierarchyLogic::SetChildrenVisibility(displayableHierarchyNode,visibility);
     this->mrmlScene()->EndState(vtkMRMLScene::BatchProcessState);
     }
+  else if (annotationNode)
+    {
+    visibility = !annotationNode->GetVisible();
+    annotationNode->SetVisible(visibility);
+    }
   else if (displayNode)
     {
-    displayNode->SetVisibility(displayNode->GetVisibility() ? 0 : 1);
+    visibility = displayNode->GetVisibility() ? 0 : 1;
+    displayNode->SetVisibility(visibility);
     }
   else if (displayableNode)
     {
-    displayableNode->SetDisplayVisibility(displayableNode->GetDisplayVisibility() ? 0 : 1);
+    visibility = displayableNode->GetDisplayVisibility() ? 0 : 1;
+    displayableNode->SetDisplayVisibility(visibility);
     }
+ 
 }
 
 //------------------------------------------------------------------------------
