@@ -31,6 +31,7 @@
 #include <vtkMRMLDisplayableHierarchyNode.h>
 
 // MRML includes
+#include <vtkMRMLAnnotationNode.h>
 
 // VTK includes
 #include <vtkCollection.h>
@@ -45,6 +46,7 @@ public:
   qMRMLSceneDisplayableHierarchyModelPrivate(qMRMLSceneDisplayableHierarchyModel& object);
 
   virtual vtkMRMLHierarchyNode* CreateHierarchyNode()const;
+  virtual void init();
 
 };
 
@@ -53,6 +55,14 @@ qMRMLSceneDisplayableHierarchyModelPrivate
 ::qMRMLSceneDisplayableHierarchyModelPrivate(qMRMLSceneDisplayableHierarchyModel& object)
   : Superclass(object)
 {
+}
+
+//------------------------------------------------------------------------------
+void qMRMLSceneDisplayableHierarchyModelPrivate::init()
+{
+    Q_Q(qMRMLSceneDisplayableHierarchyModel);
+    q->setVisibilityColumn(0);
+    
 }
 
 //------------------------------------------------------------------------------
@@ -226,4 +236,39 @@ bool qMRMLSceneDisplayableHierarchyModel::canBeAParent(vtkMRMLNode* node)const
   // probably need to tweak here to say can be a parent if there's an
   // associated node
   return false;
+}
+
+//------------------------------------------------------------------------------
+void qMRMLSceneDisplayableHierarchyModel::updateItemDataFromNode(QStandardItem* item, vtkMRMLNode* node, int column)
+{
+//  Q_D(qMRMLSceneDisplayableHierarchyModel);
+
+  this->Superclass::updateItemDataFromNode(item, node, column);
+
+  if (!node)
+    {
+    return;
+    }
+  // the superclass update call won't work on annotation nodes as they've
+  // got a different call to get the visibility flag
+  if (!node->IsA("vtkMRMLAnnotationNode"))
+    {
+    return;
+    }
+  if (column == this->visibilityColumn())
+    {
+    vtkMRMLAnnotationNode *annotationNode = vtkMRMLAnnotationNode::SafeDownCast(node);
+    if (annotationNode)
+      {
+      // update the icon
+      if (annotationNode->GetVisible())
+        {
+        item->setIcon(QIcon(":Icons/VisibleOn.png"));
+        }
+      else
+        {
+        item->setIcon(QIcon(":Icons/VisibleOff.png"));
+        }
+      }
+    }
 }
