@@ -473,7 +473,11 @@ class qSlicerReportingModuleWidget:
     reportID = pn.GetParameter('reportID')
 
     if reportID != None:
-      self.__reportSelector.setCurrentNode(Helper.getNodeByID(reportID))
+      self.__rNode = Helper.getNodeByID(reportID)
+      # AF: looks like this does not trigger event, why?
+      self.__reportSelector.setCurrentNode(self.__rNode)
+      if self.__rNode != None:
+        self.__annotationName.text = self.__rNode.GetDescription()
 
   def updateParametersFromWidget(self):
     pn = self.__parameterNode
