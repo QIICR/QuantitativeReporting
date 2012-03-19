@@ -166,8 +166,16 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     {
     return;
     }
-  if (!node->IsA("vtkMRMLAnnotationFiducialNode") &&
-      !node->IsA("vtkMRMLAnnotationRulerNode"))
+  std::string annotationType;
+  if (node->IsA("vtkMRMLAnnotationFiducialNode"))
+    {
+    annotationType = "Fiducial";
+    }
+  else if (node->IsA("vtkMRMLAnnotationRulerNode"))
+    {
+    annotationType = "Ruler";
+    }
+  else
     {
     return;
     }
@@ -201,7 +209,8 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     }
   if (annotationNode && reportNode)
     {
-    annotationNode->SetName(annotationNode->GetScene()->GetUniqueNameByString(reportNode->GetDescription()));
+    std::string annotationName = std::string(reportNode->GetDescription())+"_"+annotationType;
+    annotationNode->SetName(annotationNode->GetScene()->GetUniqueNameByString(annotationName.c_str()));
     }
   
   // TODO: sanity check to make sure that the annotation's AssociatedNodeID
