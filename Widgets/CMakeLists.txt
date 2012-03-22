@@ -7,7 +7,6 @@ project(qSlicer${EXTENSION_NAME}ModuleWidgets)
 set(module_widgets_name ${PROJECT_NAME})
 
 # The header '${module_widgets_name}Export.h' will be automatically configured.
-MESSAGE(STATUS "Relying on auto creation of file ${module_widgets_name}Export.h")
 set(module_widgets_export_directive "Q_SLICER_MODULE_REPORTING_WIDGETS_EXPORT")
 
 # Additional directories to include
