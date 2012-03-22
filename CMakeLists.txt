@@ -15,7 +15,7 @@ endif()
 #   - You shouldn't call 'project(...)'. See SlicerConfig.cmake for more details.
 #-----------------------------------------------------------------------------
 set(EXTENSION_NAME Reporting)
-set(qt_module_name "Reporting")
+
 #-----------------------------------------------------------------------------
 # Prerequisites
 #-----------------------------------------------------------------------------

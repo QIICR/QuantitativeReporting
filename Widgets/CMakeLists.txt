@@ -1,5 +1,4 @@
-project(qSlicer${qt_module_name}ModuleWidgets)
-
+project(qSlicer${EXTENSION_NAME}ModuleWidgets)
 # from Modules/Annotations/Widgets
 
 #
