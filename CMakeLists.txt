@@ -9,17 +9,13 @@ if(POLICY CMP0017)
   cmake_policy(SET CMP0017 OLD)
 endif()
 
-# include SQL not included by default
-list(APPEND Slicer_REQUIRED_QT_MODULES SQL)
-include(SlicerBlockFindQtAndCheckVersion)
-
 #-----------------------------------------------------------------------------
 # Module name
 #   - Usually identique to the directory name)
 #   - You shouldn't call 'project(...)'. See SlicerConfig.cmake for more details.
 #-----------------------------------------------------------------------------
 set(EXTENSION_NAME Reporting)
-set(qt_module_name "Reporting")
+
 #-----------------------------------------------------------------------------
 # Prerequisites
 #-----------------------------------------------------------------------------
@@ -45,6 +41,9 @@ if(NOT Slicer_SOURCE_DIR)
 
 endif()
 
+# Include SQL not included by default
+list(APPEND Slicer_REQUIRED_QT_MODULES SQL)
+include(SlicerBlockFindQtAndCheckVersion)
 
 # Add subdirectories
 add_subdirectory(MRML)

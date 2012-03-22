@@ -1,15 +1,19 @@
+
+// Reporting/MRML includes
 #include "vtkMRMLReportingAnnotationRANONode.h"
-#include "vtkMRMLScene.h"
 
+// MRML includes
+#include <vtkMRMLCoreTestingMacros.h>
+#include <vtkMRMLScene.h>
+
+// STD includes
 #include <sstream>
-
-#include "TestingMacros.h"
 
 int vtkMRMLReportingAnnotationRANONodeTest1(int , char * [] )
 {
 
   // ======================
-  // Basic Setup 
+  // Basic Setup
   // ======================
 
   vtkSmartPointer< vtkMRMLReportingAnnotationRANONode > node2 = vtkSmartPointer< vtkMRMLReportingAnnotationRANONode >::New();
@@ -18,7 +22,7 @@ int vtkMRMLReportingAnnotationRANONodeTest1(int , char * [] )
 
   {
 
-    vtkSmartPointer< vtkMRMLReportingAnnotationRANONode > node1 = vtkSmartPointer< vtkMRMLReportingAnnotationRANONode >::New();  
+    vtkSmartPointer< vtkMRMLReportingAnnotationRANONode > node1 = vtkSmartPointer< vtkMRMLReportingAnnotationRANONode >::New();
     // node1->Initialize(mrmlScene);
 
     EXERCISE_BASIC_OBJECT_METHODS( node1 );
@@ -29,7 +33,7 @@ int vtkMRMLReportingAnnotationRANONodeTest1(int , char * [] )
     mrmlScene->RegisterNodeClass(node1);
     mrmlScene->AddNode(node2);
   }
-  
+
   // ======================
   // Modify Properties
   // ======================
@@ -39,10 +43,10 @@ int vtkMRMLReportingAnnotationRANONodeTest1(int , char * [] )
 
 
   node2->SetName("ReportingAnnotationRANONodeTest") ;
-  
+
   std::string nodeTagName = node2->GetNodeTagName();
   std::cout << "Node Tag Name = " << nodeTagName << std::endl;
- 
+
   vtkIndent ind;
 
   cout << "Passed Adding and Deleting Data" << endl;
@@ -50,31 +54,31 @@ int vtkMRMLReportingAnnotationRANONodeTest1(int , char * [] )
   node2->Modified();
 
   // ======================
-  // Test WriteXML and ReadXML 
+  // Test WriteXML and ReadXML
   // ======================
 
   mrmlScene->SetURL("ReportingAnnotationRANONodeTest.mrml");
   mrmlScene->Commit();
 
-  // Now Read in File to see if ReadXML works - it first disconnects from node2 ! 
+  // Now Read in File to see if ReadXML works - it first disconnects from node2 !
   mrmlScene->Connect();
   vtkIndent ij;
 
-  if (mrmlScene->GetNumberOfNodesByClass("vtkMRMLReportingAnnotationRANONode") != 1) 
+  if (mrmlScene->GetNumberOfNodesByClass("vtkMRMLReportingAnnotationRANONode") != 1)
     {
         std::cerr << "Error in ReadXML() or WriteXML() - Did not create a class called vtkMRMLReportingAnnotationRANONode" << std::endl;
     return EXIT_FAILURE;
     }
 
   vtkMRMLReportingAnnotationRANONode *node1 = dynamic_cast < vtkMRMLReportingAnnotationRANONode *> (mrmlScene->GetNthNodeByClass(0,"vtkMRMLReportingAnnotationRANONode"));
-  if (!node2) 
+  if (!node2)
       {
     std::cerr << "Error in ReadXML() or WriteXML(): could not find vtkMRMLReportingAnnotationRANONode" << std::endl;
     return EXIT_FAILURE;
       }
 
   std::stringstream node1str, node2str;
-  
+
 
   node2->PrintSelf(cout,ind);
   node2->PrintSelf(node2str, ind);
@@ -98,7 +102,7 @@ int vtkMRMLReportingAnnotationRANONodeTest1(int , char * [] )
   cout << "Passed XML" << endl;
 
   return EXIT_SUCCESS;
-  
+
 }
 
 

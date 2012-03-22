@@ -71,10 +71,10 @@ qSlicerReportingModule::~qSlicerReportingModule()
 //-----------------------------------------------------------------------------
 QString qSlicerReportingModule::helpText()const
 {
-  return "Reporting module provides support for structured markup and annotation, and \
-    some support of AIM import/export. This is work in progress, see details \
-    <a href=\"http://wiki.na-mic.org/Wiki/index.php/Projects:QIN:3D_Slicer_Annotation_Image_Markup\">\
-    QIN:3D Slicer Annotation Image Markup</a>.";
+  return "Reporting module provides support for structured markup and annotation, and "
+    "some support of AIM import/export. This is work in progress, see details "
+    "<a href=\"http://wiki.na-mic.org/Wiki/index.php/Projects:QIN:3D_Slicer_Annotation_Image_Markup\">"
+    "QIN:3D Slicer Annotation Image Markup</a>.";
 }
 
 //-----------------------------------------------------------------------------
@@ -90,9 +90,9 @@ QIcon qSlicerReportingModule::icon()const
 }
 
 //-----------------------------------------------------------------------------
-QStringList qSlicerReportingModule::categories() const 
-{ 
-  return QStringList() << "Work in Progress.Informatics"; 
+QStringList qSlicerReportingModule::categories() const
+{
+  return QStringList() << "Work in Progress.Informatics";
 }
 
 //-----------------------------------------------------------------------------
