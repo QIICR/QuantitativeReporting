@@ -1,5 +1,4 @@
 project(qSlicer${EXTENSION_NAME}ModuleWidgets)
-# from Modules/Annotations/Widgets
 
 #
 # See CMake/SlicerMacroBuildModuleWidgets.cmake for details
