@@ -5,7 +5,7 @@
 #include "vtkMRMLAnnotationPointDisplayNode.h"
 #include "vtkMRMLAnnotationLineDisplayNode.h"
 #include "vtkMRMLScalarVolumeNode.h"
-#include "TestingMacros.h"
+#include "vtkMRMLCoreTestingMacros.h"
 
 bool testUID(const char *uid)
 {
@@ -31,12 +31,12 @@ int vtkSlicerReportingModuleLogicTest1(int , char * [] )
 {
 
   // ======================
-  // Basic Setup 
+  // Basic Setup
   // ======================
   vtkSmartPointer<vtkSlicerReportingModuleLogic > node2 = vtkSmartPointer< vtkSlicerReportingModuleLogic >::New();
   vtkSmartPointer<vtkMRMLScene> mrmlScene = vtkSmartPointer<vtkMRMLScene>::New();
   node2->SetMRMLScene(mrmlScene);
-  
+
   EXERCISE_BASIC_OBJECT_METHODS( node2 );
 
   // add an annotation node
@@ -145,7 +145,7 @@ int vtkSlicerReportingModuleLogicTest1(int , char * [] )
       std::cout << "Got expected uid of " << uid << std::endl;
       }
     }
-  return EXIT_SUCCESS;  
+  return EXIT_SUCCESS;
 }
 
 
