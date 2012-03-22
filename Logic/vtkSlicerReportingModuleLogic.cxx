@@ -35,9 +35,6 @@
 #include <vtkNew.h>
 #include <vtkSmartPointer.h>
 
-// STD includes
-#include <cassert>
-
 // Qt includes
 #include <QDomDocument>
 #include <QSettings>
@@ -45,7 +42,10 @@
 #include <QtXml>
 
 // CTK includes
-#include "ctkDICOMDatabase.h"
+#include <ctkDICOMDatabase.h>
+
+// STD includes
+#include <cassert>
 
 //----------------------------------------------------------------------------
 vtkStandardNewMacro(vtkSlicerReportingModuleLogic);

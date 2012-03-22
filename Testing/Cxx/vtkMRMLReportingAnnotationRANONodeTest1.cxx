@@ -1,9 +1,13 @@
+
+// Reporting/MRML includes
 #include "vtkMRMLReportingAnnotationRANONode.h"
-#include "vtkMRMLScene.h"
 
+// MRML includes
+#include <vtkMRMLCoreTestingMacros.h>
+#include <vtkMRMLScene.h>
+
+// STD includes
 #include <sstream>
-
-#include "vtkMRMLCoreTestingMacros.h"
 
 int vtkMRMLReportingAnnotationRANONodeTest1(int , char * [] )
 {

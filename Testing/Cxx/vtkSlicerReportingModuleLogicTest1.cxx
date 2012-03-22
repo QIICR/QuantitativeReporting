@@ -1,11 +1,17 @@
+
+// Reporting/Logic includes
 #include "vtkSlicerReportingModuleLogic.h"
-#include "vtkMRMLAnnotationRulerNode.h"
-#include "vtkMRMLAnnotationFiducialNode.h"
-#include "vtkMRMLAnnotationTextDisplayNode.h"
-#include "vtkMRMLAnnotationPointDisplayNode.h"
-#include "vtkMRMLAnnotationLineDisplayNode.h"
-#include "vtkMRMLScalarVolumeNode.h"
-#include "vtkMRMLCoreTestingMacros.h"
+
+// Annotation/MRML includes
+#include <vtkMRMLAnnotationRulerNode.h>
+#include <vtkMRMLAnnotationFiducialNode.h>
+#include <vtkMRMLAnnotationTextDisplayNode.h>
+#include <vtkMRMLAnnotationPointDisplayNode.h>
+#include <vtkMRMLAnnotationLineDisplayNode.h>
+
+// MRML includes
+#include <vtkMRMLCoreTestingMacros.h>
+#include <vtkMRMLScalarVolumeNode.h>
 
 bool testUID(const char *uid)
 {
