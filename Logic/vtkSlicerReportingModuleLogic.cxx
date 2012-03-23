@@ -225,25 +225,25 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeRemoved(vtkMRMLNode* vtkNotUs
 //---------------------------------------------------------------------------
 const char *vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotationNode *node)
 {
-  std::string UID = "NONE";
+  const char *UID = "NONE";
 
   if (!node)
     {
     vtkErrorMacro("GetSliceUIDFromMarkUp: no input node!");
-    return  UID.c_str();
+    return  UID;
     }
 
   if (!this->GetMRMLScene())
     {
     vtkErrorMacro("GetSliceUIDFromMarkUp: No MRML Scene defined!");
-    return UID.c_str();
+    return UID;
     }
   
   vtkMRMLAnnotationControlPointsNode *cpNode = vtkMRMLAnnotationControlPointsNode::SafeDownCast(node);
   if (!node)
     {
     vtkErrorMacro("GetSliceUIDFromMarkUp: Input node is not a control points node!");
-    return UID.c_str();
+    return UID;
     }
   
   int numPoints = cpNode->GetNumberOfControlPoints();
@@ -254,27 +254,27 @@ const char *vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotati
   if (!associatedNodeID)
     {
     vtkErrorMacro("GetSliceUIDFromMarkUp: No AssociatedNodeID on the annotation node");
-    return UID.c_str();
+    return UID;
     }
   vtkMRMLScalarVolumeNode *volumeNode = NULL;
   vtkMRMLNode *mrmlNode = this->GetMRMLScene()->GetNodeByID(associatedNodeID);
   if (!mrmlNode)
     {
     vtkErrorMacro("GetSliceUIDFromMarkUp: Associated node not found by id: " << associatedNodeID);
-    return UID.c_str();
+    return UID;
     }
   volumeNode = vtkMRMLScalarVolumeNode::SafeDownCast(mrmlNode);
   if (!volumeNode)
     {
     vtkErrorMacro("GetSliceUIDFromMarkUp: Associated node with id: " << associatedNodeID << " is not a volume node!");
-    return UID.c_str();
+    return UID;
     }
 
   // get the list of UIDs from the volume
   if (!volumeNode->GetAttribute("DICOM.instanceUIDs"))
     {
-    vtkErrorMacro("GetSliceUIDFromMarkUp: Volume node with id: " << associatedNodeID << " doesn't have a list of UIDs under the attribute DICOM.instanceUIDs!");
-    return UID.c_str();
+    vtkErrorMacro("GetSliceUIDFromMarkUp: Volume node with id: " << associatedNodeID << " doesn't have a list of UIDs under the attribute DICOM.instanceUIDs! Returning '" << UID << "'");
+    return UID;
     }
   std::string uidsString = volumeNode->GetAttribute("DICOM.instanceUIDs");
   // break them up into a vector, they're space separated
@@ -309,16 +309,16 @@ const char *vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotati
     if (uidVector.size() > ijk[2])
       {
       // assumption is that the dicom UIDs are in order by k
-      UID = uidVector[ijk[2]];
+      UID = uidVector[ijk[2]].c_str();
       }
     else
       {
       // multiframe data? set UID to the first one, but will need to store the
       // frame number on AIM import
-      UID = uidVector[0];
+      UID = uidVector[0].c_str();
       }
     }  
-  return UID.c_str();
+  return UID;
 
 }
 //---------------------------------------------------------------------------
@@ -705,6 +705,7 @@ void vtkSlicerReportingModuleLogic::HideAnnotationsForOtherReports(vtkMRMLReport
     }
 }
 
+//---------------------------------------------------------------------------
 int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *reportNode, const char *filename)
 {
   if(!this->DICOMDatabase)
@@ -862,17 +863,18 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
         if(fidNode || rulerNode)
           {
           // TODO: need to handle the case of multiframe data .. ?
-          QString sliceUID = this->GetSliceUIDFromMarkUp(annNode);
-
-          QStringList sliceUIDList;
-          sliceUIDList << sliceUID;
-          allInstanceUIDs << sliceUID;
-
-          if(sliceUID == "NONE")
+          QString sliceUID = QString(this->GetSliceUIDFromMarkUp(annNode));
+          if(sliceUID.compare("NONE") == 0)
             {
             std::cout << "Cannot save AIM report: volumes being annotated are not DICOM volumes!";
             return EXIT_FAILURE;
             }
+ 
+          QStringList sliceUIDList;
+          sliceUIDList << sliceUID;
+          allInstanceUIDs << sliceUID;
+
+         
 
           QStringList coordStr = this->GetMarkupPointCoordinatesStr(annNode);
 
@@ -1048,6 +1050,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     
 }
 
+//---------------------------------------------------------------------------
 int vtkSlicerReportingModuleLogic::AddSpatialCoordinateCollectionElement(QDomDocument &doc, QDomElement &parent,
   QStringList &coordList, QStringList &sliceUIDList)
 {
@@ -1076,48 +1079,49 @@ int vtkSlicerReportingModuleLogic::AddSpatialCoordinateCollectionElement(QDomDoc
   return EXIT_SUCCESS;
 }
 
+//---------------------------------------------------------------------------
 vtkMRMLScalarVolumeNode* vtkSlicerReportingModuleLogic::GetMarkupVolumeNode(vtkMRMLAnnotationNode *node)
 {
   if (!node)
     {
-    vtkErrorMacro("GetSliceUIDFromMarkUp: no input node!");
+    vtkErrorMacro("GetMarkupVolumeNode: no input node!");
     return  0;
     }
 
   if (!this->GetMRMLScene())
     {
-    vtkErrorMacro("GetSliceUIDFromMarkUp: No MRML Scene defined!");
+    vtkErrorMacro("GetMarkupVolumeNode: No MRML Scene defined!");
     return 0;
     }
 
   vtkMRMLAnnotationControlPointsNode *cpNode = vtkMRMLAnnotationControlPointsNode::SafeDownCast(node);
   if (!node)
     {
-    vtkErrorMacro("GetSliceUIDFromMarkUp: Input node is not a control points node!");
+    vtkErrorMacro("GetMarkupVolumeNode: Input node is not a control points node!");
     return 0;
     }
 
   int numPoints = cpNode->GetNumberOfControlPoints();
-  vtkDebugMacro("GetSliceUIDFromMarkUp: have a control points node with " << numPoints << " points");
+  vtkDebugMacro("GetMarkupVolumeNode: have a control points node with " << numPoints << " points");
 
   // get the associated node
   const char *associatedNodeID = cpNode->GetAttribute("AssociatedNodeID");
   if (!associatedNodeID)
     {
-    vtkErrorMacro("GetSliceUIDFromMarkUp: No AssociatedNodeID on the annotation node");
+    vtkErrorMacro("GetMarkupVolumeNode: No AssociatedNodeID on the annotation node");
     return 0;
     }
   vtkMRMLScalarVolumeNode *volumeNode = NULL;
   vtkMRMLNode *mrmlNode = this->GetMRMLScene()->GetNodeByID(associatedNodeID);
   if (!mrmlNode)
     {
-    vtkErrorMacro("GetSliceUIDFromMarkUp: Associated node not found by id: " << associatedNodeID);
+    vtkErrorMacro("GetMarkupVolumeNode: Associated node not found by id: " << associatedNodeID);
     return 0;
     }
   volumeNode = vtkMRMLScalarVolumeNode::SafeDownCast(mrmlNode);
   if (!volumeNode)
     {
-    vtkErrorMacro("GetSliceUIDFromMarkUp: Associated node with id: " << associatedNodeID << " is not a volume node!");
+    vtkErrorMacro("GetMarkupVolumeNode: Associated node with id: " << associatedNodeID << " is not a volume node!");
     return 0;
     }
   std::cout << "Associated volume node ID: " << volumeNode->GetID() << std::endl;
@@ -1129,6 +1133,7 @@ vtkMRMLScalarVolumeNode* vtkSlicerReportingModuleLogic::GetMarkupVolumeNode(vtkM
   return volumeNode;
 }
 
+//---------------------------------------------------------------------------
 QStringList vtkSlicerReportingModuleLogic::GetMarkupPointCoordinatesStr(vtkMRMLAnnotationNode *ann)
 {
   QStringList sl;
