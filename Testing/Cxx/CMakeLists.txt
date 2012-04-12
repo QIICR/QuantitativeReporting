@@ -23,27 +23,9 @@ set(LIBRARY_NAME qSlicer${EXTENSION_NAME}Module)
 add_executable(${EXTENSION_NAME}CxxTests ${Tests})
 target_link_libraries(${EXTENSION_NAME}CxxTests ${lib_name})
 
-macro(SIMPLE_TEST TESTNAME)
-  add_test(NAME ${TESTNAME} COMMAND ${Slicer_LAUNCH_COMMAND} $<TARGET_FILE:${EXTENSION_NAME}CxxTests> ${TESTNAME} ${ARGN})
-endmacro()
-
 #
 # Add all the tests
 #
-foreach(test ${Tests})
-  get_filename_component(TESTNAME ${test} NAME_WE)
-  add_test(
-    NAME ${TESTNAME}
-    COMMAND ${Slicer_LAUNCH_COMMAND} $<TARGET_FILE:${KIT}CxxTests> ${TESTNAME}
-      -D ${CMAKE_CURRENT_SOURCE_DIR}/../
-      -T ${TEMP}
-      #-V Baseline/${TESTNAME}.png
-    )
+foreach(testname ${KIT_TEST_NAMES})
+  SIMPLE_TEST( ${testname} )
 endforeach()
-
-
-#foreach(testname ${KIT_TEST_NAMES})
-#  SIMPLE_TEST( ${testname} )
-#endforeach()
-
-# Using SIMPLE_TEST(), you could add your test after this line.
