@@ -11,6 +11,7 @@ set(module_logic_export_directive "VTK_SLICER_REPORTINGMODULE_MODULE_LOGIC_EXPOR
 
 # Additional directories to include
 set(module_logic_include_directories
+  ${DCMTK_INCLUDE}
   )
 
 # Source files
@@ -22,6 +23,7 @@ set(module_logic_SRCS
 # Additional Target libraries
 set(module_logic_target_libraries
 #  ${ITK_LIBRARIES}
+  ${DCMTK_LIBRARIES}
   vtkSlicerAnnotationsModuleMRML
   vtkSlicerReportingModuleMRML
   )
