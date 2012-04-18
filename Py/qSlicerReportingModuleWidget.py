@@ -260,6 +260,7 @@ class qSlicerReportingModuleWidget:
       orientation = Helper.GetScanOrderSliceName(self.__vNode)
       print "Got scan order slice name:", orientation
       print "Please place mark ups in the ",orientation," slice viewer."
+      self.__parameterNode.SetParameter('acquisitionSliceViewer',orientation)
 
       # print "Calling logic to set up hierarchy"
       self.__logic.InitializeHierarchyForVolume(self.__vNode)

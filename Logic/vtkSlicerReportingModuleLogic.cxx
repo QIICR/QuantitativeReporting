@@ -266,6 +266,33 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     }
   vtkDebugMacro("OnMRMLSceneNodeAdded: gui is not hidden, got an annotation node added with id " << node->GetID());
 
+  /// check that the annotation was placed on the current acquisition plane
+  /// according to the parameter node
+  vtkMRMLScriptedModuleNode *parameterNode = NULL;
+  vtkMRMLNode *mrmlNode = this->GetMRMLScene()->GetNodeByID(this->GetActiveParameterNodeID());
+  std::string acquisitionSliceViewer;
+  if (mrmlNode)
+    {
+    parameterNode = vtkMRMLScriptedModuleNode::SafeDownCast(mrmlNode);
+    if (parameterNode)
+      {
+      acquisitionSliceViewer = parameterNode->GetParameter("acquisitionSliceViewer");
+      if (acquisitionSliceViewer.compare("") != 0)
+        {
+        std::cout << "Parameter node has acquisition plane = '" << acquisitionSliceViewer.c_str() << "'" << std::endl;
+        }
+      }
+    }
+
+  vtkMRMLAnnotationNode *annotationNode = vtkMRMLAnnotationNode::SafeDownCast(node);
+  
+  /// check that the annotation has a valid UID
+  const char *UID = this->GetSliceUIDFromMarkUp(annotationNode);
+  if (strcmp(UID, "NONE") == 0)
+    {
+    vtkErrorMacro("OnMRMLSceneNodeAdded: annotation " << annotationNode->GetName() << " isn't associated with a single UID from a volume, not using it for this report");
+    return;
+    }
   /// make a new hierarchy node to create a parallel tree?
   /// for now, just reasign it
   vtkMRMLHierarchyNode *hnode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(node->GetScene(), node->GetID());
@@ -275,7 +302,6 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     }
 
   // rename it from the reporting node
-  vtkMRMLAnnotationNode *annotationNode = vtkMRMLAnnotationNode::SafeDownCast(node);
   vtkMRMLNode *reportNode = NULL;
   vtkMRMLNode *activeReport = this->GetMRMLScene()->GetNodeByID(this->GetActiveReportHierarchyID());
   if (activeReport)
@@ -373,9 +399,9 @@ const char *vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotati
   vtkSmartPointer<vtkMatrix4x4> ras2ijk = vtkSmartPointer<vtkMatrix4x4>::New();
   volumeNode->GetRASToIJKMatrix(ras2ijk);
 
-
-//  for (int i = 0; i < numPoints; i++)
-  int i = 0;
+  // need to make sure that all the UIDs are the same
+  const char *UIDi = "NONE";
+  for (int i = 0; i < numPoints; i++)
     {
     vtkDebugMacro("i " << " uid = " << uidVector[i].c_str());
     // get the RAS point
@@ -388,13 +414,27 @@ const char *vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotati
     if (uidVector.size() > ijk[2])
       {
       // assumption is that the dicom UIDs are in order by k
-      UID = uidVector[ijk[2]].c_str();
+      UIDi = uidVector[ijk[2]].c_str();
       }
     else
       {
       // multiframe data? set UID to the first one, but will need to store the
       // frame number on AIM import
-      UID = uidVector[0].c_str();
+      UIDi = uidVector[0].c_str();
+      }
+    if (i == 0)
+      {
+      UID = UIDi;
+      }
+    else
+      {
+      // check if UIDi does not match UID
+      if (strcmp(UIDi, UID) != 0)
+        {
+        vtkWarningMacro("GetSliceUIDFromMarkUp: annotation " << cpNode->GetName() << " point " << i << " has a UID of:\n" << UIDi << "\nthat doesn't match previous UIDs of:\n" << UID << "\n\tReturning UID of NONE");
+        UID = "NONE";
+        break;
+        }
       }
     }  
   return UID;
