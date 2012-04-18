@@ -66,7 +66,12 @@ class qSlicerReportingModuleWidget:
       # keep active report and volume
       self.__rNode = None
       self.__vNode = None
- 
+    if self.__parameterNode != None:
+      paramID = self.__parameterNode.GetID()
+      self.__logic.SetActiveParameterNodeID(paramID)
+      # print 'Set logic active parameter node id from',self.__parameterNode.GetID(),", logic id is now =",self.__logic.GetActiveParameterNodeID()
+    else:
+      print 'Unable to set logic active parameter node'
 
   def setup( self ):
     # Use the logic associated with the module
@@ -173,12 +178,14 @@ class qSlicerReportingModuleWidget:
     lm.setLayout(26) # two over two
 
     # print "Reporting Enter"
-    # update the logic active markup
+    # update the logic to know that the module has been entered
+    self.__logic.GUIHiddenOff()
     self.updateWidgetFromParameters()
 
     vnode = self.__volumeSelector.currentNode()
     if vnode != None:
       # print "Enter: setting active hierarchy from node ",vnode.GetID()
+      # update the logic active markup
       self.__logic.SetActiveMarkupHierarchyIDFromNode(vnode)
       self.updateTreeView()
 
@@ -186,11 +193,11 @@ class qSlicerReportingModuleWidget:
   def exit(self):
     self.updateParametersFromWidget()
 
-    # print "Reporting Exit. setting active hierarchy to 0"
-    # turn off the active mark up so new annotations can go elsewhere
-    self.__logic.SetActiveMarkupHierarchyIDToNull()
+    # print "Reporting Exit. Letting logic know that module has been exited"
+    # let the module logic know that the GUI is hidden, so that fiducials can go elsewehre
+    self.__logic.GUIHiddenOn()
 
-     
+
   # AF: I am not exactly sure what are the situations when MRML scene would
   # change, but I recall handling of this is necessary, otherwise adding
   # nodes from selector would not work correctly
@@ -267,6 +274,8 @@ class qSlicerReportingModuleWidget:
       # AF: do we need this call here?
       self.updateTreeView()
 
+     
+
 
   def onReportNodeChanged(self):
     print "onReportNodeChanged()"
@@ -280,6 +289,9 @@ class qSlicerReportingModuleWidget:
     self.__volumeSelector.setCurrentNode(None)
     if self.__rNode != None:
 
+      # update the parameter node
+      self.__parameterNode.SetParameter("reportID", self.__rNode.GetID())
+
       self.__annotationName.text = self.__rNode.GetDescription()
 
       self.__logic.InitializeHierarchyForReport(self.__rNode)
@@ -292,8 +304,8 @@ class qSlicerReportingModuleWidget:
       # hide the markups that go with other report nodes
       self.__logic.HideAnnotationsForOtherReports(self.__rNode)
 
-      # update the parameter node
-      self.__parameterNode.SetParameter("reportID", self.__rNode.GetID())
+
+
 
   '''
   Load report and initialize GUI based on .xml report file content
