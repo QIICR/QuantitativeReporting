@@ -37,6 +37,7 @@
 #include <vtkMatrix4x4.h>
 #include <vtkNew.h>
 #include <vtkSmartPointer.h>
+#include <vtksys/SystemTools.hxx>
 
 // Qt includes
 #include <QDomDocument>
@@ -49,6 +50,7 @@
 
 // STD includes
 #include <cassert>
+#include <time.h>
 
 //----------------------------------------------------------------------------
 vtkStandardNewMacro(vtkSlicerReportingModuleLogic);
@@ -884,6 +886,17 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   // generated the document and parent elements
   //
   // (Step 1) Initialize ImageAnnotation and attributes
+
+  // first get the current time
+  struct tm * timeInfo;
+  time_t rawtime;
+  // yyyy/mm/dd-hh-mm-ss-ms-TZ
+  // plus one for 3 char time zone
+  char timeStr[27];
+  time ( &rawtime );
+  timeInfo = localtime (&rawtime);
+  strftime (timeStr, 27, "%Y/%m/%d-%H-%M-%S-00-%Z", timeInfo);
+  
   QDomDocument doc;
   QDomProcessingInstruction xmlDecl = doc.createProcessingInstruction("xml","version=\"1.0\"");
   doc.appendChild(xmlDecl);
@@ -896,7 +909,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   root.setAttribute("codeMeaning","Response Assessment in Neuro-Oncology");
   root.setAttribute("codeValue", "RANO");
   root.setAttribute("codeSchemeDesignator", "RANO");
-  root.setAttribute("dateTime","2012-02-29T00:00:00");
+  root.setAttribute("dateTime",timeStr);
   root.setAttribute("name",reportNode->GetDescription());
   root.setAttribute("uniqueIdentifier","n.a");
   root.setAttribute("xmlns:xsi","http://www.w3.org/2001/XMLSchema-instance");
@@ -911,9 +924,20 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   
   // (Step 3) Initialize user/equipment/person (these have no meaning for now
   // here)
+
+  // get some environment variables first
+  std::string envUser, envHost, envHostName;
+  vtksys::SystemTools::GetEnv("USER", envUser);
+  vtksys::SystemTools::GetEnv("HOST", envHost);
+  if (envHost.compare("")== 0)
+    {
+    vtksys::SystemTools::GetEnv("HOSTNAME", envHostName);
+    }
+  
+  
   QDomElement user = doc.createElement("user");
   user.setAttribute("cagridId","0");
-  user.setAttribute("loginName","slicer");
+  user.setAttribute("loginName",envUser.c_str());
   user.setAttribute("name","slicer");
   user.setAttribute("numberWithinRoleOfClinicalTrial","1");
   user.setAttribute("roleInTrial","Performing");
