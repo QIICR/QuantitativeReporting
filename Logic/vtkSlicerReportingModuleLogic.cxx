@@ -31,6 +31,7 @@
 #include <vtkMRMLReportingAnnotationRANONode.h>
 
 // VTK includes
+#include <vtkImageData.h>
 #include <vtkMatrix4x4.h>
 #include <vtkNew.h>
 #include <vtkSmartPointer.h>
@@ -46,6 +47,19 @@
 
 // STD includes
 #include <cassert>
+
+// DCMTK includes
+#include <dcmtk/dcmdata/dcmetinf.h>
+#include <dcmtk/dcmdata/dcfilefo.h>
+#include <dcmtk/dcmdata/dcuid.h>
+#include <dcmtk/dcmdata/dcdict.h>
+#include <dcmtk/dcmdata/cmdlnarg.h>
+#include <dcmtk/ofstd/ofconapp.h>
+#include <dcmtk/ofstd/ofstd.h>
+#include <dcmtk/ofstd/ofdatime.h>
+#include <dcmtk/dcmdata/dcuid.h>         /* for dcmtk version name */
+#include <dcmtk/dcmdata/dcdeftag.h>      /* for DCM_StudyInstanceUID */
+
 
 //----------------------------------------------------------------------------
 vtkStandardNewMacro(vtkSlicerReportingModuleLogic);
@@ -1170,4 +1184,158 @@ QStringList vtkSlicerReportingModuleLogic::GetMarkupPointCoordinatesStr(vtkMRMLA
   }
 
   return sl;
+}
+
+bool vtkSlicerReportingModuleLogic::WriteLabelAsSegObject(vtkMRMLVolumeNode* srcNode,
+  vtkMRMLScalarVolumeNode* labelNode, char* filename)
+{
+
+  vtkSmartPointer<vtkImageData> labelImage = labelNode->GetImageData();
+  int extent[6];
+  labelImage->GetExtent(extent);
+  // get the DICOM instance UID(s) for the source series
+  
+
+  // create a DICOM dataset (see http://support.dcmtk.org/docs/mod_dcmdata.html#Examples)
+  DcmFileFormat fileformat;
+  DcmDataset *dataset = fileformat.getDataset();
+
+
+  // Get the image orientation information
+
+  // populate the pixel data
+  vtkSmartPointer<vtkMatrix4x4> IJKtoRAS = vtkSmartPointer<vtkMatrix4x4>::New();
+  vtkSmartPointer<vtkMatrix4x4> RAStoIJK = vtkSmartPointer<vtkMatrix4x4>::New();
+  vtkSmartPointer<vtkMatrix4x4> RAStoLPS = vtkSmartPointer<vtkMatrix4x4>::New();
+  vtkSmartPointer<vtkMatrix4x4> IJKtoLPS = vtkSmartPointer<vtkMatrix4x4>::New();
+  double spacing[3], origin[3];
+
+  labelNode->GetRASToIJKMatrix(RAStoIJK);
+  vtkMatrix4x4::Invert(RAStoIJK, IJKtoRAS);
+  IJKtoRAS->Transpose();
+
+  for(int i=0;i<3;i++)
+  {
+    spacing[i]=0;
+    for(int j=0;j<3;j++)
+    {
+      spacing[i]+=IJKtoRAS->GetElement(i,j)*IJKtoRAS->GetElement(i,j);
+    }
+    if(spacing[i]==0.)
+      spacing[i] = 1.;
+    spacing[i]=sqrt(spacing[i]);
+  }
+
+  for(int i=0;i<3;i++)
+  {
+    for(int j=0;j<3;j++)
+    {
+      IJKtoRAS->SetElement(i, j, IJKtoRAS->GetElement(i,j)/spacing[i]);
+    }
+  }
+
+  RAStoLPS->Identity();
+  RAStoLPS->SetElement(0,0,-1);
+  RAStoLPS->SetElement(1,1,-1);
+  vtkMatrix4x4::Multiply4x4(IJKtoRAS, RAStoLPS, IJKtoLPS);
+
+  origin[0] = IJKtoRAS->GetElement(3,0);
+  origin[1] = IJKtoRAS->GetElement(3,1)*-1.;
+  origin[2] = IJKtoRAS->GetElement(3,2)*-1.;
+
+  // Patient orientation definition:
+  //   http://dabsoft.ch/dicom/3/C.7.6.1.1.1/
+
+  char patientOrientationStr[64];
+  sprintf(patientOrientationStr, "%f\\%f\\%f\\%f\\%f\\%f",
+          IJKtoLPS->GetElement(0,0), IJKtoLPS->GetElement(1,0),
+          IJKtoLPS->GetElement(2,0), IJKtoLPS->GetElement(0,1),
+          IJKtoLPS->GetElement(1,1), IJKtoLPS->GetElement(2,1));
+
+  char patientPositionStr[64];
+  sprintf(patientPositionStr, "%f\\%f\\%f",
+          origin[0], origin[1], origin[2]);
+
+  char pixelSpacingStr[64];
+  sprintf(pixelSpacingStr, "%f\\%f",
+          spacing[0], spacing[1]);
+
+  char sliceThicknessStr[64];
+  sprintf(sliceThicknessStr, "%f",
+          spacing[2]);
+
+  // initialize the header
+  // AF TODO: initialize with meaningful values
+  dataset->putAndInsertString(DCM_StudyDate, "20120101");
+  dataset->putAndInsertString(DCM_PatientName,"Name");
+  dataset->putAndInsertString(DCM_PatientSex,"M");
+  dataset->putAndInsertString(DCM_PatientAge,"Age");
+  dataset->putAndInsertString(DCM_PatientID,"PatientID");
+  dataset->putAndInsertString(DCM_StudyID,"StudyID");
+  dataset->putAndInsertString(DCM_StudyInstanceUID,"StudyInstanceUID");
+  dataset->putAndInsertString(DCM_AccessionNumber,"1");
+
+  dataset->putAndInsertString(DCM_StudyDate, "StudyDate");
+  dataset->putAndInsertString(DCM_StudyTime, "StudyTime");
+
+  dataset->putAndInsertUint16(DCM_FileMetaInformationVersion,0x0001);
+  dataset->putAndInsertString(DCM_SOPClassUID, UID_SegmentationStorage);
+  dataset->putAndInsertString(DCM_SOPInstanceUID, "maskUID");
+  dataset->putAndInsertString(DCM_Modality,"SEG");
+  dataset->putAndInsertString(DCM_ImageType,"DERIVED\\PRIMARY");
+  dataset->putAndInsertString(DCM_SeriesNumber,"1");
+  dataset->putAndInsertString(DCM_InstanceNumber,"1");
+
+  char uid[128];
+  char* seriesUIDStr = dcmGenerateUniqueIdentifier(uid, SITE_SERIES_UID_ROOT);
+  dataset->putAndInsertString(DCM_SeriesInstanceUID,seriesUIDStr);
+  dataset->putAndInsertString(DCM_InstanceCreatorUID,OFFIS_UID_ROOT);
+
+  dataset->putAndInsertString(DCM_FrameOfReferenceUID,"FIXME");
+
+  char buf[16] = {0};
+  sprintf(buf,"%d", extent[1]+1);
+  dataset->putAndInsertString(DCM_Columns,buf);
+
+  sprintf(buf,"%d", extent[3]+1);
+  dataset->putAndInsertString(DCM_Rows,buf);
+
+  sprintf(buf,"%d", extent[5]+1);
+  dataset->putAndInsertString(DCM_NumberOfFrames,buf);
+
+  dataset->putAndInsertString(DCM_SamplesPerPixel,"1");
+  dataset->putAndInsertString(DCM_PhotometricInterpretation,"MONOCHROME2");
+
+  dataset->putAndInsertString(DCM_BitsAllocated,"1"); // XIP: 8
+  dataset->putAndInsertString(DCM_BitsStored,"1"); // XIP: 8
+  dataset->putAndInsertString(DCM_HighBit,"0");
+  dataset->putAndInsertString(DCM_PixelRepresentation,"0");
+  dataset->putAndInsertString(DCM_LossyImageCompression,"00");
+
+
+  dataset->putAndInsertString(DCM_ImageOrientationPatient, patientOrientationStr);
+  dataset->putAndInsertString(DCM_ImagePositionPatient, patientPositionStr);
+  dataset->putAndInsertString(DCM_PixelSpacing, pixelSpacingStr);
+  dataset->putAndInsertString(DCM_SliceThickness, sliceThicknessStr);
+
+  // segmentation specific header elements
+  dataset->putAndInsertString(DCM_SegmentationType, "BINARY");
+  dataset->putAndInsertString(DCM_ContentLabel, "3DSlicerSegmentation"); // meaning?
+  dataset->putAndInsertString(DCM_ContentDescription, "3D Slicer segmentation result");
+  dataset->putAndInsertString(DCM_ContentCreatorName, "3DSlicer");
+
+  // AF TODO: other elements from sup111 table C.8.20-1 ?!?!?
+
+  // segmentation image (?) \ segment sequence
+  DcmItem *Item = NULL, *subItem = NULL;
+  dataset->findOrCreateSequenceItem(DCM_SegmentSequence, Item);
+
+  // AF TODO: go over all labels and insert separate item for each one
+  Item->putAndInsertString(DCM_SegmentNumber, "1");
+  Item->putAndInsertString(DCM_SegmentLabel, "Segmentation"); // AF TODO: this should be initialized based on the label value!
+  Item->putAndInsertString(DCM_SegmentAlgorithmType, "SEMIAUTOMATIC");
+  Item->putAndInsertString(DCM_SegmentAlgorithmName, "Editor");
+
+
+  return 1;
 }

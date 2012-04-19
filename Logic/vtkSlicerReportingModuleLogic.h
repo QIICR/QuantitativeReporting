@@ -93,6 +93,10 @@ public:
   void SetActiveMarkupHierarchyIDToNull();
   
   bool InitializeDICOMDatabase();
+
+  bool WriteLabelAsSegObject(vtkMRMLVolumeNode* srcNode, vtkMRMLScalarVolumeNode* labelNode, char* filename);
+  //bool WriteAllLabelsAsSegObject(vtkMRMLScalarVolumeNode* labelNode, char* filename);
+
   
 protected:
   vtkSlicerReportingModuleLogic();
