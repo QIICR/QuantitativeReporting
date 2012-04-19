@@ -426,6 +426,8 @@ class qSlicerReportingModuleWidget:
           print 'Number of coordinates not good for a fiducial'
           return
         fiducial = slicer.mrmlScene.CreateNodeByClass('vtkMRMLAnnotationFiducialNode')
+        # associate it with the volume
+        fiducial.SetAttribute("AssociatedNodeID", volume.GetID())
         # ??? Why the API is so inconsistent -- there's no SetPosition1() ???
         fiducial.SetFiducialCoordinates(rasPointList[0])
         fiducial.Initialize(slicer.mrmlScene)
