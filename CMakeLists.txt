@@ -116,6 +116,8 @@ if(BUILD_TESTING)
   add_subdirectory(Testing)
 endif()
 
+add_subdirectory(Prototype)
+
 #-----------------------------------------------------------------------------
 # Generate extension description file '<EXTENSION_NAME>.s4ext'
 #-----------------------------------------------------------------------------

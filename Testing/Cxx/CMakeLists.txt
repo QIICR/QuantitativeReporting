@@ -23,6 +23,9 @@ set(LIBRARY_NAME qSlicer${EXTENSION_NAME}Module)
 add_executable(${EXTENSION_NAME}CxxTests ${Tests})
 target_link_libraries(${EXTENSION_NAME}CxxTests ${lib_name})
 
+add_executable(DICOMReadWriteTest DICOMReadWriteTest.cxx)
+target_link_libraries(DICOMReadWriteTest ${lib_name})
+
 #
 # Add all the tests
 #

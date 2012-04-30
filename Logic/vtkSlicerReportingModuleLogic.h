@@ -45,6 +45,9 @@ class QStringList;
 
 class ctkDICOMDatabase;
 
+class DcmDataset;
+class DcmTag;
+
 /// \ingroup Slicer_QtModules_ExtensionTemplate
 class VTK_SLICER_REPORTINGMODULE_MODULE_LOGIC_EXPORT vtkSlicerReportingModuleLogic :
   public vtkSlicerModuleLogic
@@ -129,6 +132,8 @@ private:
 
   vtkSlicerReportingModuleLogic(const vtkSlicerReportingModuleLogic&); // Not implemented
   void operator=(const vtkSlicerReportingModuleLogic&);               // Not implemented
+
+  void copyDcmElement(const DcmTag&, DcmDataset*, DcmDataset*);
 
   QStringList GetMarkupPointCoordinatesStr(vtkMRMLAnnotationNode *ann);
   vtkMRMLScalarVolumeNode* GetMarkupVolumeNode(vtkMRMLAnnotationNode *ann);
