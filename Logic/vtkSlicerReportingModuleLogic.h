@@ -59,7 +59,7 @@ public:
   /// associated with a volume node to the UID of the slice it's on. Returns
   /// the UID, or the string NONE if there's no associated node, all control
   /// points aren't on the same slice
-  const char *GetSliceUIDFromMarkUp(vtkMRMLAnnotationNode *node);
+  std::string GetSliceUIDFromMarkUp(vtkMRMLAnnotationNode *node);
 
   /// Return the id of the top level reporting module hierarchy node, creating
   /// one if not found, NULL on error

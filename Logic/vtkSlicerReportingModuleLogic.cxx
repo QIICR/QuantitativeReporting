@@ -289,8 +289,8 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
   vtkMRMLAnnotationNode *annotationNode = vtkMRMLAnnotationNode::SafeDownCast(node);
   
   /// check that the annotation has a valid UID
-  const char *UID = this->GetSliceUIDFromMarkUp(annotationNode);
-  if (strcmp(UID, "NONE") == 0)
+  std::string UID = this->GetSliceUIDFromMarkUp(annotationNode);
+  if (UID.compare("NONE") == 0)
     {
     vtkDebugMacro("OnMRMLSceneNodeAdded: annotation " << annotationNode->GetName() << " isn't associated with a single UID from a volume, not using it for this report");
     return;
@@ -330,9 +330,9 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeRemoved(vtkMRMLNode* vtkNotUs
 }
 
 //---------------------------------------------------------------------------
-const char *vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotationNode *node)
+std::string vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotationNode *node)
 {
-  const char *UID = "NONE";
+  std::string UID = std::string("NONE");
 
   if (!node)
     {
@@ -380,7 +380,7 @@ const char *vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotati
   // get the list of UIDs from the volume
   if (!volumeNode->GetAttribute("DICOM.instanceUIDs"))
     {
-    vtkErrorMacro("GetSliceUIDFromMarkUp: Volume node with id: " << associatedNodeID << " doesn't have a list of UIDs under the attribute DICOM.instanceUIDs! Returning '" << UID << "'");
+    vtkErrorMacro("GetSliceUIDFromMarkUp: Volume node with id: " << associatedNodeID << " doesn't have a list of UIDs under the attribute DICOM.instanceUIDs! Returning '" << UID.c_str() << "'");
     return UID;
     }
   std::string uidsString = volumeNode->GetAttribute("DICOM.instanceUIDs");
@@ -402,7 +402,7 @@ const char *vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotati
   volumeNode->GetRASToIJKMatrix(ras2ijk);
 
   // need to make sure that all the UIDs are the same
-  const char *UIDi = "NONE";
+  std::string UIDi = std::string("NONE");
   for (int i = 0; i < numPoints; i++)
     {
     vtkDebugMacro("i " << " uid = " << uidVector[i].c_str());
@@ -416,13 +416,13 @@ const char *vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotati
     if (uidVector.size() > ijk[2])
       {
       // assumption is that the dicom UIDs are in order by k
-      UIDi = uidVector[ijk[2]].c_str();
+      UIDi = uidVector[ijk[2]];
       }
     else
       {
       // multiframe data? set UID to the first one, but will need to store the
       // frame number on AIM import
-      UIDi = uidVector[0].c_str();
+      UIDi = uidVector[0];
       }
     if (i == 0)
       {
@@ -431,10 +431,10 @@ const char *vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotati
     else
       {
       // check if UIDi does not match UID
-      if (strcmp(UIDi, UID) != 0)
+      if (UIDi.compare(UID) != 0)
         {
-        vtkWarningMacro("GetSliceUIDFromMarkUp: annotation " << cpNode->GetName() << " point " << i << " has a UID of:\n" << UIDi << "\nthat doesn't match previous UIDs of:\n" << UID << "\n\tReturning UID of NONE");
-        UID = "NONE";
+        vtkWarningMacro("GetSliceUIDFromMarkUp: annotation " << cpNode->GetName() << " point " << i << " has a UID of:\n" << UIDi.c_str() << "\nthat doesn't match previous UIDs of:\n" << UID.c_str() << "\n\tReturning UID of NONE");
+        UID = std::string("NONE");
         break;
         }
       }
@@ -1003,7 +1003,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
         if(fidNode || rulerNode)
           {
           // TODO: need to handle the case of multiframe data .. ?
-          QString sliceUID = QString(this->GetSliceUIDFromMarkUp(annNode));
+          std::string sliceUID = this->GetSliceUIDFromMarkUp(annNode);
           if(sliceUID.compare("NONE") == 0)
             {
             vtkErrorMacro("Cannot save AIM report: volume being annotated, " << volumeNode->GetName()  << " is not a DICOM volume!");
@@ -1011,8 +1011,8 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
             }
  
           QStringList sliceUIDList;
-          sliceUIDList << sliceUID;
-          allInstanceUIDs << sliceUID;
+          sliceUIDList << QString(sliceUID.c_str());
+          allInstanceUIDs << QString(sliceUID.c_str());
 
 
           QStringList coordStr = this->GetMarkupPointCoordinatesStr(annNode);
@@ -1100,21 +1100,47 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     std::cout << "seriesUID = " << seriesUID.toLatin1().data() << std::endl;
 //   std::cout << "sclassUID = " << classUID.toLatin1().data() << std::endl;
 
+    if (imageUID.size() == 0)
+      {
+      vtkErrorMacro("SaveReportToAIM: for instance uid #" << i << ", got an empty imageUID string. Cannot parse for a valid image UID");
+      return EXIT_FAILURE;
+      }
     imageUID = imageUID.split("]")[0].split("[")[1];
+    if (studyUID.size() == 0)
+      {
+      vtkErrorMacro("SaveReportToAIM: for instance uid #" << i << ", got an empty studyUID string. Cannot parse for a valid study UID");
+      return EXIT_FAILURE;
+      }
     studyUID = studyUID.split("]")[0].split("[")[1];
+    if (seriesUID.size() == 0)
+      {
+      vtkErrorMacro("SaveReportToAIM: for instance uid #" << i << ", got an empty seriesUID string. Cannot parse for a valid series UID");
+      return EXIT_FAILURE;
+      }
     seriesUID = seriesUID.split("]")[0].split("[")[1];
 
     if(seriesToImageList.find(seriesUID) == seriesToImageList.end())
+      {
       seriesToImageList[seriesUID] = QStringList() << imageUID;
+      }
     else
+      {
       if(seriesToImageList[seriesUID].indexOf(imageUID) == -1)
+        {
         seriesToImageList[seriesUID] << imageUID;
-    
+        }
+      }
     if(studyToSeriesList.find(studyUID) == seriesToImageList.end())
+      {
       studyToSeriesList[studyUID] = QStringList() << seriesUID;
+      }
     else
+      {
       if(studyToSeriesList[studyUID].indexOf(seriesUID) == -1)
+        {
         studyToSeriesList[studyUID] << seriesUID;
+        }
+      }
     }
 
   QDomElement irc = doc.createElement("imageReferenceCollection");
@@ -1124,7 +1150,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   //  it!=volumeUIDLists.end();++it)
   //  {
   for(std::map<QString,QStringList>::const_iterator mIt=studyToSeriesList.begin();
-    mIt!=studyToSeriesList.end();++mIt)
+      mIt!=studyToSeriesList.end();++mIt)
     {
 
     QString studyUID = mIt->first;
@@ -1166,15 +1192,15 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
       QStringList uidList = seriesToImageList[seriesUID];
 
       for(int i=0;i<uidList.size();i++)
-      {
+        {
         QDomElement image = doc.createElement("Image");
         image.setAttribute("cagridId","0");
         image.setAttribute("sopClassUID","NA"); // FIXME
         image.setAttribute("sopInstanceUID",uidList[i]);
         ic.appendChild(image);
+        }
       }
     }
-  }
 
   // close the file
   
