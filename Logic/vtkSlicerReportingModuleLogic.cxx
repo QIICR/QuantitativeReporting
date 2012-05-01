@@ -292,7 +292,7 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
   const char *UID = this->GetSliceUIDFromMarkUp(annotationNode);
   if (strcmp(UID, "NONE") == 0)
     {
-    vtkErrorMacro("OnMRMLSceneNodeAdded: annotation " << annotationNode->GetName() << " isn't associated with a single UID from a volume, not using it for this report");
+    vtkDebugMacro("OnMRMLSceneNodeAdded: annotation " << annotationNode->GetName() << " isn't associated with a single UID from a volume, not using it for this report");
     return;
     }
   /// make a new hierarchy node to create a parallel tree?
@@ -360,7 +360,7 @@ const char *vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotati
   const char *associatedNodeID = cpNode->GetAttribute("AssociatedNodeID");
   if (!associatedNodeID)
     {
-    vtkErrorMacro("GetSliceUIDFromMarkUp: No AssociatedNodeID on the annotation node");
+    vtkDebugMacro("GetSliceUIDFromMarkUp: No AssociatedNodeID on the annotation node");
     return UID;
     }
   vtkMRMLScalarVolumeNode *volumeNode = NULL;
