@@ -90,6 +90,12 @@ class Helper( object ):
   def RotateToVolumePlanes():
     # AF TODO: check with Steve if this has any undesired consequences
     tcl('EffectSWidget::RotateToVolumePlanes')
+    # snap to IJK to try and avoid rounding errors
+    sliceLogics = slicer.app.layoutManager().mrmlSliceLogics()
+    numLogics = sliceLogics.GetNumberOfItems()
+    for n in range(numLogics):
+      l = sliceLogics.GetItemAsObject(n)
+      l.SnapSliceOffsetToIJK() 
 
   @staticmethod
   def SetLabelVolume(lb):
