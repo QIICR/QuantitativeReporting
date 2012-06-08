@@ -62,6 +62,8 @@ vtkSlicerReportingModuleLogic::vtkSlicerReportingModuleLogic()
   this->ActiveMarkupHierarchyID = NULL;
   this->DICOMDatabase = NULL;
   this->GUIHidden = 0;
+
+  vtkDebugMacro("********* vtkSlicerReportingModuleLogic Constructor **********");
 }
 
 //----------------------------------------------------------------------------
@@ -95,7 +97,12 @@ bool vtkSlicerReportingModuleLogic::InitializeDICOMDatabase()
 {
   QSettings settings;
   QString dbPath = settings.value("DatabaseDirectory","").toString();
-  std::cout << "Reporting will use database at this location: " << dbPath.toLatin1().data() << std::endl;
+  if (dbPath.compare("") == 0)
+    {
+    dbPath = QString("/projects/igtdev/nicole/LocalDCMDB");
+    vtkWarningMacro("InitializeDICOMDatabase: no DatabaseDirectory path found, please update the settings.\nUsing " << qPrintable(dbPath));
+    }
+  vtkDebugMacro("Reporting will use database at this location: '" << dbPath.toLatin1().data() << "'");
 
   bool success = false;
 
@@ -316,7 +323,16 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     }
   if (annotationNode && reportNode)
     {
-    std::string annotationName = std::string(reportNode->GetDescription())+"_"+annotationType;
+    const char *desc = reportNode->GetDescription();
+    std::string annotationName;
+    if (desc)
+      {
+      annotationName = std::string(desc)+"_"+annotationType;
+      }
+    else
+      {
+      annotationName = std::string("Report_") + annotationType;
+      }
     annotationNode->SetName(annotationNode->GetScene()->GetUniqueNameByString(annotationName.c_str()));
     }
   
@@ -405,7 +421,6 @@ std::string vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotati
   std::string UIDi = std::string("NONE");
   for (int i = 0; i < numPoints; i++)
     {
-    vtkDebugMacro("i " << " uid = " << uidVector[i].c_str());
     // get the RAS point
     double ras[4] = {0.0, 0.0, 0.0, 1.0};
     cpNode->GetControlPointWorldCoordinates(i, ras);
@@ -413,10 +428,12 @@ std::string vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotati
     double ijk[4] = {0.0, 0.0, 0.0, 1.0};
     ras2ijk->MultiplyPoint(ras, ijk);
     vtkDebugMacro("Point " << i << " ras = " << ras[0] << ", " << ras[1] << ", " << ras[2] << " converted to ijk  = " << ijk[0] << ", " << ijk[1] << ", " << ijk[2] << ", getting uid at index " << ijk[2] << " (uid vector size = " << uidVector.size() << ")");
-    if (uidVector.size() > ijk[2])
+    unsigned int k = static_cast<unsigned int>(round(ijk[2]));
+    vtkDebugMacro("\tusing ijk[2] " << ijk[2] << " as an unsigned int: " << k);
+    if (uidVector.size() > k)
       {
       // assumption is that the dicom UIDs are in order by k
-      UIDi = uidVector[ijk[2]];
+      UIDi = uidVector[k];
       }
     else
       {
@@ -622,7 +639,7 @@ void vtkSlicerReportingModuleLogic::SetActiveMarkupHierarchyIDFromNode(vtkMRMLNo
 {
   if (!node || !node->GetName())
     {
-    vtkDebugMacro("SetActiveMarkupHierarchyIDFromNode: node is " << (node? "not null" : "null") << ", name is " << (node->GetName() ? node->GetName() : "null") << ", settting active id to null");
+    vtkWarningMacro("SetActiveMarkupHierarchyIDFromNode: node is " << (node? "not null" : "null") << ", name is " << (node->GetName() ? node->GetName() : "null") << ", settting active id to null");
     this->SetActiveMarkupHierarchyID(NULL);
     return;
     }
@@ -866,6 +883,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   if (volumeNode)
     {
     // set this volume's markup hierarchy to be active, just to make sure
+    vtkDebugMacro("SaveReportToAIM: setting active markup hierarchy id from volume node " << volumeNode->GetID());
     this->SetActiveMarkupHierarchyIDFromNode(volumeNode);
     // now get it
     const char *markupID = this->GetActiveMarkupHierarchyID();
@@ -1380,7 +1398,7 @@ const char *vtkSlicerReportingModuleLogic::GetActiveReportHierarchyID()
     }
   else
     {
-    vtkErrorMacro("GetActiveReportHierarchyID: no hierarchy node associated with parameter node " << parameterNode->GetID());
+    vtkErrorMacro("GetActiveReportHierarchyID: no hierarchy node associated with report id in parameter node " << parameterNode->GetID() << ", report id of " << reportID);
     return NULL;
     }
 }

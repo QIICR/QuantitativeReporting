@@ -22,8 +22,13 @@ class qSlicerReportingModuleWidget:
     # this flag is 1 if there is an update in progress
     self.__updating = 1
 
-    # Reference to the logic
-    self.__logic = slicer.modulelogic.vtkSlicerReportingModuleLogic()
+    # Reference to the logic that Slicer instantiated
+    self.__logic  = slicer.modules.reporting.logic()
+    if not self.__logic:
+      # create a new instance
+      print "Creating a new instance of the Reporting logic"
+      self.__logic = slicer.modulelogic.vtkSlicerReportingModuleLogic()
+
     if self.__logic.InitializeDICOMDatabase():
       print 'DICOM database initialized correctly!'
     else:
@@ -326,11 +331,10 @@ class qSlicerReportingModuleWidget:
 
     dom = xml.dom.minidom.parse(fileName)
 
-    print 'Read AIM report:'
+    print 'Parsed AIM report:'
     print dom.toxml()
 
     volumeList = []
-    volumesLogic = slicer.modules.volumes.logic()
 
     ddb = slicer.dicomDatabase
     volId = 1
@@ -342,7 +346,7 @@ class qSlicerReportingModuleWidget:
       print 'AIM file does not contain any annotations!'
       return
     ann = annotations[0]
-    newReport.SetDescription(ann.getAttribute('name'))
+    desc = ann.getAttribute('name')
 
     # pull all the volumes that are referenced into the scene
     for node in dom.getElementsByTagName('ImageSeries'):
@@ -412,8 +416,8 @@ class qSlicerReportingModuleWidget:
           if pointUID == instanceUIDList[k]:
             break
 
-        # AF: hack -- need to detect scan direction
-        pointIJK = [ijCoordList[ij*2], ijCoordList[ij*2+1], totalSlices-k, 1.]
+        # print "k = ",k,", totalSlices = ",totalSlices 
+        pointIJK = [ijCoordList[ij*2], ijCoordList[ij*2+1], k, 1.]
         pointRAS = ijk2ras.MultiplyPoint(pointIJK)
         print 'Input point: ',pointIJK
         print 'Converted point: ',pointRAS
@@ -431,6 +435,7 @@ class qSlicerReportingModuleWidget:
         # ??? Why the API is so inconsistent -- there's no SetPosition1() ???
         fiducial.SetFiducialCoordinates(rasPointList[0])
         fiducial.Initialize(slicer.mrmlScene)
+        # adding to hierarchy is handled by the Reporting logic
 
       if elementType == 'MultiPoint':
         print "Importing a ruler!"
@@ -443,6 +448,8 @@ class qSlicerReportingModuleWidget:
         ruler.SetPosition2(rasPointList[1])
         ruler.Initialize(slicer.mrmlScene)
         # AF: Initialize() adds to the scene ...
+
+    newReport.SetDescription(desc)
 
     # update the GUI
     self.onReportNodeChanged()
