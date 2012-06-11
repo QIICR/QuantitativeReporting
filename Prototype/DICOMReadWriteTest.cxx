@@ -9,6 +9,10 @@
 #include <dcmtk/ofstd/ofdatime.h>
 #include <dcmtk/dcmdata/dcuid.h>         /* for dcmtk version name */
 #include <dcmtk/dcmdata/dcdeftag.h>      /* for DCM_StudyInstanceUID */
+#include <dcmtk/dcmdata/dcvrda.h>        /* for DcmDate */
+#include <dcmtk/dcmdata/dcvrtm.h>        /* for DcmTime */
+#include <dcmtk/dcmdata/dcvrat.h>        /* for DcmAttribute */
+
 
 // Slicer
 #include "vtkMRMLScene.h"
@@ -200,7 +204,14 @@ int main(int argc, char** argv)
     copyDcmElement(DCM_StudyTime, dcm0, dataset);
     copyDcmElement(DCM_ReferringPhysicianName, dcm0, dataset);
     copyDcmElement(DCM_StudyID, dcm0, dataset);
+    dataset->putAndInsertString(DCM_StudyID, "1"); // David Clunie: should be initialized (not required, but good idea)
     copyDcmElement(DCM_AccessionNumber, dcm0, dataset);
+
+    OFString contentDate, contentTime;    // David Clunie: must be present and initialized
+    DcmDate::getCurrentDate(contentDate);
+    DcmTime::getCurrentTime(contentTime);
+    dataset->putAndInsertString(DCM_ContentDate, contentDate.c_str());
+    dataset->putAndInsertString(DCM_ContentTime, contentTime.c_str());
 
     // Series IE
     //  General Series module
@@ -214,6 +225,7 @@ int main(int argc, char** argv)
 
     // Frame Of Reference IE
     dataset->putAndInsertString(DCM_FrameOfReferenceUID, seriesUIDStr);
+    dataset->putAndInsertString(DCM_PositionReferenceIndicator, ""); // David Clunie: must be present, may be empty
     
     // Equipment IE
     //  General Equipment module
@@ -268,7 +280,7 @@ int main(int argc, char** argv)
 
     //   Segmentation Image module
     dataset->putAndInsertString(DCM_SegmentationType, "BINARY");
-    dataset->putAndInsertString(DCM_ContentLabel, "3DSlicerSegmentation"); // meaning?
+    dataset->putAndInsertString(DCM_ContentLabel, "ROI"); // CS
     dataset->putAndInsertString(DCM_ContentDescription, "3D Slicer segmentation result");
     dataset->putAndInsertString(DCM_ContentCreatorName, "3DSlicer");
 
@@ -333,6 +345,20 @@ int main(int argc, char** argv)
     subItem2->putAndInsertString(DCM_CodingSchemeDesignator, "DCM");
     subItem2->putAndInsertString(DCM_CodeMeaning, "Segmentation");
 
+      {
+      // Elements identical for each frame should be in shared group
+      char buf[64], *str;
+      DcmElement *element;
+      dcmDatasetVector[0]->findAndGetElement(DCM_ImageOrientationPatient, element);
+      element->getString(str);
+      Item->findOrCreateSequenceItem(DCM_PlaneOrientationSequence, subItem);
+      subItem->putAndInsertString(DCM_ImageOrientationPatient, str);
+
+      Item->findOrCreateSequenceItem(DCM_PixelMeasuresSequence, subItem);
+      subItem->putAndInsertString(DCM_SliceThickness, sliceThicknessStr);
+      subItem->putAndInsertString(DCM_PixelSpacing, pixelSpacingStr);
+      }
+
     /*
     //segmentation macro - attributes
     Item->findOrCreateSequenceItem(DCM_SegmentIdentificationSequence, subItem);
@@ -356,12 +382,15 @@ int main(int argc, char** argv)
       subItem->putAndInsertString(DCM_StackID, "0");
       sprintf(buf, "%d", i);
       subItem->putAndInsertString(DCM_InStackPositionNumber, buf);
+      sprintf(buf, "0\\%d", i); 
+      subItem->putAndInsertString(DCM_DimensionIndexValues, buf);
       
       dcmDatasetVector[i]->findAndGetElement(DCM_ImagePositionPatient, element);
       element->getString(str);
       Item->findOrCreateSequenceItem(DCM_PlanePositionSequence, subItem);
       subItem->putAndInsertString(DCM_ImagePositionPatient, str);
 
+      /* David Clunie: items that are identical should not be shared per-frame
       dcmDatasetVector[i]->findAndGetElement(DCM_ImageOrientationPatient, element);
       element->getString(str);
       Item->findOrCreateSequenceItem(DCM_PlaneOrientationSequence, subItem);
@@ -370,6 +399,7 @@ int main(int argc, char** argv)
       Item->findOrCreateSequenceItem(DCM_PixelMeasuresSequence, subItem);
       subItem->putAndInsertString(DCM_SliceThickness, sliceThicknessStr);
       subItem->putAndInsertString(DCM_PixelSpacing, pixelSpacingStr);
+      */
 
       Item->findOrCreateSequenceItem(DCM_SegmentIdentificationSequence, subItem);
       subItem->putAndInsertString(DCM_ReferencedSegmentNumber, "1");
@@ -388,8 +418,46 @@ int main(int argc, char** argv)
       */
       }
 
-    /*
 
+    // Multi-frame Dimension module
+      {
+      dataset->findOrCreateSequenceItem(DCM_DimensionOrganizationSequence, Item);
+      char dimensionuid[128];
+      char *dimensionUIDStr = dcmGenerateUniqueIdentifier(dimensionuid, SITE_SERIES_UID_ROOT);
+      Item->putAndInsertString(DCM_DimensionOrganizationUID, dimensionUIDStr);
+
+      dataset->findOrCreateSequenceItem(DCM_DimensionIndexSequence, Item, 0);
+
+      Item->putAndInsertString(DCM_DimensionOrganizationUID, dimensionUIDStr);
+
+      DcmAttributeTag dimAttr(DCM_StackID);
+      Uint16 *dimAttrArray = new Uint16[2];
+
+      dimAttr.putTagVal(DCM_StackID);
+      dimAttr.getUint16Array(dimAttrArray);
+      Item->putAndInsertUint16Array(DCM_DimensionIndexPointer, dimAttrArray, 1);
+
+      dimAttr.putTagVal(DCM_FrameContentSequence);
+      dimAttr.getUint16Array(dimAttrArray);
+      Item->putAndInsertUint16Array(DCM_FunctionalGroupPointer, dimAttrArray, 1);
+
+      dataset->findOrCreateSequenceItem(DCM_DimensionIndexSequence, Item, 1);
+
+      Item->putAndInsertString(DCM_DimensionOrganizationUID, dimensionUIDStr);
+
+      dimAttr.putTagVal(DCM_InStackPositionNumber);
+      dimAttr.getUint16Array(dimAttrArray);
+      Item->putAndInsertUint16Array(DCM_DimensionIndexPointer, dimAttrArray, 1);
+
+      dimAttr.putTagVal(DCM_FrameContentSequence);
+      dimAttr.getUint16Array(dimAttrArray);
+      Item->putAndInsertUint16Array(DCM_FunctionalGroupPointer, dimAttrArray, 1);
+
+      //delete [] dimAttrArray;
+      }
+
+
+    /*
     // per-frame functional groups
     dataset->findOrCreateSequenceItem(DCM_PerFrameFunctionalGroupsSequence, Item, itemNum);
 	
