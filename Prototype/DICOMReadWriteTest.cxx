@@ -94,10 +94,18 @@ int main(int argc, char** argv)
           //OFCondition res = fileFormat.getDataset()->findAndGetElement(DCM_SOPClassUID, element);
           //std::cout << "findAndGetElement is ok" << std::endl;
           }
+        else
+          {
+          std::cerr << "Failed to query the database! Exiting." << std::endl;
+          return -1;
+          }
         }
       }
 
-    
+    std::cout << "DcmDatasetVector size: " << dcmDatasetVector.size() << std::endl;
+
+    std::cout << "Deriving image orientation" << std::endl;
+
     // Get the image orientation information
     vtkSmartPointer<vtkMatrix4x4> IJKtoRAS = vtkSmartPointer<vtkMatrix4x4>::New();
     vtkSmartPointer<vtkMatrix4x4> RAStoIJK = vtkSmartPointer<vtkMatrix4x4>::New();
@@ -168,6 +176,7 @@ int main(int argc, char** argv)
       spacing[2]);
 
 
+    std::cout << "Creating the dataset" << std::endl;
     // create a DICOM dataset (see
     // http://support.dcmtk.org/docs/mod_dcmdata.html#Examples)
     DcmDataset *dcm0 = dcmDatasetVector[0];
@@ -176,68 +185,95 @@ int main(int argc, char** argv)
     DcmDataset *dataset = fileformatOut.getDataset(), *datasetIn;
     
     // writeSegHeader
-    copyDcmElement(DCM_StudyDate, dcm0, dataset);
+    //
+    // Patient IE
+    //  Patient module
     copyDcmElement(DCM_PatientName, dcm0, dataset);
-    copyDcmElement(DCM_PatientSex, dcm0, dataset);
-    copyDcmElement(DCM_PatientAge, dcm0, dataset);
     copyDcmElement(DCM_PatientID, dcm0, dataset);
-    copyDcmElement(DCM_StudyID, dcm0, dataset);
+    copyDcmElement(DCM_PatientBirthDate, dcm0, dataset);
+    copyDcmElement(DCM_PatientSex, dcm0, dataset);
+ 
+    // Study IE
+    //  General Study module
     copyDcmElement(DCM_StudyInstanceUID, dcm0, dataset);
+    copyDcmElement(DCM_StudyDate, dcm0, dataset);
+    copyDcmElement(DCM_StudyTime, dcm0, dataset);
+    copyDcmElement(DCM_ReferringPhysicianName, dcm0, dataset);
+    copyDcmElement(DCM_StudyID, dcm0, dataset);
     copyDcmElement(DCM_AccessionNumber, dcm0, dataset);
 
-    copyDcmElement(DCM_StudyTime, dcm0, dataset);
+    // Series IE
+    //  General Series module
+    dataset->putAndInsertString(DCM_Modality,"SEG");
+    char uid[128];
+    char *seriesUIDStr = dcmGenerateUniqueIdentifier(uid, SITE_SERIES_UID_ROOT);
+    dataset->putAndInsertString(DCM_SeriesInstanceUID,seriesUIDStr);
+    
+    //  Segmentation Series module 
+    dataset->putAndInsertString(DCM_SeriesNumber,"1000");
 
+    // Frame Of Reference IE
+    dataset->putAndInsertString(DCM_FrameOfReferenceUID, seriesUIDStr);
+    
+    // Equipment IE
+    //  General Equipment module
+    dataset->putAndInsertString(DCM_Manufacturer, "3D Slicer Community");
+
+    //  Enhanced General Equipment module
+    dataset->putAndInsertString(DCM_ManufacturerModelName, "AndreyTestDICOMSegWriter v.0.0.1");
+    dataset->putAndInsertString(DCM_DeviceSerialNumber, "0.0.1");
+    dataset->putAndInsertString(DCM_SoftwareVersions, "0.0.1");
+
+    // Segmentation IE
+
+    dataset->putAndInsertString(DCM_InstanceNumber,"1");
+    dataset->putAndInsertString(DCM_InstanceNumber,"1");
     dataset->putAndInsertUint16(DCM_FileMetaInformationVersion,0x0001);
     dataset->putAndInsertString(DCM_SOPClassUID, UID_SegmentationStorage);
 
-    char uid[128];
-
+    //  General Image module
+    dataset->putAndInsertString(DCM_InstanceNumber, "1");
     dataset->putAndInsertString(DCM_SOPInstanceUID, dcmGenerateUniqueIdentifier(uid, SITE_INSTANCE_UID_ROOT));
-    dataset->putAndInsertString(DCM_Modality,"SEG");
     dataset->putAndInsertString(DCM_ImageType,"DERIVED\\PRIMARY");
-    dataset->putAndInsertString(DCM_SeriesNumber,"1");
-    dataset->putAndInsertString(DCM_InstanceNumber,"1");
 
-    char *seriesUIDStr = dcmGenerateUniqueIdentifier(uid, SITE_SERIES_UID_ROOT);
-    dataset->putAndInsertString(DCM_SeriesInstanceUID,seriesUIDStr);
     dataset->putAndInsertString(DCM_InstanceCreatorUID,OFFIS_UID_ROOT);
 
-    dataset->putAndInsertString(DCM_FrameOfReferenceUID, seriesUIDStr);
+
+    //  Image Pixel module
+    dataset->putAndInsertString(DCM_SamplesPerPixel,"1");
+    dataset->putAndInsertString(DCM_PhotometricInterpretation,"MONOCHROME2");
 
     char buf[16] = {0};
     sprintf(buf,"%d", extent[1]+1);
     dataset->putAndInsertString(DCM_Columns,buf);
     sprintf(buf,"%d", extent[3]+1);
     dataset->putAndInsertString(DCM_Rows,buf);
-    sprintf(buf,"%d", extent[5]+1);
-    dataset->putAndInsertString(DCM_NumberOfFrames,buf);
-
-    dataset->putAndInsertString(DCM_SamplesPerPixel,"1");
-    dataset->putAndInsertString(DCM_PhotometricInterpretation,"MONOCHROME2");
-    dataset->putAndInsertString(DCM_PixelRepresentation,"0");
-
+ 
     dataset->putAndInsertString(DCM_BitsAllocated,"1"); // XIP: 8
     dataset->putAndInsertString(DCM_BitsStored,"1"); // XIP: 8
     dataset->putAndInsertString(DCM_HighBit,"0");
+    dataset->putAndInsertString(DCM_PixelRepresentation,"0");
+
+    sprintf(buf,"%d", extent[5]+1);
+    dataset->putAndInsertString(DCM_NumberOfFrames,buf);
+
+
     dataset->putAndInsertString(DCM_LossyImageCompression,"00");
 
     // writeSegFrames
-    dataset->putAndInsertString(DCM_ImageOrientationPatient, patientOrientationStr);
-    dataset->putAndInsertString(DCM_ImagePositionPatient, patientPositionStr);
+    //dataset->putAndInsertString(DCM_ImageOrientationPatient, patientOrientationStr);
+    //dataset->putAndInsertString(DCM_ImagePositionPatient, patientPositionStr);
     dataset->putAndInsertString(DCM_PixelSpacing, pixelSpacingStr);
     dataset->putAndInsertString(DCM_SliceThickness, sliceThicknessStr);
 
-    // segmentation specific header elements
+    //   Segmentation Image module
     dataset->putAndInsertString(DCM_SegmentationType, "BINARY");
     dataset->putAndInsertString(DCM_ContentLabel, "3DSlicerSegmentation"); // meaning?
     dataset->putAndInsertString(DCM_ContentDescription, "3D Slicer segmentation result");
     dataset->putAndInsertString(DCM_ContentCreatorName, "3DSlicer");
 
-    // AF TODO: other elements from sup111 table C.8.20-1 ?!?!?
-
-    // segmentation image (?) \ segment sequence
-    // segment sequence [0620,0002]
-    DcmItem *Item = NULL, *subItem = NULL;
+    // segment sequence [0062,0002]
+    DcmItem *Item = NULL, *subItem = NULL, *subItem2 = NULL, *subItem3 = NULL;
     dataset->findOrCreateSequenceItem(DCM_SegmentSequence, Item);
 
     // AF TODO: go over all labels and insert separate item for each one
@@ -245,6 +281,12 @@ int main(int argc, char** argv)
     Item->putAndInsertString(DCM_SegmentLabel, "Segmentation"); // AF TODO: this should be initialized based on the label value!
     Item->putAndInsertString(DCM_SegmentAlgorithmType, "SEMIAUTOMATIC");
     Item->putAndInsertString(DCM_SegmentAlgorithmName, "Editor");
+
+    // general anatomy mandatory macro
+    Item->findOrCreateSequenceItem(DCM_AnatomicRegionSequence, subItem);
+    subItem->putAndInsertString(DCM_CodeValue, "T-D0050");
+    subItem->putAndInsertString(DCM_CodingSchemeDesignator,"SRT");
+    subItem->putAndInsertString(DCM_CodeMeaning,"Tissue");
 
     //segmentation properties - category
     Item->findOrCreateSequenceItem(DCM_SegmentedPropertyCategoryCodeSequence, subItem);
@@ -258,9 +300,40 @@ int main(int argc, char** argv)
     subItem->putAndInsertString(DCM_CodingSchemeDesignator,"SRT");
     subItem->putAndInsertString(DCM_CodeMeaning,"Nodule");
 
-    //Shared functional groups sequence
+    //  Multi-frame Functional Groups Module
+    //   Shared functional groups sequence
+    std::cout << "Before initializing SharedFunctionalGroupsSequence" << std::endl;
     dataset->findOrCreateSequenceItem(DCM_SharedFunctionalGroupsSequence, Item);
+    Item->findOrCreateSequenceItem(DCM_DerivationImageSequence, subItem);
+    const unsigned long itemNum = extent[5];
+    for(int i=0;i<itemNum+1;i++)
+      {
 
+      subItem->findOrCreateSequenceItem(DCM_SourceImageSequence, subItem2, i);
+      char *str;
+      DcmElement *element;
+      DcmDataset *dataset = dcmDatasetVector[i];
+      dataset->findAndGetElement(DCM_SOPClassUID, element, i);
+      element->getString(str);
+      subItem2->putAndInsertString(DCM_ReferencedSOPClassUID, str);
+      dataset->findAndGetElement(DCM_SOPInstanceUID, element);
+      element->getString(str);
+      subItem2->putAndInsertString(DCM_ReferencedSOPInstanceUID, str);
+      subItem2->putAndInsertString(DCM_ReferencedFrameNumber, "1");
+
+      subItem2->findOrCreateSequenceItem(DCM_PurposeOfReferenceCodeSequence, subItem3);
+      subItem3->putAndInsertString(DCM_CodeValue, "121322");
+      subItem3->putAndInsertString(DCM_CodingSchemeDesignator, "DCM");
+      subItem3->putAndInsertString(DCM_CodeMeaning, "Source image for image processing operation");
+
+      }
+    
+    subItem->findOrCreateSequenceItem(DCM_DerivationCodeSequence, subItem2);
+    subItem2->putAndInsertString(DCM_CodeValue, "113076");
+    subItem2->putAndInsertString(DCM_CodingSchemeDesignator, "DCM");
+    subItem2->putAndInsertString(DCM_CodeMeaning, "Segmentation");
+
+    /*
     //segmentation macro - attributes
     Item->findOrCreateSequenceItem(DCM_SegmentIdentificationSequence, subItem);
     subItem->putAndInsertString(DCM_ReferencedSegmentNumber,"1");
@@ -268,14 +341,40 @@ int main(int argc, char** argv)
     //segmentation functional group macros
     Item->putAndInsertString(DCM_SliceThickness, sliceThicknessStr);
     Item->putAndInsertString(DCM_PixelSpacing, pixelSpacingStr);
-    
-    const unsigned long itemNum = extent[5];
+    */
+
 
     //Derivation Image functional group
-    Item->findOrCreateSequenceItem(DCM_DerivationImageSequence, subItem, itemNum);
     for(int i=0;i<itemNum+1;i++)
       {
-      Item->findAndGetSequenceItem(DCM_DerivationImageSequence, subItem, i);
+      dataset->findOrCreateSequenceItem(DCM_PerFrameFunctionalGroupsSequence, Item, i);
+
+      char buf[64], *str;
+      DcmElement *element;
+
+      Item->findOrCreateSequenceItem(DCM_FrameContentSequence, subItem);
+      subItem->putAndInsertString(DCM_StackID, "0");
+      sprintf(buf, "%d", i);
+      subItem->putAndInsertString(DCM_InStackPositionNumber, buf);
+      
+      dcmDatasetVector[i]->findAndGetElement(DCM_ImagePositionPatient, element);
+      element->getString(str);
+      Item->findOrCreateSequenceItem(DCM_PlanePositionSequence, subItem);
+      subItem->putAndInsertString(DCM_ImagePositionPatient, str);
+
+      dcmDatasetVector[i]->findAndGetElement(DCM_ImageOrientationPatient, element);
+      element->getString(str);
+      Item->findOrCreateSequenceItem(DCM_PlaneOrientationSequence, subItem);
+      subItem->putAndInsertString(DCM_ImageOrientationPatient, str);
+
+      Item->findOrCreateSequenceItem(DCM_PixelMeasuresSequence, subItem);
+      subItem->putAndInsertString(DCM_SliceThickness, sliceThicknessStr);
+      subItem->putAndInsertString(DCM_PixelSpacing, pixelSpacingStr);
+
+      Item->findOrCreateSequenceItem(DCM_SegmentIdentificationSequence, subItem);
+      subItem->putAndInsertString(DCM_ReferencedSegmentNumber, "1");
+
+      /*
       DcmDataset *sliceDataset = dcmDatasetVector[i];
       char *str;
       DcmElement *element;
@@ -286,9 +385,10 @@ int main(int argc, char** argv)
       sliceDataset->findAndGetElement(DCM_SOPInstanceUID, element);
       element->getString(str);
       subItem->putAndInsertString(DCM_SOPInstanceUID, str);
-
+      */
       }
 
+    /*
 
     // per-frame functional groups
     dataset->findOrCreateSequenceItem(DCM_PerFrameFunctionalGroupsSequence, Item, itemNum);
@@ -299,14 +399,14 @@ int main(int argc, char** argv)
 
       // get ImagePositionPatient and ImageOrientationPatient from the
       // original DICOM
-      char *str;
+      char *str, *orientation, *position;
       DcmElement *element;
       dcmDatasetVector[i]->findAndGetElement(DCM_ImagePositionPatient, element);
-      element->getString(str);
-      std::cout << "Read position patient: " << str << std::endl;
+      element->getString(position);
+      std::cout << "Read position patient: " << position << std::endl;
       dcmDatasetVector[i]->findAndGetElement(DCM_ImageOrientationPatient, element);
-      element->getString(str);
-      std::cout << "Read orientation patient: " << str << std::endl;
+      element->getString(orientation);
+      std::cout << "Read orientation patient: " << orientation << std::endl;
 
 
       dataset->findAndGetSequenceItem(DCM_PerFrameFunctionalGroupsSequence,Item,i);
@@ -320,17 +420,24 @@ int main(int argc, char** argv)
       DcmItem *seqItem = NULL;
 
       sprintf(buf, "%f\\%f\\%f", origin[0], origin[1], origin[2]+i*spacing[2]);
-      subItem->findOrCreateSequenceItem(DCM_PlanePositionSequence, seqItem);
-      seqItem->putAndInsertString(DCM_ImagePositionPatient,buf);
-      std::cout << "Write position: " << buf << std::endl;
+      Item->findOrCreateSequenceItem(DCM_PlanePositionSequence, seqItem, -2);
+      seqItem->putAndInsertString(DCM_ImagePositionPatient, position);
 
       sprintf(buf, "%f\\%f\\%f\\%f\\%f\\%f", colDir[0], colDir[1], colDir[2], rowDir[0], rowDir[1], rowDir[2]);
-      subItem->findOrCreateSequenceItem(DCM_PlaneOrientationSequence, seqItem);
-      seqItem->putAndInsertString(DCM_ImageOrientationPatient, buf);
-      std::cout << "Write orientation: " << buf << std::endl;
+      Item->findOrCreateSequenceItem(DCM_PlaneOrientationSequence, seqItem, -2);
+      seqItem->putAndInsertString(DCM_ImageOrientationPatient, orientation);
+
+      Item->findOrCreateSequenceItem(DCM_PixelMeasuresSequence, seqItem, -2);
+      seqItem->putAndInsertString(DCM_SliceThickness, sliceThicknessStr);
+      seqItem->putAndInsertString(DCM_PixelSpacing, pixelSpacingStr);
+
       }//Per-Frame Functional Groups Sequence information
 
+    */
+
     // pixel data
+    //
+    std::cout << "Preparing pixel data" << std::endl;
     int nbytes = (int) (float((extent[1]+1)*(extent[3]+1)*(extent[5]+1))/8.);
     int total = 0;
     unsigned char *pixelArray = new unsigned char[nbytes];
@@ -379,13 +486,21 @@ ctkDICOMDatabase* InitializeDICOMDatabase()
     return NULL;
 }
 
+// if the requested tag is not available, insert an empty one
 void copyDcmElement(const DcmTag& tag, DcmDataset* dcmIn, DcmDataset* dcmOut)
 {
   char *str;
   DcmElement* element;
   DcmTag copy = tag;
   std::cout << "Copying tag " << copy.getTagName() << std::endl;
-  dcmIn->findAndGetElement(tag, element);
-  element->getString(str);
-  dcmOut->putAndInsertString(tag, str);
+  OFCondition cond = dcmIn->findAndGetElement(tag, element);
+  if(cond.good())
+    {
+    element->getString(str);
+    dcmOut->putAndInsertString(tag, str);
+    }
+  else
+    {
+    dcmOut->putAndInsertString(tag, "");
+    }
 }
