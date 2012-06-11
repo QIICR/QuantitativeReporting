@@ -379,10 +379,10 @@ int main(int argc, char** argv)
       DcmElement *element;
 
       Item->findOrCreateSequenceItem(DCM_FrameContentSequence, subItem);
-      subItem->putAndInsertString(DCM_StackID, "0");
-      sprintf(buf, "%d", i);
+      subItem->putAndInsertString(DCM_StackID, "1");
+      sprintf(buf, "%d", i+1);
       subItem->putAndInsertString(DCM_InStackPositionNumber, buf);
-      sprintf(buf, "0\\%d", i); 
+      sprintf(buf, "1\\%d", i+1); 
       subItem->putAndInsertString(DCM_DimensionIndexValues, buf);
       
       dcmDatasetVector[i]->findAndGetElement(DCM_ImagePositionPatient, element);
