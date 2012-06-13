@@ -443,6 +443,8 @@ class qSlicerReportingModuleWidget:
           print 'Number of coordinates not good for a ruler'
 
         ruler = slicer.mrmlScene.CreateNodeByClass('vtkMRMLAnnotationRulerNode')
+        # associate it with the volume
+        ruler.SetAttribute("AssociatedNodeID", volume.GetID())
         print 'Initializing with points ',rasPointList[0],' and ',rasPointList[1]
         ruler.SetPosition1(rasPointList[0])
         ruler.SetPosition2(rasPointList[1])
