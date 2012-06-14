@@ -196,11 +196,11 @@ int main(int argc, char** argv)
   imageData->GetExtent(extent);
 
   int total = 0;
-  for(int i=0;i<extent[1]+1;i++)
+  for(int k=0;k<extent[5]+1;k++)
     {
     for(int j=0;j<extent[3]+1;j++)
       {
-      for(int k=0;k<extent[5]+1;k++)
+      for(int i=0;i<extent[1]+1;i++)
         {
         int byte = total/8, bit = total % 8;
         int value = (pixelArray[byte] >> bit) & 1;
