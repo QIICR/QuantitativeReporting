@@ -27,7 +27,7 @@ class qSlicerReportingModuleWidgetPrivate;
 class vtkMRMLNode;
 
 /// \ingroup Slicer_QtModules_ExtensionTemplate
-class Q_SLICER_QTMODULES_REPORTING_EXPORT qSlicerReportingModuleWidget :
+class Q_SLICER_QTMODULE_REPORTING_EXPORT qSlicerReportingModuleWidget :
   public qSlicerAbstractModuleWidget
 {
   Q_OBJECT

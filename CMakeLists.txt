@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------
-cmake_minimum_required(VERSION 2.8.4)
+cmake_minimum_required(VERSION 2.8.8)
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
@@ -14,35 +14,38 @@ endif()
 #   - Usually identique to the directory name)
 #   - You shouldn't call 'project(...)'. See SlicerConfig.cmake for more details.
 #-----------------------------------------------------------------------------
-set(EXTENSION_NAME Reporting)
+set(MODULE_NAME Reporting)
+set(MODULE_TITLE ${MODULE_NAME})
+
+string(TOUPPER ${MODULE_NAME} MODULE_NAME_UPPER)
+
+#-----------------------------------------------------------------------------
+#set(MODULE_HOMEPAGE "http://www.slicer.org/slicerWiki/index.php/Documentation/4.1/Extensions/Reporting")
+#set(MODULE_CATEGORY "Informatics")
+#set(MODULE_CONTRIBUTORS "Andrey Fedorov (SPL)")
+#set(MODULE_DESCRIPTION "This is an example of extension bundling a CLI, a loadable and a scripted module")
+#set(MODULE_ICONURL "http://viewvc.slicer.org/viewvc.cgi/Slicer4/trunk/Extensions/Testing/LoadableExtensionTemplate/Resources/Icons/LoadableExtensionTemplate.png?revision=19437&view=co")
 
 #-----------------------------------------------------------------------------
 # Prerequisites
 #-----------------------------------------------------------------------------
 if(NOT Slicer_SOURCE_DIR)
-  set(EXTENSION_HOMEPAGE "http://www.slicer.org/slicerWiki/index.php/Slicer4:Developers:Projects:QtSlicer/Tutorials/ExtensionWriting")
-  set(EXTENSION_CATEGORY "Informatics")
-  set(EXTENSION_STATUS "Beta")
-  set(EXTENSION_DESCRIPTION "")
-  set(EXTENSION_DEPENDS CLIExtensionTemplate) # Specified as a space separated list or 'NA' if any
+  set(MODULE_HOMEPAGE "http://www.slicer.org/slicerWiki/index.php/Slicer4:Developers:Projects:QtSlicer/Tutorials/ExtensionWriting")
+  set(MODULE_CATEGORY "Informatics")
+  set(MODULE_CONTRIBUTORS "Andrey Fedorov")
+  set(MODULE_DESCRIPTION "Reporting Module")
+  #  set(MODULE_DEPENDS NA) # Specified as a space separated list or 'NA' if any
+  set(MODULE_ICONURL "http://viewvc.slicer.org/viewvc.cgi/Slicer4/trunk/Extensions/Testing/LoadableExtensionTemplate/Resources/Icons/LoadableExtensionTemplate.png?revision=19437&view=co")
 
+  set(MODULE_SCREENSHOTURLS "http://google.com")
+  set(MODULE_STATUS "work in progress")
+  
   find_package(Slicer REQUIRED)
-
-  # Additional C/CXX flags - Should be defined before including Slicer_USE_FILE
-  set(ADDITIONAL_C_FLAGS "" CACHE STRING "Additional ${EXTENSION_NAME} C Flags")
-  set(ADDITIONAL_CXX_FLAGS "" CACHE STRING "Additional ${EXTENSION_NAME} CXX Flags")
-
   include(${Slicer_USE_FILE})
-
-  set(EXTENSION_LICENSE_FILE ${Slicer_LICENSE_FILE})
-  set(EXTENSION_README_FILE ${Slicer_README_FILE})
-
-  include(SlicerEnableExtensionTesting)
 
 endif()
 
 # Include SQL not included by default
-list(APPEND Slicer_REQUIRED_QT_MODULES SQL)
 include(SlicerBlockFindQtAndCheckVersion)
 
 # Add subdirectories
@@ -50,6 +53,8 @@ add_subdirectory(MRML)
 add_subdirectory(Widgets)
 add_subdirectory(Logic)
 add_subdirectory(Py)
+
+set(MODULE_EXPORT_DIRECTIVE "Q_SLICER_QTMODULE_${MODULE_NAME_UPPER}_EXPORT")
 
 #-----------------------------------------------------------------------------
 # Sources
@@ -95,12 +100,13 @@ set(qt_module_resources
   Resources/qSlicerReportingModule.qrc
 )
 
+
 #-----------------------------------------------------------------------------
 # Build
 #-----------------------------------------------------------------------------
 slicerMacroBuildQtModule(
   NAME ${EXTENSION_NAME}
-  EXPORT_DIRECTIVE ${qt_module_export_directive}
+  EXPORT_DIRECTIVE ${MODULE_EXPORT_DIRECTIVE}
   INCLUDE_DIRECTORIES ${qt_module_include_directories}
   SRCS ${qt_module_SRCS}
   MOC_SRCS ${qt_module_MOC_SRCS}
@@ -114,24 +120,6 @@ slicerMacroBuildQtModule(
 #-----------------------------------------------------------------------------
 if(BUILD_TESTING)
   add_subdirectory(Testing)
-endif()
-
-#-----------------------------------------------------------------------------
-# Generate extension description file '<EXTENSION_NAME>.s4ext'
-#-----------------------------------------------------------------------------
-if(NOT Slicer_SOURCE_DIR)
-  include(SlicerFunctionGenerateExtensionDescription)
-  slicerFunctionGenerateExtensionDescription(
-    EXTENSION_NAME ${EXTENSION_NAME}
-    EXTENSION_CATEGORY ${EXTENSION_CATEGORY}
-    EXTENSION_STATUS ${EXTENSION_STATUS}
-    EXTENSION_HOMEPAGE ${EXTENSION_HOMEPAGE}
-    EXTENSION_DESCRIPTION ${EXTENSION_DESCRIPTION}
-    EXTENSION_DEPENDS ${EXTENSION_DEPENDS}
-    DESTINATION_DIR ${CMAKE_CURRENT_BINARY_DIR}
-    SLICER_WC_REVISION ${Slicer_WC_REVISION}
-    SLICER_WC_ROOT ${Slicer_WC_ROOT}
-    )
 endif()
 
 #-----------------------------------------------------------------------------
