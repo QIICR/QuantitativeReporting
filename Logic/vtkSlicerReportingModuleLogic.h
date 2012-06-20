@@ -46,7 +46,7 @@ class QStringList;
 class ctkDICOMDatabase;
 
 /// \ingroup Slicer_QtModules_ExtensionTemplate
-class VTK_SLICER_REPORTINGMODULE_MODULE_LOGIC_EXPORT vtkSlicerReportingModuleLogic :
+class VTK_SLICER_REPORTING_MODULE_LOGIC_EXPORT vtkSlicerReportingModuleLogic :
   public vtkSlicerModuleLogic
 {
 public:
