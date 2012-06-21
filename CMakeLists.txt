@@ -3,9 +3,9 @@ cmake_minimum_required(VERSION 2.8.7)
 #-----------------------------------------------------------------------------
 if(NOT Slicer_SOURCE_DIR)
   set(EXTENSION_NAME Reporting)
-  set(EXTENSION_HOMEPAGE "http://wiki.na-mic.org/Wiki/index.php?title=AIM_Annotations_integration_with_3DSlicer")
+  set(EXTENSION_HOMEPAGE "http://wiki.slicer.org/slicerWiki/index.php/Documentation/4.1/Modules/Reporting")
   set(EXTENSION_CATEGORY "Informatics")
-  set(EXTENSION_CONTRIBUTORS "Andrey Fedorov (SPL)")
+  set(EXTENSION_CONTRIBUTORS "Andrey Fedorov (SPL), Nicole Aucoin (SPL), Steve Pieper (SPL)")
   set(EXTENSION_DESCRIPTION "")
   
   find_package(Slicer REQUIRED)
