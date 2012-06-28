@@ -29,7 +29,6 @@
 #include <vtkMRMLReportingReportNode.h>
 #include <vtkMRMLScalarVolumeNode.h>
 #include <vtkMRMLScriptedModuleNode.h>
-#include <vtkMRMLReportingAnnotationRANONode.h>
 
 #include <vtkMRMLDisplayableHierarchyLogic.h>
 
@@ -138,10 +137,7 @@ void vtkSlicerReportingModuleLogic::RegisterNodes()
     return;
   vtkMRMLReportingReportNode *rn = vtkMRMLReportingReportNode::New();
   this->GetMRMLScene()->RegisterNodeClass(rn);
-  vtkMRMLReportingAnnotationRANONode *rano = vtkMRMLReportingAnnotationRANONode::New();
-  this->GetMRMLScene()->RegisterNodeClass(rano);
   rn->Delete();
-  rano->Delete();
 }
 
 //---------------------------------------------------------------------------
@@ -526,6 +522,7 @@ void vtkSlicerReportingModuleLogic::InitializeHierarchyForReport(vtkMRMLReportin
   reportHierarchyNode->SetDisplayableNodeID(node->GetID());
   node->SetDisableModifiedEvent(0);
 
+  /*
   /// create an annotation node with hierarchy
   vtkMRMLHierarchyNode *ranoHierarchyNode = vtkMRMLHierarchyNode::New();
   /// it's a stealth node:
@@ -543,6 +540,7 @@ void vtkSlicerReportingModuleLogic::InitializeHierarchyForReport(vtkMRMLReportin
   /// clean up
   ranoNode->Delete();
   ranoHierarchyNode->Delete();
+  */
   reportHierarchyNode->Delete();
 }
 

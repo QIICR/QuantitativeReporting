@@ -10,8 +10,6 @@ set(${KIT}_INCLUDE_DIRECTORIES
 set(${KIT}_SRCS
   vtkMRMLReportingAnnotationNode.cxx
   vtkMRMLReportingAnnotationNode.h
-  vtkMRMLReportingAnnotationRANONode.cxx
-  vtkMRMLReportingAnnotationRANONode.h
   vtkMRMLReportingReportNode.cxx
   vtkMRMLReportingReportNode.h
   )

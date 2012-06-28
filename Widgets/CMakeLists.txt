@@ -12,8 +12,6 @@ set(${KIT}_INCLUDE_DIRECTORIES
   
 # Source files
 set(${KIT}_SRCS
-  qMRMLReportingAnnotationRANOWidget.cxx
-  qMRMLReportingAnnotationRANOWidget.h
   qMRMLReportingTreeView.cxx
   qMRMLReportingTreeView.h
   qMRMLReportingTreeView_p.h
@@ -25,7 +23,6 @@ set(${KIT}_SRCS
 
 # Headers that should run through moc
 set(${KIT}_MOC_SRCS
-  qMRMLReportingAnnotationRANOWidget.h
   qMRMLReportingTreeView.h
   qMRMLSceneDisplayableHierarchyModel.h
   qMRMLSortFilterDisplayableHierarchyProxyModel.h
