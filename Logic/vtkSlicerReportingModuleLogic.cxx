@@ -28,13 +28,17 @@
 #include <vtkMRMLDisplayNode.h>
 #include <vtkMRMLReportingReportNode.h>
 #include <vtkMRMLScalarVolumeNode.h>
+#include <vtkMRMLScriptedModuleNode.h>
 #include <vtkMRMLReportingAnnotationRANONode.h>
+
+#include <vtkMRMLDisplayableHierarchyLogic.h>
 
 // VTK includes
 #include <vtkImageData.h>
 #include <vtkMatrix4x4.h>
 #include <vtkNew.h>
 #include <vtkSmartPointer.h>
+#include <vtksys/SystemTools.hxx>
 
 // Qt includes
 #include <QDomDocument>
@@ -48,6 +52,7 @@
 
 // STD includes
 #include <cassert>
+#include <time.h>
 
 // DCMTK includes
 #include <dcmtk/dcmdata/dcmetinf.h>
@@ -68,18 +73,21 @@ vtkStandardNewMacro(vtkSlicerReportingModuleLogic);
 //----------------------------------------------------------------------------
 vtkSlicerReportingModuleLogic::vtkSlicerReportingModuleLogic()
 {
-  this->ActiveReportHierarchyID = NULL;
+  this->ActiveParameterNodeID = NULL;
   this->ActiveMarkupHierarchyID = NULL;
   this->DICOMDatabase = NULL;
+  this->GUIHidden = 0;
+
+  vtkDebugMacro("********* vtkSlicerReportingModuleLogic Constructor **********");
 }
 
 //----------------------------------------------------------------------------
 vtkSlicerReportingModuleLogic::~vtkSlicerReportingModuleLogic()
 {
-  if (this->ActiveReportHierarchyID)
+  if (this->ActiveParameterNodeID)
     {
-    delete [] this->ActiveReportHierarchyID;
-    this->ActiveReportHierarchyID = NULL;
+    delete [] this->ActiveParameterNodeID;
+    this->ActiveParameterNodeID = NULL;
     }
   if (this->ActiveMarkupHierarchyID)
     {
@@ -93,8 +101,9 @@ void vtkSlicerReportingModuleLogic::PrintSelf(ostream& os, vtkIndent indent)
 {
   this->Superclass::PrintSelf(os, indent);
 
-  os << indent << "Active Report Hierarchy ID = " << (this->GetActiveReportHierarchyID() ? this->GetActiveReportHierarchyID() : "null") << "\n";
+  os << indent << "Active Parameter Node ID = " << (this->ActiveParameterNodeID ? this->ActiveParameterNodeID : "null") << std::endl;
   os << indent << "Active Markup Hierarchy ID = " << (this->GetActiveMarkupHierarchyID() ? this->GetActiveMarkupHierarchyID() : "null") << "\n";
+  os << indent << "GUI Hidden = " << (this->GUIHidden ? "true" : "false") << "\n";
 
 }
 
@@ -103,7 +112,12 @@ bool vtkSlicerReportingModuleLogic::InitializeDICOMDatabase()
 {
   QSettings settings;
   QString dbPath = settings.value("DatabaseDirectory","").toString();
-  std::cout << "Reporting will use database at this location: " << dbPath.toLatin1().data() << std::endl;
+  if (dbPath.compare("") == 0)
+    {
+    dbPath = QString("/projects/igtdev/nicole/LocalDCMDB");
+    vtkWarningMacro("InitializeDICOMDatabase: no DatabaseDirectory path found, please update the settings.\nUsing " << qPrintable(dbPath));
+    }
+  vtkDebugMacro("Reporting will use database at this location: '" << dbPath.toLatin1().data() << "'");
 
   bool success = false;
 
@@ -190,18 +204,119 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     {
     annotationType = "Ruler";
     }
+  else if (node->IsA("vtkMRMLScalarVolumeNode"))
+    {
+    // is it a label map that's been made from a reporting volume?
+    vtkMRMLScalarVolumeNode *labelVolumeNode = vtkMRMLScalarVolumeNode::SafeDownCast(node);
+    if (labelVolumeNode->GetLabelMap())
+      {
+      const char *associatedNodeID = node->GetAttribute("AssociatedNodeID");
+      if (associatedNodeID)
+        {
+        vtkDebugMacro("OnMRMLSceneNodeAdded: have a label map volume with associated id of " << associatedNodeID);
+        // is that volume under the active report?
+        const char * activeReportID = this->GetActiveReportHierarchyID();
+        vtkMRMLDisplayableHierarchyNode *activeHierarchyNode = NULL;
+        if (activeReportID)
+          {
+          activeHierarchyNode = vtkMRMLDisplayableHierarchyNode::SafeDownCast(this->GetMRMLScene()->GetNodeByID(activeReportID));
+          }
+        vtkMRMLReportingReportNode *reportNode = NULL;
+        char *volumeID = NULL;
+        if (activeHierarchyNode)
+          {
+          reportNode = vtkMRMLReportingReportNode::SafeDownCast(activeHierarchyNode->GetAssociatedNode());
+          volumeID = this->GetVolumeIDForReportNode(reportNode);
+          }
+        if (volumeID)
+          {
+          if (strcmp(volumeID, associatedNodeID) == 0)
+            {
+            // the new label map is associated with the volume in this report,
+            // so add it into the mark up hierarchy
+
+            // is there an active hierarchy id?
+            char *activeMarkupHierarchyID = this->GetActiveMarkupHierarchyID();
+            if (!activeMarkupHierarchyID)
+              {
+              // add one? error for now
+              vtkErrorMacro("OnMRMLSceneNodeAdded: No active markup hierarchy id, failed to set up hierarchy for volume " << volumeID);
+              }
+            else
+              {
+              vtkDebugMacro("OnMRMLSceneNodeAdded: Found active markup for volume " << volumeID << ", it's: " << activeMarkupHierarchyID);
+              // add a 1:1 hierarchy node for the label map
+              vtkMRMLDisplayableHierarchyLogic *hierarchyLogic = vtkMRMLDisplayableHierarchyLogic::New();
+              if (hierarchyLogic)
+                {
+                char *newHierarchyID = hierarchyLogic->AddDisplayableHierarchyNodeForNode(labelVolumeNode);
+                if (newHierarchyID)
+                  {
+                  // get the hierarchy node
+                  vtkMRMLDisplayableHierarchyNode *newHierarchyNode = vtkMRMLDisplayableHierarchyNode::SafeDownCast(this->GetMRMLScene()->GetNodeByID(newHierarchyID));
+                  // set it's parent to the active markup
+                  newHierarchyNode->SetParentNodeID(activeMarkupHierarchyID);
+                  }
+                hierarchyLogic->Delete();
+                }
+              }
+            }
+          else
+            {
+            vtkDebugMacro("OnMRMLSceneNodeAdded: associated volume " << associatedNodeID << " is not the volume for this report: " << volumeID);
+            }
+          }
+        else
+          {
+          vtkDebugMacro("OnMRMLSceneNodeAdded: associated volume is not in active report " << (activeReportID ? activeReportID : "null") << ", volume ID is null");
+          }
+        }
+      else
+        {
+        vtkDebugMacro("OnMRMLSceneNodeAdded: no associated node id on scalar volume");
+        }
+      }
+    return;
+    }
   else
     {
     return;
     }
-  // only want to grab annotation nodes if there's an active markeup
-  // hierarchy
-  if (!this->GetActiveMarkupHierarchyID())
+  // only want to grab annotation nodes if the gui is visible
+  if (this->GetGUIHidden())
     {
+    vtkDebugMacro("GUI is hidden, returning");
     return;
     }
-  vtkDebugMacro("OnMRMLSceneNodeAdded: active markup hierarchy, got an annotation node added with id " << node->GetID());
+  vtkDebugMacro("OnMRMLSceneNodeAdded: gui is not hidden, got an annotation node added with id " << node->GetID());
 
+  /// check that the annotation was placed on the current acquisition plane
+  /// according to the parameter node
+  vtkMRMLScriptedModuleNode *parameterNode = NULL;
+  vtkMRMLNode *mrmlNode = this->GetMRMLScene()->GetNodeByID(this->GetActiveParameterNodeID());
+  std::string acquisitionSliceViewer;
+  if (mrmlNode)
+    {
+    parameterNode = vtkMRMLScriptedModuleNode::SafeDownCast(mrmlNode);
+    if (parameterNode)
+      {
+      acquisitionSliceViewer = parameterNode->GetParameter("acquisitionSliceViewer");
+      if (acquisitionSliceViewer.compare("") != 0)
+        {
+        std::cout << "Parameter node has acquisition plane = '" << acquisitionSliceViewer.c_str() << "'" << std::endl;
+        }
+      }
+    }
+
+  vtkMRMLAnnotationNode *annotationNode = vtkMRMLAnnotationNode::SafeDownCast(node);
+  
+  /// check that the annotation has a valid UID
+  std::string UID = this->GetSliceUIDFromMarkUp(annotationNode);
+  if (UID.compare("NONE") == 0)
+    {
+    vtkDebugMacro("OnMRMLSceneNodeAdded: annotation " << annotationNode->GetName() << " isn't associated with a single UID from a volume, not using it for this report");
+    return;
+    }
   /// make a new hierarchy node to create a parallel tree?
   /// for now, just reasign it
   vtkMRMLHierarchyNode *hnode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(node->GetScene(), node->GetID());
@@ -211,7 +326,6 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     }
 
   // rename it from the reporting node
-  vtkMRMLAnnotationNode *annotationNode = vtkMRMLAnnotationNode::SafeDownCast(node);
   vtkMRMLNode *reportNode = NULL;
   vtkMRMLNode *activeReport = this->GetMRMLScene()->GetNodeByID(this->GetActiveReportHierarchyID());
   if (activeReport)
@@ -224,7 +338,16 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     }
   if (annotationNode && reportNode)
     {
-    std::string annotationName = std::string(reportNode->GetDescription())+"_"+annotationType;
+    const char *desc = reportNode->GetDescription();
+    std::string annotationName;
+    if (desc)
+      {
+      annotationName = std::string(desc)+"_"+annotationType;
+      }
+    else
+      {
+      annotationName = std::string("Report_") + annotationType;
+      }
     annotationNode->SetName(annotationNode->GetScene()->GetUniqueNameByString(annotationName.c_str()));
     }
   
@@ -238,27 +361,27 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeRemoved(vtkMRMLNode* vtkNotUs
 }
 
 //---------------------------------------------------------------------------
-const char *vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotationNode *node)
+std::string vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotationNode *node)
 {
-  std::string UID = "NONE";
+  std::string UID = std::string("NONE");
 
   if (!node)
     {
     vtkErrorMacro("GetSliceUIDFromMarkUp: no input node!");
-    return  UID.c_str();
+    return  UID;
     }
 
   if (!this->GetMRMLScene())
     {
     vtkErrorMacro("GetSliceUIDFromMarkUp: No MRML Scene defined!");
-    return UID.c_str();
+    return UID;
     }
   
   vtkMRMLAnnotationControlPointsNode *cpNode = vtkMRMLAnnotationControlPointsNode::SafeDownCast(node);
   if (!node)
     {
     vtkErrorMacro("GetSliceUIDFromMarkUp: Input node is not a control points node!");
-    return UID.c_str();
+    return UID;
     }
   
   int numPoints = cpNode->GetNumberOfControlPoints();
@@ -268,28 +391,28 @@ const char *vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotati
   const char *associatedNodeID = cpNode->GetAttribute("AssociatedNodeID");
   if (!associatedNodeID)
     {
-    vtkErrorMacro("GetSliceUIDFromMarkUp: No AssociatedNodeID on the annotation node");
-    return UID.c_str();
+    vtkDebugMacro("GetSliceUIDFromMarkUp: No AssociatedNodeID on the annotation node");
+    return UID;
     }
   vtkMRMLScalarVolumeNode *volumeNode = NULL;
   vtkMRMLNode *mrmlNode = this->GetMRMLScene()->GetNodeByID(associatedNodeID);
   if (!mrmlNode)
     {
     vtkErrorMacro("GetSliceUIDFromMarkUp: Associated node not found by id: " << associatedNodeID);
-    return UID.c_str();
+    return UID;
     }
   volumeNode = vtkMRMLScalarVolumeNode::SafeDownCast(mrmlNode);
   if (!volumeNode)
     {
     vtkErrorMacro("GetSliceUIDFromMarkUp: Associated node with id: " << associatedNodeID << " is not a volume node!");
-    return UID.c_str();
+    return UID;
     }
 
   // get the list of UIDs from the volume
   if (!volumeNode->GetAttribute("DICOM.instanceUIDs"))
     {
-    vtkErrorMacro("GetSliceUIDFromMarkUp: Volume node with id: " << associatedNodeID << " doesn't have a list of UIDs under the attribute DICOM.instanceUIDs!");
-    return UID.c_str();
+    vtkErrorMacro("GetSliceUIDFromMarkUp: Volume node with id: " << associatedNodeID << " doesn't have a list of UIDs under the attribute DICOM.instanceUIDs! Returning '" << UID.c_str() << "'");
+    return UID;
     }
   std::string uidsString = volumeNode->GetAttribute("DICOM.instanceUIDs");
   // break them up into a vector, they're space separated
@@ -309,11 +432,10 @@ const char *vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotati
   vtkSmartPointer<vtkMatrix4x4> ras2ijk = vtkSmartPointer<vtkMatrix4x4>::New();
   volumeNode->GetRASToIJKMatrix(ras2ijk);
 
-
-//  for (int i = 0; i < numPoints; i++)
-  int i = 0;
+  // need to make sure that all the UIDs are the same
+  std::string UIDi = std::string("NONE");
+  for (int i = 0; i < numPoints; i++)
     {
-    vtkDebugMacro("i " << " uid = " << uidVector[i].c_str());
     // get the RAS point
     double ras[4] = {0.0, 0.0, 0.0, 1.0};
     cpNode->GetControlPointWorldCoordinates(i, ras);
@@ -321,19 +443,35 @@ const char *vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotati
     double ijk[4] = {0.0, 0.0, 0.0, 1.0};
     ras2ijk->MultiplyPoint(ras, ijk);
     vtkDebugMacro("Point " << i << " ras = " << ras[0] << ", " << ras[1] << ", " << ras[2] << " converted to ijk  = " << ijk[0] << ", " << ijk[1] << ", " << ijk[2] << ", getting uid at index " << ijk[2] << " (uid vector size = " << uidVector.size() << ")");
-    if (uidVector.size() > ijk[2])
+    unsigned int k = static_cast<unsigned int>(round(ijk[2]));
+    vtkDebugMacro("\tusing ijk[2] " << ijk[2] << " as an unsigned int: " << k);
+    if (uidVector.size() > k)
       {
       // assumption is that the dicom UIDs are in order by k
-      UID = uidVector[ijk[2]];
+      UIDi = uidVector[k];
       }
     else
       {
       // multiframe data? set UID to the first one, but will need to store the
       // frame number on AIM import
-      UID = uidVector[0];
+      UIDi = uidVector[0];
+      }
+    if (i == 0)
+      {
+      UID = UIDi;
+      }
+    else
+      {
+      // check if UIDi does not match UID
+      if (UIDi.compare(UID) != 0)
+        {
+        vtkWarningMacro("GetSliceUIDFromMarkUp: annotation " << cpNode->GetName() << " point " << i << " has a UID of:\n" << UIDi.c_str() << "\nthat doesn't match previous UIDs of:\n" << UID.c_str() << "\n\tReturning UID of NONE");
+        UID = std::string("NONE");
+        break;
+        }
       }
     }  
-  return UID.c_str();
+  return UID;
 
 }
 //---------------------------------------------------------------------------
@@ -382,8 +520,6 @@ void vtkSlicerReportingModuleLogic::InitializeHierarchyForReport(vtkMRMLReportin
   if (hnode)
     {
     vtkDebugMacro("InitializeHierarchyForReport: report " << node->GetID() << " already has a hierarchy associated with it, " << hnode->GetID());
-    /// make the report hierarchy active 
-    this->SetActiveReportHierarchyID(hnode->GetID());
     return;
     }
     /// otherwise, create a 1:1 hierarchy for this node
@@ -404,10 +540,6 @@ void vtkSlicerReportingModuleLogic::InitializeHierarchyForReport(vtkMRMLReportin
   node->SetDisableModifiedEvent(1);
   reportHierarchyNode->SetDisplayableNodeID(node->GetID());
   node->SetDisableModifiedEvent(0);
-
-  /// make the report hierarchy active 
-  this->SetActiveReportHierarchyID(reportHierarchyNode->GetID());
-  vtkDebugMacro("Set the active report hierarchy id = " << (reportHierarchyNode->GetID() ? reportHierarchyNode->GetID() : "null"));
 
   /// create an annotation node with hierarchy
   vtkMRMLHierarchyNode *ranoHierarchyNode = vtkMRMLHierarchyNode::New();
@@ -451,10 +583,11 @@ void vtkSlicerReportingModuleLogic::InitializeHierarchyForVolume(vtkMRMLVolumeNo
   char * volumeHierarchyNodeID = NULL;
   if (hnode)
     {
-    vtkDebugMacro("InitializeHierarchyForVolume: volume " << node->GetID() << " already has a hierarchy associated with it, " << hnode->GetID() << ", making it a child of " << (this->GetActiveReportHierarchyID() ? this->GetActiveReportHierarchyID() : "null"));
+    const char * activeReportID = this->GetActiveReportHierarchyID();
+    vtkDebugMacro("InitializeHierarchyForVolume: volume " << node->GetID() << " already has a hierarchy associated with it, " << hnode->GetID() << ", making it a child of " << (activeReportID ? activeReportID : "null"));
     volumeHierarchyNodeID = hnode->GetID();
     // make sure it's a child of the report
-    hnode->SetParentNodeID(this->GetActiveReportHierarchyID());
+    hnode->SetParentNodeID(activeReportID);
     }
   else
     {
@@ -468,15 +601,16 @@ void vtkSlicerReportingModuleLogic::InitializeHierarchyForVolume(vtkMRMLVolumeNo
     volumeHierarchyNodeID = volumeHierarchyNode->GetID();
     
     // make it the child of the active report node
-    if (!this->GetActiveReportHierarchyID())
+    const char *activeReportID = this->GetActiveReportHierarchyID();
+    if (!activeReportID)
       {
       vtkWarningMacro("No active report, please select one!");
       }
     else
       {
-      vtkDebugMacro("Set volume hierarchy parent to active report id " << this->GetActiveReportHierarchyID());
+      vtkDebugMacro("Set volume hierarchy parent to active report id " << activeReportID);
       }
-    volumeHierarchyNode->SetParentNodeID(this->GetActiveReportHierarchyID());
+    volumeHierarchyNode->SetParentNodeID(activeReportID);
     
     // set the displayable node id to point to this volume node
     node->SetDisableModifiedEvent(1);
@@ -520,7 +654,7 @@ void vtkSlicerReportingModuleLogic::SetActiveMarkupHierarchyIDFromNode(vtkMRMLNo
 {
   if (!node || !node->GetName())
     {
-    vtkDebugMacro("SetActiveMarkupHierarchyIDFromNode: node is " << (node? "not null" : "null") << ", name is " << (node->GetName() ? node->GetName() : "null") << ", settting active id to null");
+    vtkWarningMacro("SetActiveMarkupHierarchyIDFromNode: node is " << (node? "not null" : "null") << ", name is " << (node->GetName() ? node->GetName() : "null") << ", settting active id to null");
     this->SetActiveMarkupHierarchyID(NULL);
     return;
     }
@@ -576,6 +710,7 @@ char *vtkSlicerReportingModuleLogic::GetVolumeIDForReportNode(vtkMRMLReportingRe
 {
   if (!node)
     {
+    vtkErrorMacro("GetVolumeIDForReportNode: null report node");
     return NULL;
     }
   // get the associated hierarchy node for this report
@@ -720,6 +855,7 @@ void vtkSlicerReportingModuleLogic::HideAnnotationsForOtherReports(vtkMRMLReport
     }
 }
 
+//---------------------------------------------------------------------------
 int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *reportNode, const char *filename)
 {
   if(!this->DICOMDatabase)
@@ -762,6 +898,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   if (volumeNode)
     {
     // set this volume's markup hierarchy to be active, just to make sure
+    vtkDebugMacro("SaveReportToAIM: setting active markup hierarchy id from volume node " << volumeNode->GetID());
     this->SetActiveMarkupHierarchyIDFromNode(volumeNode);
     // now get it
     const char *markupID = this->GetActiveMarkupHierarchyID();
@@ -770,10 +907,10 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
       {
       markupHierarchyNode = vtkMRMLAnnotationHierarchyNode::SafeDownCast(mrmlMarkupNode);
       if(!markupHierarchyNode)
-      {
-        std::cerr << "ERROR: markupHierarchyNode not found!" << std::endl;
+        {
+        vtkErrorMacro("ERROR: markup hierarchy node not found!");
         return EXIT_FAILURE;
-      }
+        }
       }
     }
 
@@ -782,6 +919,17 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   // generated the document and parent elements
   //
   // (Step 1) Initialize ImageAnnotation and attributes
+
+  // first get the current time
+  struct tm * timeInfo;
+  time_t rawtime;
+  // yyyy/mm/dd-hh-mm-ss-ms-TZ
+  // plus one for 3 char time zone
+  char timeStr[27];
+  time ( &rawtime );
+  timeInfo = localtime (&rawtime);
+  strftime (timeStr, 27, "%Y/%m/%d-%H-%M-%S-00-%Z", timeInfo);
+  
   QDomDocument doc;
   QDomProcessingInstruction xmlDecl = doc.createProcessingInstruction("xml","version=\"1.0\"");
   doc.appendChild(xmlDecl);
@@ -794,7 +942,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   root.setAttribute("codeMeaning","Response Assessment in Neuro-Oncology");
   root.setAttribute("codeValue", "RANO");
   root.setAttribute("codeSchemeDesignator", "RANO");
-  root.setAttribute("dateTime","2012-02-29T00:00:00");
+  root.setAttribute("dateTime",timeStr);
   root.setAttribute("name",reportNode->GetDescription());
   root.setAttribute("uniqueIdentifier","n.a");
   root.setAttribute("xmlns:xsi","http://www.w3.org/2001/XMLSchema-instance");
@@ -809,9 +957,20 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   
   // (Step 3) Initialize user/equipment/person (these have no meaning for now
   // here)
+
+  // get some environment variables first
+  std::string envUser, envHost, envHostName;
+  vtksys::SystemTools::GetEnv("USER", envUser);
+  vtksys::SystemTools::GetEnv("HOST", envHost);
+  if (envHost.compare("")== 0)
+    {
+    vtksys::SystemTools::GetEnv("HOSTNAME", envHostName);
+    }
+  
+  
   QDomElement user = doc.createElement("user");
   user.setAttribute("cagridId","0");
-  user.setAttribute("loginName","slicer");
+  user.setAttribute("loginName",envUser.c_str());
   user.setAttribute("name","slicer");
   user.setAttribute("numberWithinRoleOfClinicalTrial","1");
   user.setAttribute("roleInTrial","Performing");
@@ -877,17 +1036,17 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
         if(fidNode || rulerNode)
           {
           // TODO: need to handle the case of multiframe data .. ?
-          QString sliceUID = this->GetSliceUIDFromMarkUp(annNode);
-
-          QStringList sliceUIDList;
-          sliceUIDList << sliceUID;
-          allInstanceUIDs << sliceUID;
-
-          if(sliceUID == "NONE")
+          std::string sliceUID = this->GetSliceUIDFromMarkUp(annNode);
+          if(sliceUID.compare("NONE") == 0)
             {
-            std::cout << "Cannot save AIM report: volumes being annotated are not DICOM volumes!";
+            vtkErrorMacro("Cannot save AIM report: volume being annotated, " << volumeNode->GetName()  << " is not a DICOM volume!");
             return EXIT_FAILURE;
             }
+ 
+          QStringList sliceUIDList;
+          sliceUIDList << QString(sliceUID.c_str());
+          allInstanceUIDs << QString(sliceUID.c_str());
+
 
           QStringList coordStr = this->GetMarkupPointCoordinatesStr(annNode);
 
@@ -898,7 +1057,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
           // Fiducial = AIM Point
           if (fidNode)
             {
-            std::cerr << "SaveReportToAIM: saving Point from node named " << fidNode->GetName() << std::endl;
+            vtkDebugMacro("SaveReportToAIM: saving Point from node named " << fidNode->GetName());
 
             if(coordStr.size()!=2)
               {
@@ -915,7 +1074,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
           // Ruler = AIM MultiPoint
           if (rulerNode)
             {
-            std::cerr << "SaveReportToAIM: saving MultiPoint from node named " << rulerNode->GetName() << std::endl;
+            vtkDebugMacro("SaveReportToAIM: saving MultiPoint from node named " << rulerNode->GetName());
 
             if(coordStr.size()!=4)
               {
@@ -974,21 +1133,47 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     std::cout << "seriesUID = " << seriesUID.toLatin1().data() << std::endl;
 //   std::cout << "sclassUID = " << classUID.toLatin1().data() << std::endl;
 
+    if (imageUID.size() == 0)
+      {
+      vtkErrorMacro("SaveReportToAIM: for instance uid #" << i << ", got an empty imageUID string. Cannot parse for a valid image UID");
+      return EXIT_FAILURE;
+      }
     imageUID = imageUID.split("]")[0].split("[")[1];
+    if (studyUID.size() == 0)
+      {
+      vtkErrorMacro("SaveReportToAIM: for instance uid #" << i << ", got an empty studyUID string. Cannot parse for a valid study UID");
+      return EXIT_FAILURE;
+      }
     studyUID = studyUID.split("]")[0].split("[")[1];
+    if (seriesUID.size() == 0)
+      {
+      vtkErrorMacro("SaveReportToAIM: for instance uid #" << i << ", got an empty seriesUID string. Cannot parse for a valid series UID");
+      return EXIT_FAILURE;
+      }
     seriesUID = seriesUID.split("]")[0].split("[")[1];
 
     if(seriesToImageList.find(seriesUID) == seriesToImageList.end())
+      {
       seriesToImageList[seriesUID] = QStringList() << imageUID;
+      }
     else
+      {
       if(seriesToImageList[seriesUID].indexOf(imageUID) == -1)
+        {
         seriesToImageList[seriesUID] << imageUID;
-    
+        }
+      }
     if(studyToSeriesList.find(studyUID) == seriesToImageList.end())
+      {
       studyToSeriesList[studyUID] = QStringList() << seriesUID;
+      }
     else
+      {
       if(studyToSeriesList[studyUID].indexOf(seriesUID) == -1)
+        {
         studyToSeriesList[studyUID] << seriesUID;
+        }
+      }
     }
 
   QDomElement irc = doc.createElement("imageReferenceCollection");
@@ -998,7 +1183,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   //  it!=volumeUIDLists.end();++it)
   //  {
   for(std::map<QString,QStringList>::const_iterator mIt=studyToSeriesList.begin();
-    mIt!=studyToSeriesList.end();++mIt)
+      mIt!=studyToSeriesList.end();++mIt)
     {
 
     QString studyUID = mIt->first;
@@ -1040,19 +1225,19 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
       QStringList uidList = seriesToImageList[seriesUID];
 
       for(int i=0;i<uidList.size();i++)
-      {
+        {
         QDomElement image = doc.createElement("Image");
         image.setAttribute("cagridId","0");
         image.setAttribute("sopClassUID","NA"); // FIXME
         image.setAttribute("sopInstanceUID",uidList[i]);
         ic.appendChild(image);
+        }
       }
     }
-  }
 
   // close the file
   
-  std::cout << "Here comes the AIM: " << std::endl;
+  vtkDebugMacro("Here comes the AIM: ");
   QString xml = doc.toString();
   std::cout << qPrintable(xml);
 
@@ -1063,6 +1248,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     
 }
 
+//---------------------------------------------------------------------------
 int vtkSlicerReportingModuleLogic::AddSpatialCoordinateCollectionElement(QDomDocument &doc, QDomElement &parent,
   QStringList &coordList, QStringList &sliceUIDList)
 {
@@ -1091,51 +1277,52 @@ int vtkSlicerReportingModuleLogic::AddSpatialCoordinateCollectionElement(QDomDoc
   return EXIT_SUCCESS;
 }
 
+//---------------------------------------------------------------------------
 vtkMRMLScalarVolumeNode* vtkSlicerReportingModuleLogic::GetMarkupVolumeNode(vtkMRMLAnnotationNode *node)
 {
   if (!node)
     {
-    vtkErrorMacro("GetSliceUIDFromMarkUp: no input node!");
+    vtkErrorMacro("GetMarkupVolumeNode: no input node!");
     return  0;
     }
 
   if (!this->GetMRMLScene())
     {
-    vtkErrorMacro("GetSliceUIDFromMarkUp: No MRML Scene defined!");
+    vtkErrorMacro("GetMarkupVolumeNode: No MRML Scene defined!");
     return 0;
     }
 
   vtkMRMLAnnotationControlPointsNode *cpNode = vtkMRMLAnnotationControlPointsNode::SafeDownCast(node);
   if (!node)
     {
-    vtkErrorMacro("GetSliceUIDFromMarkUp: Input node is not a control points node!");
+    vtkErrorMacro("GetMarkupVolumeNode: Input node is not a control points node!");
     return 0;
     }
 
   int numPoints = cpNode->GetNumberOfControlPoints();
-  vtkDebugMacro("GetSliceUIDFromMarkUp: have a control points node with " << numPoints << " points");
+  vtkDebugMacro("GetMarkupVolumeNode: have a control points node with " << numPoints << " points");
 
   // get the associated node
   const char *associatedNodeID = cpNode->GetAttribute("AssociatedNodeID");
   if (!associatedNodeID)
     {
-    vtkErrorMacro("GetSliceUIDFromMarkUp: No AssociatedNodeID on the annotation node");
+    vtkErrorMacro("GetMarkupVolumeNode: No AssociatedNodeID on the annotation node");
     return 0;
     }
   vtkMRMLScalarVolumeNode *volumeNode = NULL;
   vtkMRMLNode *mrmlNode = this->GetMRMLScene()->GetNodeByID(associatedNodeID);
   if (!mrmlNode)
     {
-    vtkErrorMacro("GetSliceUIDFromMarkUp: Associated node not found by id: " << associatedNodeID);
+    vtkErrorMacro("GetMarkupVolumeNode: Associated node not found by id: " << associatedNodeID);
     return 0;
     }
   volumeNode = vtkMRMLScalarVolumeNode::SafeDownCast(mrmlNode);
   if (!volumeNode)
     {
-    vtkErrorMacro("GetSliceUIDFromMarkUp: Associated node with id: " << associatedNodeID << " is not a volume node!");
+    vtkErrorMacro("GetMarkupVolumeNode: Associated node with id: " << associatedNodeID << " is not a volume node!");
     return 0;
     }
-  std::cout << "Associated volume node ID: " << volumeNode->GetID() << std::endl;
+  vtkDebugMacro("GetMarkupVolumeNode: Associated volume node ID: " << volumeNode->GetID());
   if (this->GetDebug())
     {
     vtkIndent ind;
@@ -1144,6 +1331,7 @@ vtkMRMLScalarVolumeNode* vtkSlicerReportingModuleLogic::GetMarkupVolumeNode(vtkM
   return volumeNode;
 }
 
+//---------------------------------------------------------------------------
 QStringList vtkSlicerReportingModuleLogic::GetMarkupPointCoordinatesStr(vtkMRMLAnnotationNode *ann)
 {
   QStringList sl;
@@ -1197,256 +1385,6 @@ bool vtkSlicerReportingModuleLogic::WriteLabelAsSegObject(vtkMRMLVolumeNode* src
       std::cout << "Failed to get image data!" << std::endl;
       return -1;
   }
-
-  int extent[6];
-  labelImage->GetExtent(extent);
-
-  // get the DICOM instance UID(s) for the source series
-  std::string uidsString = srcNode->GetAttribute("DICOM.instanceUIDs");
-  std::vector<QString> uidVector;
-  std::vector<DcmDataset*> dcmDatasetVector;
-  char *uids = new char[uidsString.size()+1];
-  strcpy(uids,uidsString.c_str());
-  char *ptr;
-  ptr = strtok(uids, " ");
-  while (ptr != NULL)
-    {
-    vtkDebugMacro("Parsing UID = " << ptr);
-    uidVector.push_back(QString(ptr));
-    ptr = strtok(NULL, " ");
-    }
-
-  if(!this->DICOMDatabase)
-    {
-    this->InitializeDICOMDatabase();
-    }
-
-
-  // load DcmDataset for each instance UID and put in vector
-  for(std::vector<QString>::const_iterator uidIt=uidVector.begin();
-      uidIt!=uidVector.end();++uidIt)
-    {
-    // based on CTK/Libs/DICOM/Core/ctkDICOMDatabase.cpp:loadInstanceHeader()
-    QSqlQuery query(this->DICOMDatabase->database());
-    query.prepare("SELECT Filename FROM Images WHERE SOPInstanceUID=?");
-    query.bindValue(0, *uidIt);
-    query.exec();
-    if(query.next())
-      {
-      QString fileName = query.value(0).toString();
-      DcmFileFormat fileFormat;
-      OFCondition status = fileFormat.loadFile(fileName.toLatin1().data());
-      if(status.good())
-        {
-        std::cout << "Loaded dataset for " << fileName.toLatin1().data();
-        dcmDatasetVector.push_back(fileFormat.getDataset());
-        }
-      }
-    }
-
-  // create a DICOM dataset (see http://support.dcmtk.org/docs/mod_dcmdata.html#Examples)
-  DcmFileFormat fileformat;
-  DcmDataset *dataset = fileformat.getDataset();
-
-
-  // Get the image orientation information
-
-  // populate the pixel data
-  vtkSmartPointer<vtkMatrix4x4> IJKtoRAS = vtkSmartPointer<vtkMatrix4x4>::New();
-  vtkSmartPointer<vtkMatrix4x4> RAStoIJK = vtkSmartPointer<vtkMatrix4x4>::New();
-  vtkSmartPointer<vtkMatrix4x4> RAStoLPS = vtkSmartPointer<vtkMatrix4x4>::New();
-  vtkSmartPointer<vtkMatrix4x4> IJKtoLPS = vtkSmartPointer<vtkMatrix4x4>::New();
-  double spacing[3], origin[3];
-
-  labelNode->GetRASToIJKMatrix(RAStoIJK);
-  vtkMatrix4x4::Invert(RAStoIJK, IJKtoRAS);
-  IJKtoRAS->Transpose();
-
-  for(int i=0;i<3;i++)
-  {
-    spacing[i]=0;
-    for(int j=0;j<3;j++)
-    {
-      spacing[i]+=IJKtoRAS->GetElement(i,j)*IJKtoRAS->GetElement(i,j);
-    }
-    if(spacing[i]==0.)
-      spacing[i] = 1.;
-    spacing[i]=sqrt(spacing[i]);
-  }
-
-  for(int i=0;i<3;i++)
-  {
-    for(int j=0;j<3;j++)
-    {
-      IJKtoRAS->SetElement(i, j, IJKtoRAS->GetElement(i,j)/spacing[i]);
-    }
-  }
-
-  RAStoLPS->Identity();
-  RAStoLPS->SetElement(0,0,-1);
-  RAStoLPS->SetElement(1,1,-1);
-  vtkMatrix4x4::Multiply4x4(IJKtoRAS, RAStoLPS, IJKtoLPS);
-
-  origin[0] = IJKtoRAS->GetElement(3,0);
-  origin[1] = IJKtoRAS->GetElement(3,1)*-1.;
-  origin[2] = IJKtoRAS->GetElement(3,2)*-1.;
-
-  // Patient orientation definition:
-  //   http://dabsoft.ch/dicom/3/C.7.6.1.1.1/
-
-  char patientOrientationStr[64];
-  sprintf(patientOrientationStr, "%f\\%f\\%f\\%f\\%f\\%f",
-          IJKtoLPS->GetElement(0,0), IJKtoLPS->GetElement(1,0),
-          IJKtoLPS->GetElement(2,0), IJKtoLPS->GetElement(0,1),
-          IJKtoLPS->GetElement(1,1), IJKtoLPS->GetElement(2,1));
-
-  char patientPositionStr[64];
-  sprintf(patientPositionStr, "%f\\%f\\%f",
-          origin[0], origin[1], origin[2]);
-
-  char pixelSpacingStr[64];
-  sprintf(pixelSpacingStr, "%f\\%f",
-          spacing[0], spacing[1]);
-
-  char sliceThicknessStr[64];
-  sprintf(sliceThicknessStr, "%f",
-          spacing[2]);
-
-  // initialize the header
-  DcmDataset* dcm0 = dcmDatasetVector[0];
-  DcmElement* element;
-  DcmItem* item;
-
-  // AF TODO: initialize with meaningful values
-  //element = dcm0->getElement(DCM_StudyDate);
-  //dcm0->get
-  //std::cout << "Study date: " << element->getString() << std::endl;
-  //dcm0->findAndGetSequenceItem(DCM_StudyDate, item);
-
-  this->copyDcmElement(DCM_StudyDate, dcm0, dataset);
-  std::cout << "Copied the date" << std::endl;
-  this->copyDcmElement(DCM_PatientName, dcm0, dataset);
-  this->copyDcmElement(DCM_PatientSex, dcm0, dataset);
-  this->copyDcmElement(DCM_PatientAge, dcm0, dataset);
-  this->copyDcmElement(DCM_PatientID, dcm0, dataset);
-  this->copyDcmElement(DCM_StudyID, dcm0, dataset);
-  this->copyDcmElement(DCM_StudyInstanceUID, dcm0, dataset);
-  this->copyDcmElement(DCM_AccessionNumber, dcm0, dataset);
-  this->copyDcmElement(DCM_StudyTime, dcm0, dataset);
-  this->copyDcmElement(DCM_StudyDate, dcm0, dataset);
-  this->copyDcmElement(DCM_StudyDate, dcm0, dataset);
-  this->copyDcmElement(DCM_StudyDate, dcm0, dataset);
-  this->copyDcmElement(DCM_StudyDate, dcm0, dataset);
-  this->copyDcmElement(DCM_StudyDate, dcm0, dataset);
-  this->copyDcmElement(DCM_StudyDate, dcm0, dataset);
-  this->copyDcmElement(DCM_StudyDate, dcm0, dataset);
-  this->copyDcmElement(DCM_StudyDate, dcm0, dataset);
-  this->copyDcmElement(DCM_StudyDate, dcm0, dataset);
-
-  return 0;
-
-  char uid[128];
-  char* seriesUIDStr = dcmGenerateUniqueIdentifier(uid, SITE_SERIES_UID_ROOT);
-  dataset->putAndInsertString(DCM_SeriesInstanceUID,seriesUIDStr);
-  dataset->putAndInsertString(DCM_InstanceCreatorUID,OFFIS_UID_ROOT);
-
-  char* str;
-  dcm0->findAndGetElement(DCM_SeriesInstanceUID, element);
-  element->getString(str);
-  dataset->putAndInsertString(DCM_FrameOfReferenceUID, str);
-
-  char buf[16] = {0};
-  sprintf(buf,"%d", extent[1]+1);
-  dataset->putAndInsertString(DCM_Columns,buf);
-
-  sprintf(buf,"%d", extent[3]+1);
-  dataset->putAndInsertString(DCM_Rows,buf);
-
-  sprintf(buf,"%d", extent[5]+1);
-  dataset->putAndInsertString(DCM_NumberOfFrames,buf);
-
-  dataset->putAndInsertString(DCM_ImageOrientationPatient, patientOrientationStr);
-  dataset->putAndInsertString(DCM_ImagePositionPatient, patientPositionStr);
-  dataset->putAndInsertString(DCM_PixelSpacing, pixelSpacingStr);
-  dataset->putAndInsertString(DCM_SliceThickness, sliceThicknessStr);
-
-  dataset->putAndInsertUint16(DCM_FileMetaInformationVersion,0x0001);
-  dataset->putAndInsertString(DCM_SOPClassUID, UID_SegmentationStorage);
-  dataset->putAndInsertString(DCM_SOPInstanceUID, "maskUID");
-
-  dataset->putAndInsertString(DCM_Modality,"SEG");
-  dataset->putAndInsertString(DCM_SeriesNumber,"1");
-  dataset->putAndInsertString(DCM_ImageType,"DERIVED\\PRIMARY");
-  dataset->putAndInsertString(DCM_InstanceNumber,"1");
-
-  dataset->putAndInsertString(DCM_SamplesPerPixel,"1");
-  dataset->putAndInsertString(DCM_PhotometricInterpretation,"MONOCHROME2");
-  dataset->putAndInsertString(DCM_PixelRepresentation,"0");
-  dataset->putAndInsertString(DCM_BitsAllocated,"1"); // XIP: 8
-  dataset->putAndInsertString(DCM_BitsStored,"1"); // XIP: 8
-  dataset->putAndInsertString(DCM_HighBit,"0");
-
-  dataset->putAndInsertString(DCM_LossyImageCompression,"00");
-
-  // segmentation specific header elements
-  dataset->putAndInsertString(DCM_SegmentationType, "BINARY");
-  dataset->putAndInsertString(DCM_ContentLabel, "3DSlicerSegmentation"); // meaning?
-  dataset->putAndInsertString(DCM_ContentDescription, "3D Slicer segmentation result");
-  dataset->putAndInsertString(DCM_ContentCreatorName, "3DSlicer");
-
-  // AF TODO: other elements from sup111 table C.8.20-1 ?!?!?
-
-  // segmentation image (?) \ segment sequence
-  DcmItem *Item = NULL, *subItem = NULL;
-  dataset->findOrCreateSequenceItem(DCM_SegmentSequence, Item);
-
-  // AF TODO: go over all labels and insert separate item for each one
-  Item->putAndInsertString(DCM_SegmentNumber, "1");
-  Item->putAndInsertString(DCM_SegmentLabel, "Segmentation"); // AF TODO: this should be initialized based on the label value!
-  Item->putAndInsertString(DCM_SegmentAlgorithmType, "SEMIAUTOMATIC");
-  Item->putAndInsertString(DCM_SegmentAlgorithmName, "Editor");
-
-  //segmentation properties - category
-  Item->findOrCreateSequenceItem(DCM_SegmentedPropertyCategoryCodeSequence, subItem);
-  subItem->putAndInsertString(DCM_CodeValue,"T-D0050");
-  subItem->putAndInsertString(DCM_CodingSchemeDesignator,"SRT");
-  subItem->putAndInsertString(DCM_CodeMeaning,"Tissue");
-
-  //segmentation properties - type
-  Item->findOrCreateSequenceItem(DCM_SegmentedPropertyTypeCodeSequence, subItem);
-  subItem->putAndInsertString(DCM_CodeValue,"M-03010");
-  subItem->putAndInsertString(DCM_CodingSchemeDesignator,"SRT");
-  subItem->putAndInsertString(DCM_CodeMeaning,"Nodule");
-
-  //Shared functional groups sequence
-  dataset->findOrCreateSequenceItem(DCM_SharedFunctionalGroupsSequence, Item);
-
-  //segmentation macro - attributes
-  Item->findOrCreateSequenceItem(DCM_SegmentIdentificationSequence, subItem);
-  subItem->putAndInsertString(DCM_ReferencedSegmentNumber,"1");
-
-  //segmentation functional group macros
-  Item->putAndInsertString(DCM_SliceThickness, sliceThicknessStr);
-  Item->putAndInsertString(DCM_PixelSpacing, pixelSpacingStr);
-
-  /*
-  const unsigned long itemNum = extent[5];
-
-  //Derivation Image functional group
-  Item->findOrCreateSequenceItem(DCM_DerivationImageSequence, subItem, itemNum);
-  for(int i=0;i<itemNum+1;i++)
-    {
-    Item->findAndGetSequenceItem(DCM_DerivationImageSequence, subItem, i);
-    subItem->insertSequenceItem()
-    }
-  */
-
-  OFCondition writeStatus = fileformat.saveFile(filename, EXS_LittleEndianExplicit);
-  if(writeStatus.bad())
-  {
-      std::cout << "Error saving DICOM SEG object: " << writeStatus.text() << std::endl;
-      return EXIT_FAILURE;
-  }
   return EXIT_SUCCESS;
 }
 
@@ -1459,4 +1397,47 @@ void vtkSlicerReportingModuleLogic::copyDcmElement(const DcmTag& tag, DcmDataset
   dcmIn->findAndGetElement(tag, element);
   element->getString(str);
   dcmOut->putAndInsertString(tag, str);
+}
+
+//---------------------------------------------------------------------------
+const char *vtkSlicerReportingModuleLogic::GetActiveReportHierarchyID()
+{
+  if (this->GetActiveParameterNodeID() == NULL)
+    {
+    vtkDebugMacro("GetActiveReportHierarchyID: no active parameter node id, returning null");
+    return NULL;
+    }
+  vtkMRMLScriptedModuleNode *parameterNode;
+  vtkMRMLNode *mrmlNode = this->GetMRMLScene()->GetNodeByID(this->GetActiveParameterNodeID());
+  if (!mrmlNode)
+    {
+    vtkErrorMacro("GetActiveReportHierarchyID: no node with id " << this->GetActiveParameterNodeID());
+    return NULL;
+    }
+  parameterNode = vtkMRMLScriptedModuleNode::SafeDownCast(mrmlNode);
+  if (!parameterNode)
+    {
+    vtkErrorMacro("GetActiveReportHierarchyID: no active parameter node with id " << this->GetActiveParameterNodeID());
+    return NULL;
+    }
+
+  const char *reportID = parameterNode->GetParameter("reportID").c_str();
+  if (!reportID)
+    {
+    vtkErrorMacro("GetActiveReportHierarchyID: no parameter reportID on node with id " << parameterNode->GetID());
+    return NULL;
+    }
+
+  // get the hierarchy associated with this report
+  vtkMRMLHierarchyNode *hnode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(parameterNode->GetScene(), reportID);
+  if (hnode)
+    {
+    vtkDebugMacro("Returning hierarchy node for report, with id " << hnode->GetID());
+    return hnode->GetID();
+    }
+  else
+    {
+    vtkErrorMacro("GetActiveReportHierarchyID: no hierarchy node associated with report id in parameter node " << parameterNode->GetID() << ", report id of " << reportID);
+    return NULL;
+    }
 }

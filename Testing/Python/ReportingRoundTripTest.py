@@ -1,0 +1,166 @@
+
+
+import unittest
+# import slicer
+from  __main__ import vtk, qt, ctk, slicer
+import time
+
+import DICOMLib # for loading a volume on AIM import
+
+class ReportingTesting(unittest.TestCase):
+  def setUp(self):
+    pass
+
+  def test_RoundTrip(self):
+    """
+    Test fiducial round trip to and from AIM XML file on disk
+    """
+
+    # enter the module
+    mainWindow = slicer.util.mainWindow()
+    mainWindow.moduleSelector().selectModule('Reporting')
+
+    # l = slicer.modulelogic.vtkSlicerReportingModuleLogic()
+    l = slicer.modules.reporting.logic() 
+    
+
+    if (1):
+      # l.SetMRMLScene(slicer.mrmlScene)
+      if (l.InitializeDICOMDatabase()):
+        print 'RoundTripTest: DICOM database initialized correctly!'
+      else:
+        print 'RoundTripTest: Failed to initialize DICOM database'
+        self.assertEqual(1,0)
+
+    # get or add a parameter node
+    parameterNode = slicer.mrmlScene.GetNthNodeByClass(0,'vtkMRMLScriptedModuleNode')
+    if (parameterNode.GetModuleName() != 'Reporting'):
+      print "Error, scripted module node in scene is not a reporting node, making a new one"
+      parameterNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScriptedModuleNode')
+      parameterNode.SetModuleName('Reporting')
+      slicer.mrmlScene.AddNode(parameterNode)
+    # set it to be the active parameter node
+    l.SetActiveParameterNodeID(parameterNode.GetID())
+
+    #
+    # create a new report, make it the report in the parameter node, set up hierarchy
+    #
+    reportNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLReportingReportNode')
+    slicer.mrmlScene.AddNode(reportNode)
+    parameterNode.SetParameter("reportID", reportNode.GetID())
+    print "Init hierarchy for report node, set parameter node to report id of ",reportNode.GetID()
+    l.InitializeHierarchyForReport(reportNode)
+
+
+    #
+    # get some sample data from the database
+    #
+    ddb = slicer.dicomDatabase
+    if not ddb:
+      print "ERROR: unable to get at the slicer dicomDatabase!"
+      return
+
+    print "Dicom data base = ",ddb
+    volId = 1
+    volumeNode = None
+    volName = 'AIM volume '+str(volId)
+    seriesUID = "1.3.12.2.1107.5.1.4.53031.30000011032906120157800000219"
+    print "For test, using the AIM sample volume with series UID of ",seriesUID
+    filelist = ddb.filesForSeries(seriesUID)
+    # print "filelist = ", filelist
+    loader = DICOMLib.DICOMLoader(filelist, volName)
+    volumeNode = loader.volumeNode
+    # print "volumeNode = ",volumeNode
+
+    print "InitHierForVolume"
+    l.InitializeHierarchyForVolume(volumeNode)
+    print "---Now active mark up is ",l.GetActiveMarkupHierarchyID()
+    print "adding a fiducial"
+
+    #
+    # define a fiducial
+    #
+    fidNode = slicer.vtkMRMLAnnotationFiducialNode()
+    fidName = "AIM Round Trip Test Fiducial"
+    fidNode.SetName(fidName)
+    fidNode.SetSelected(1)
+    fidNode.SetVisible(1)
+    fidNode.SetLocked(0)
+    print "Calling set fid coords"
+    startCoords = [102.023, 132.812, -422.29]
+    fidNode.SetFiducialCoordinates(startCoords[0],startCoords[1],startCoords[2])
+    print "Starting fiducial coordinates: ",startCoords
+    # point it to the volume
+    fidNode.SetAttribute("AssociatedNodeID", volumeNode.GetID())
+    fidNode.SetScene(slicer.mrmlScene)
+    print "Adding text disp node"
+    fidNode.CreateAnnotationTextDisplayNode()
+    print "Adding point display node"
+    fidNode.CreateAnnotationPointDisplayNode()
+
+    print "add node:"
+    # slicer.mrmlScene.DebugOn()
+    # l.DebugOn()
+    slicer.mrmlScene.AddNode(fidNode) 
+   
+    print "getting slice uid"
+    uid = l.GetSliceUIDFromMarkUp(fidNode)
+    print "fidNode uid = ",uid
+
+    # test save to mrml
+    # slicer.mrmlScene.SetURL('/spl/tmp/nicole/Testing/aim/RoundTripTest.mrml')
+    # slicer.mrmlScene.Commit()
+
+    #
+    # output AIM XML
+    #
+    aimFileName = '/tmp/ReportingRoundTripTest.xml'
+
+    retval = l.SaveReportToAIM(reportNode,aimFileName)
+
+    if (retval != 0):
+      print("ERROR: unable to save report to aim file",aimFileName)
+    else:
+      print("Saved report to aim file",aimFileName)
+
+    self.assertEqual(retval, 0)
+
+    #
+    # now clear the scene so can read in
+    #
+    # TBD: this causes a crash
+    # slicer.mrmlScene.Clear(0)
+
+    #
+    # load in the aim file
+    #
+    newReport = slicer.mrmlScene.CreateNodeByClass('vtkMRMLReportingReportNode')
+    slicer.mrmlScene.AddNode(newReport)
+    parameterNode.SetParameter("reportID", newReport.GetID())
+
+    if 0:
+      loadAIM = ReportingLoadAIM()
+      desc = loadAIM.load(fileName)
+      newReport.SetDescription(desc)
+
+      # get the fiducial
+      endCoords = [0,0,0]
+      col = slicer.mrmlScene.GetNodesByClass("vtkMRMLAnnotationFiducialNode")
+      for c in range(col.GetNumberOfItems()):
+        f = col.GetItemAsObject(c)
+        if f.GetName() == fidName:
+          print "Found original fiducial with name", f.GetName()
+          f.GetFiducialCoordinates(endCoords)
+
+      print "Start Coords = ",startCoords[0],startCoords[1],startCoords[2]
+      print "End Coords = ",endCoords
+
+      xdiff = endCoords[0] - startCoords[0]
+      ydiff = endCoords[1] - startCoords[1]
+      zdiff = endCoords[2] - startCoords[2]
+      diffTotal = xdiff + ydiff + zdiff
+
+      print "Difference between coordinates after loaded the aim file and value from before stored the aim file: ", xdiff, ydiff, zdiff,". Total difference = ",diffTotal
+
+      self.assertLess(diffTotal, 0.1)
+

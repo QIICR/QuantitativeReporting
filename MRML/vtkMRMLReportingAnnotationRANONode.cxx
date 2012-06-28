@@ -216,10 +216,11 @@ void vtkMRMLReportingAnnotationRANONode::PrintSelf(ostream& os, vtkIndent indent
   }
 
   os << indent << "Code descriptions: " << std::endl;
-  int nCodes = this->codeToMeaningMap.size();
   for(std::map<std::string,std::string>::iterator mIt=this->codeToMeaningMap.begin();
       mIt!=this->codeToMeaningMap.end();++mIt)
+    {
     os << indent << mIt->first << ": " << mIt->second << std::endl;
+    }
 }
 
 std::vector<std::string> vtkMRMLReportingAnnotationRANONode::splitString(std::string in, char sep)
@@ -228,22 +229,30 @@ std::vector<std::string> vtkMRMLReportingAnnotationRANONode::splitString(std::st
   std::stringstream ss(in);
   std::string item;
   while(std::getline(ss, item, sep))
+    {
     out.push_back(item);
+    }
   return out;
 }
 
 std::string vtkMRMLReportingAnnotationRANONode::GetSelectedCode(int i)
 {
-  if(i>this->selectedCodeList.size()-1)
+  if((unsigned int)i>this->selectedCodeList.size()-1)
+    {
     return std::string();
+    }
   else
+    {
     return this->selectedCodeList[i];
+    }
 }
 
 void vtkMRMLReportingAnnotationRANONode::SetSelectedCode(int i, std::string code)
 {
-  if(i<this->selectedCodeList.size())
+  if((unsigned int)i<this->selectedCodeList.size())
+    {
     this->selectedCodeList[i] = code;
+    }
 }
 
 std::map<std::string, std::string> vtkMRMLReportingAnnotationRANONode::GetCodeToMeaningMap()

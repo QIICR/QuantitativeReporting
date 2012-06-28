@@ -1,11 +1,13 @@
-project(vtkSlicer${EXTENSION_NAME}ModuleMRML)
+project(vtkSlicer${MODULE_NAME}ModuleMRML)
 
-set(module_mrml_name "${PROJECT_NAME}")
+set(KIT ${PROJECT_NAME})
 
-set(module_mrml_include_directory
+set(${KIT}_EXPORT_DIRECTIVE "VTK_SLICER_${MODULE_NAME_UPPER}_MODULE_MRML_EXPORT")
+
+set(${KIT}_INCLUDE_DIRECTORIES
   )
 
-set(module_mrml_SRCS
+set(${KIT}_SRCS
   vtkMRMLReportingAnnotationNode.cxx
   vtkMRMLReportingAnnotationNode.h
   vtkMRMLReportingAnnotationRANONode.cxx
@@ -14,21 +16,16 @@ set(module_mrml_SRCS
   vtkMRMLReportingReportNode.h
   )
 
-# Additional Target libraries
-set(module_logic_target_libraries
-  )
-
-# The header '${module_mrml_name}Export.h' will be automatically configured.
-set(module_mrml_export_directive "VTK_SLICER_REPORTING_MODULE_MRML_EXPORT")
-
-set(module_mrml_target_libraries
+set(${KIT}_TARGET_LIBRARIES
   ${MRML_LIBRARIES}
   )
 
+#-----------------------------------------------------------------------------
 SlicerMacroBuildModuleMRML(
-  NAME ${module_mrml_name}
-  EXPORT_DIRECTIVE ${module_mrml_export_directive}
-  INCLUDE_DIRECTORIES ${module_mrml_include_directories}
-  SRCS ${module_mrml_SRCS}
-  TARGET_LIBRARIES ${module_mrml_target_libraries}
+  NAME ${KIT}
+  EXPORT_DIRECTIVE ${${KIT}_EXPORT_DIRECTIVE}
+  INCLUDE_DIRECTORIES ${${KIT}_INCLUDE_DIRECTORIES}
+  SRCS ${${KIT}_SRCS}
+  TARGET_LIBRARIES ${${KIT}_TARGET_LIBRARIES}
   )
+

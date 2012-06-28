@@ -49,7 +49,7 @@ class DcmDataset;
 class DcmTag;
 
 /// \ingroup Slicer_QtModules_ExtensionTemplate
-class VTK_SLICER_REPORTINGMODULE_MODULE_LOGIC_EXPORT vtkSlicerReportingModuleLogic :
+class VTK_SLICER_REPORTING_MODULE_LOGIC_EXPORT vtkSlicerReportingModuleLogic :
   public vtkSlicerModuleLogic
 {
 public:
@@ -62,7 +62,7 @@ public:
   /// associated with a volume node to the UID of the slice it's on. Returns
   /// the UID, or the string NONE if there's no associated node, all control
   /// points aren't on the same slice
-  const char *GetSliceUIDFromMarkUp(vtkMRMLAnnotationNode *node);
+  std::string GetSliceUIDFromMarkUp(vtkMRMLAnnotationNode *node);
 
   /// Return the id of the top level reporting module hierarchy node, creating
   /// one if not found, NULL on error
@@ -89,18 +89,28 @@ public:
 
   /// Save report to AIM file, returns 1 on success, 0 on failure
   int SaveReportToAIM(vtkMRMLReportingReportNode *reportNode, const char *filename);
-  
-  /// utility methods to call from python
-  char *ReturnActiveReportID() { return this->ActiveReportHierarchyID; };
-  char *ReturnActiveHierarchyID() { return this->ActiveMarkupHierarchyID; };
-  void SetActiveMarkupHierarchyIDToNull();
-  
+
   bool InitializeDICOMDatabase();
 
+  // set/get the currently active parameter node
+  vtkGetStringMacro(ActiveParameterNodeID);
+  vtkSetStringMacro(ActiveParameterNodeID);
+
+  /// set/get the currently active markup hierarchy
+  vtkGetStringMacro(ActiveMarkupHierarchyID);
+  vtkSetStringMacro(ActiveMarkupHierarchyID);
+
+  /// set/get the GUI hidden flag
+  vtkGetMacro(GUIHidden, int);
+  vtkSetMacro(GUIHidden, int);
+  vtkBooleanMacro(GUIHidden, int);
+  
+  /// utility methods to call from python
+  void SetActiveMarkupHierarchyIDToNull();
+  
   bool WriteLabelAsSegObject(vtkMRMLVolumeNode* srcNode, vtkMRMLScalarVolumeNode* labelNode, char* filename);
   //bool WriteAllLabelsAsSegObject(vtkMRMLScalarVolumeNode* labelNode, char* filename);
 
-  
 protected:
   vtkSlicerReportingModuleLogic();
   virtual ~vtkSlicerReportingModuleLogic();
@@ -117,15 +127,10 @@ protected:
                                       void *callData );
   virtual void OnMRMLSceneNodeAdded(vtkMRMLNode* node);
   virtual void OnMRMLSceneNodeRemoved(vtkMRMLNode* node);
-
-  /// set/get the currently active report hierarchy
-  vtkGetStringMacro(ActiveReportHierarchyID);
-  vtkSetStringMacro(ActiveReportHierarchyID);
  
-  /// set/get the currently active markup hierarchy
-  vtkGetStringMacro(ActiveMarkupHierarchyID);
-  vtkSetStringMacro(ActiveMarkupHierarchyID);
-
+  /// get the currently active report hierarchy from the parameter node
+  const char *GetActiveReportHierarchyID();
+  
   int AddSpatialCoordinateCollectionElement(QDomDocument&, QDomElement&, QStringList&, QStringList&);
 
 private:
@@ -138,11 +143,17 @@ private:
   QStringList GetMarkupPointCoordinatesStr(vtkMRMLAnnotationNode *ann);
   vtkMRMLScalarVolumeNode* GetMarkupVolumeNode(vtkMRMLAnnotationNode *ann);
 
-  /// the currently active report hierarchy
-  char *ActiveReportHierarchyID;
+  /// the currently active parameter node, contains the active report
+  /// hierarchy node
+  char *ActiveParameterNodeID;
   /// the currently active markup hierarchy
   char *ActiveMarkupHierarchyID;
 
+  /// is the GUI hidden? When it's hidden/true, don't grab fiducials (but do grab
+  /// label volumes if they're associated with the current volume being
+  /// annotated
+  int GUIHidden;
+  
   ctkDICOMDatabase *DICOMDatabase;
 };
 

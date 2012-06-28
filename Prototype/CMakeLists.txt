@@ -1,7 +1,7 @@
 set(KIT Reporting)
 
-add_executable(DICOMReadWriteTest DICOMReadWriteTest.cxx)
-target_link_libraries(DICOMReadWriteTest ${lib_name})
+add_executable(WriteDICOMSEG WriteDICOMSEG.cxx)
+target_link_libraries(WriteDICOMSEG ${lib_name})
 
-add_executable(AddDICOMSEGToSceneTest AddDICOMSEGToSceneTest.cxx)
-target_link_libraries(AddDICOMSEGToSceneTest ${lib_name})
+add_executable(ReadDICOMSEG ReadDICOMSEG.cxx)
+target_link_libraries(ReadDICOMSEG ${lib_name})
