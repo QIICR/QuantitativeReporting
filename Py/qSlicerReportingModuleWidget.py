@@ -166,11 +166,11 @@ class qSlicerReportingModuleWidget:
     markupFrameLayout.addRow(self.__markupTreeView)
 
     # save/load report using AIM XML serialization
-    button = qt.QPushButton('Save Report ...')
+    button = qt.QPushButton('Save Report into AIM format...')
     button.connect('clicked()', self.onReportExport)
     self.layout.addWidget(button)
 
-    button = qt.QPushButton('Load Report ...')
+    button = qt.QPushButton('Load Report from AIM format...')
     button.connect('clicked()', self.onReportImport)
     self.layout.addWidget(button)
 
