@@ -1,6 +1,6 @@
 
 SET(KIT_PYTHON_SCRIPTS
-  Helper.py
+  SlicerReportingModuleWidgetHelper.py
   qSlicerReportingModuleWidget.py
   )
 

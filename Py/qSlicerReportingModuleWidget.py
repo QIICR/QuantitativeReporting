@@ -1,8 +1,9 @@
 from __main__ import vtk, qt, ctk, slicer
 
 import xml.dom.minidom
+import SlicerReportingModuleWidgetHelper
 
-from Helper import *
+from SlicerReportingModuleWidgetHelper import *
 
 import DICOMLib # for loading a volume on AIM import
 
@@ -259,10 +260,10 @@ class qSlicerReportingModuleWidget:
       if uids == "None":
         print "Warning: volume",self.__vNode.GetName(),"was not loaded as a DICOM volume, will not be able to save your report in AIM XML format"
 
-      Helper.SetBgFgVolumes(self.__vNode.GetID(), '')
-      Helper.RotateToVolumePlanes()
+      SlicerReportingModuleWidgetHelper.SetBgFgVolumes(self.__vNode.GetID(), '')
+      SlicerReportingModuleWidgetHelper.RotateToVolumePlanes()
 
-      orientation = Helper.GetScanOrderSliceName(self.__vNode)
+      orientation = SlicerReportingModuleWidgetHelper.GetScanOrderSliceName(self.__vNode)
       print "Got scan order slice name:", orientation
       print "Please place mark ups in the ",orientation," slice viewer."
       self.__parameterNode.SetParameter('acquisitionSliceViewer',orientation)
@@ -487,7 +488,7 @@ class qSlicerReportingModuleWidget:
     reportID = pn.GetParameter('reportID')
 
     if reportID != None:
-      self.__rNode = Helper.getNodeByID(reportID)
+      self.__rNode = SlicerReportingModuleWidgetHelper.getNodeByID(reportID)
       # AF: looks like this does not trigger event, why?
       self.__reportSelector.setCurrentNode(self.__rNode)
       if self.__rNode != None:
