@@ -51,9 +51,9 @@ ctkDICOMDatabase* InitializeDICOMDatabase(const char*);
 
 int main(int argc, char** argv)
 {
-    if(argc<4)
+    if(argc<5)
       {
-      std::cerr << "Usage: " << argv[0] << " DICOM_SEG_name Slicer_scene_name DICOM_DB_path" << std::endl;
+      std::cerr << "Usage: " << argv[0] << " DICOM_SEG_name Slicer_scene_name NRRD_name DICOM_DB_path" << std::endl;
       std::cerr << "  It is expected that local DICOM DB has the referenced UIDs" << std::endl;
       return 0;
       }
@@ -122,7 +122,7 @@ int main(int argc, char** argv)
 
   std::cout << referenceFramesUIDs.size() << " reference UIDs found" << std::endl;
 
-  ctkDICOMDatabase *db = InitializeDICOMDatabase(argv[3]);
+  ctkDICOMDatabase *db = InitializeDICOMDatabase(argv[4]);
   if(!db)
     {
     std::cerr << "Failed to initialize DICOM db!" << std::endl;
@@ -214,7 +214,7 @@ int main(int argc, char** argv)
       }
     }
 
-  sNode->SetFileName("seg.nrrd");
+  sNode->SetFileName(argv[3]);
   sNode->SetWriteFileFormat("nrrd");
   sNode->SetURI(NULL);
   sNode->WriteData(vNode);
