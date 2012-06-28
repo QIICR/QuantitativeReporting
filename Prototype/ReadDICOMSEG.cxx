@@ -32,7 +32,7 @@
 // VTK
 #include <vtkImageData.h>
 
-ctkDICOMDatabase* InitializeDICOMDatabase();
+ctkDICOMDatabase* InitializeDICOMDatabase(const char*);
 
 /* 
  * Take single DICOM segmentation object file, initialize a label volume node
@@ -51,8 +51,12 @@ ctkDICOMDatabase* InitializeDICOMDatabase();
 
 int main(int argc, char** argv)
 {
-    if(argc<3)
+    if(argc<4)
+      {
+      std::cerr << "Usage: " << argv[0] << " DICOM_SEG_name Slicer_scene_name DICOM_DB_path" << std::endl;
+      std::cerr << "  It is expected that local DICOM DB has the referenced UIDs" << std::endl;
       return 0;
+      }
       
     // Step 1: load the input DICOM, find the referenced frames in the DICOM db
     DcmFileFormat fileFormat;
@@ -118,7 +122,7 @@ int main(int argc, char** argv)
 
   std::cout << referenceFramesUIDs.size() << " reference UIDs found" << std::endl;
 
-  ctkDICOMDatabase *db = InitializeDICOMDatabase();
+  ctkDICOMDatabase *db = InitializeDICOMDatabase(argv[3]);
   if(!db)
     {
     std::cerr << "Failed to initialize DICOM db!" << std::endl;
@@ -219,20 +223,13 @@ int main(int argc, char** argv)
 
 }
 
-ctkDICOMDatabase* InitializeDICOMDatabase()
+ctkDICOMDatabase* InitializeDICOMDatabase(const char* dbPath)
 {
-    std::cout << "Reporting will use database at this location: /Users/fedorov/DICOM_db" << std::endl;
-
-    bool success = false;
-
-    const char *dbPath = "/Users/fedorov/DICOM_db/ctkDICOM.sql";
-
-      {
-      ctkDICOMDatabase* DICOMDatabase = new ctkDICOMDatabase();
-      DICOMDatabase->openDatabase(dbPath,"Reporting");
-      if(DICOMDatabase->isOpen())
-        return DICOMDatabase;
-      }
+    std::cout << "Reporting will use database in " << dbPath << std::endl;
+    ctkDICOMDatabase* DICOMDatabase = new ctkDICOMDatabase();
+    DICOMDatabase->openDatabase(dbPath,"Reporting");
+    if(DICOMDatabase->isOpen())
+      return DICOMDatabase;
     return NULL;
 }
 

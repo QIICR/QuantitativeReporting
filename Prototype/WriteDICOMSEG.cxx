@@ -29,13 +29,19 @@
 // VTK
 #include <vtkImageData.h>
 
-ctkDICOMDatabase* InitializeDICOMDatabase();
+ctkDICOMDatabase* InitializeDICOMDatabase(const char*);
 void copyDcmElement(const DcmTag& tag, DcmDataset* dcmIn, DcmDataset* dcmOut);
 
 int main(int argc, char** argv)
 {
-    if(argc<2)
+    if(argc<4)
+      {
+      std::cerr << "Usage: " << argv[0] << " Slicer_scene DICOM_SEG_name DICOM_DB_path" << std::endl;
+      std::cerr << "  it is expected that the scene contains only two volume nodes," << std::endl;
+      std::cerr << "  the first being the volume, and the second -- the label for the volume." << std::endl;
+      std::cerr << "  It is also expected that local DICOM DB has the referenced UIDs" << std::endl;
       return 0;
+      }
       
     vtkSmartPointer<vtkMRMLScene> scene = vtkSmartPointer<vtkMRMLScene>::New();
     scene->SetURL(argv[1]);
@@ -55,7 +61,7 @@ int main(int argc, char** argv)
     int extent[6];
     labelImage->GetExtent(extent);
 
-    ctkDICOMDatabase *db = InitializeDICOMDatabase();
+    ctkDICOMDatabase *db = InitializeDICOMDatabase(argv[3]);
     if(!db)
       {
       std::cerr << "Failed to initialize DICOM db!" << std::endl;
@@ -186,7 +192,7 @@ int main(int argc, char** argv)
     DcmDataset *dcm0 = dcmDatasetVector[0];
 
     DcmFileFormat fileformatOut;
-    DcmDataset *dataset = fileformatOut.getDataset(), *datasetIn;
+    DcmDataset *dataset = fileformatOut.getDataset();
     
     // writeSegHeader
     //
@@ -318,7 +324,7 @@ int main(int argc, char** argv)
     dataset->findOrCreateSequenceItem(DCM_SharedFunctionalGroupsSequence, Item);
     Item->findOrCreateSequenceItem(DCM_DerivationImageSequence, subItem);
     const unsigned long itemNum = extent[5];
-    for(int i=0;i<itemNum+1;i++)
+    for(unsigned i=0;i<itemNum+1;i++)
       {
 
       subItem->findOrCreateSequenceItem(DCM_SourceImageSequence, subItem2, i);
@@ -347,7 +353,7 @@ int main(int argc, char** argv)
 
       {
       // Elements identical for each frame should be in shared group
-      char buf[64], *str;
+      char *str;
       DcmElement *element;
       dcmDatasetVector[0]->findAndGetElement(DCM_ImageOrientationPatient, element);
       element->getString(str);
@@ -371,7 +377,7 @@ int main(int argc, char** argv)
 
 
     //Derivation Image functional group
-    for(int i=0;i<itemNum+1;i++)
+    for(unsigned i=0;i<itemNum+1;i++)
       {
       dataset->findOrCreateSequenceItem(DCM_PerFrameFunctionalGroupsSequence, Item, i);
 
@@ -530,27 +536,21 @@ int main(int argc, char** argv)
 
     delete [] pixelArray;
 
-    OFCondition status = fileformatOut.saveFile("output.dcm", EXS_LittleEndianExplicit);
+    OFCondition status = fileformatOut.saveFile(argv[2], EXS_LittleEndianExplicit);
     if(status.bad())
       std::cout << "Error writing: " << status.text() << std::endl;
 
     return 0;
 }
 
-ctkDICOMDatabase* InitializeDICOMDatabase()
+ctkDICOMDatabase* InitializeDICOMDatabase(const char* dbPath)
 {
-    std::cout << "Reporting will use database at this location: /Users/fedorov/DICOM_db" << std::endl;
+    std::cout << "Reporting will use database at " << dbPath << std::endl;
 
-    bool success = false;
-
-    const char *dbPath = "/Users/fedorov/DICOM_db/ctkDICOM.sql";
-
-      {
-      ctkDICOMDatabase* DICOMDatabase = new ctkDICOMDatabase();
-      DICOMDatabase->openDatabase(dbPath,"Reporting");
-      if(DICOMDatabase->isOpen())
-        return DICOMDatabase;
-      }
+    ctkDICOMDatabase* DICOMDatabase = new ctkDICOMDatabase();
+    DICOMDatabase->openDatabase(dbPath,"Reporting");
+    if(DICOMDatabase->isOpen())
+      return DICOMDatabase;
     return NULL;
 }
 
