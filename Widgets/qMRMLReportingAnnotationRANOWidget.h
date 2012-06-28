@@ -36,7 +36,7 @@ class vtkMRMLNode;
 class vtkMRMLReportingAnnotationNode;
 class vtkMRMLScene;
 
-class Q_SLICER_MODULE_REPORTING_WIDGETS_EXPORT qMRMLReportingAnnotationRANOWidget : public qMRMLWidget
+class Q_SLICER_REPORTING_MODULE_WIDGETS_EXPORT qMRMLReportingAnnotationRANOWidget : public qMRMLWidget
 {
   Q_OBJECT
   QVTK_OBJECT

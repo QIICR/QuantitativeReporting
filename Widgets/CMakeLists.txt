@@ -1,22 +1,17 @@
-project(qSlicer${EXTENSION_NAME}ModuleWidgets)
+project(qSlicer${MODULE_NAME}ModuleWidgets)
 
-#
-# See CMake/SlicerMacroBuildModuleWidgets.cmake for details
-#
+set(KIT ${PROJECT_NAME})
 
-set(module_widgets_name ${PROJECT_NAME})
-
-# The header '${module_widgets_name}Export.h' will be automatically configured.
-set(module_widgets_export_directive "Q_SLICER_MODULE_REPORTING_WIDGETS_EXPORT")
+set(${KIT}_EXPORT_DIRECTIVE "Q_SLICER_${MODULE_NAME_UPPER}_MODULE_WIDGETS_EXPORT")
 
 # Additional directories to include
-set(module_widgets_include_directories
+set(${KIT}_INCLUDE_DIRECTORIES
   ${CMAKE_CURRENT_SOURCE_DIR}/../MRML
   ${CMAKE_CURRENT_BINARY_DIR}/../MRML
   )
   
 # Source files
-set(module_widgets_SRCS
+set(${KIT}_SRCS
   qMRMLReportingAnnotationRANOWidget.cxx
   qMRMLReportingAnnotationRANOWidget.h
   qMRMLReportingTreeView.cxx
@@ -29,7 +24,7 @@ set(module_widgets_SRCS
  )
 
 # Headers that should run through moc
-set(module_widgets_MOC_SRCS
+set(${KIT}_MOC_SRCS
   qMRMLReportingAnnotationRANOWidget.h
   qMRMLReportingTreeView.h
   qMRMLSceneDisplayableHierarchyModel.h
@@ -37,30 +32,27 @@ set(module_widgets_MOC_SRCS
   )
 
 # UI files
-set(module_widgets_UI_SRCS
+set(${KIT}_UI_SRCS
   )
 
 # Resources
-set(module_widgets_resources
+set(${KIT}_RESOURCES
   )
 
 # Additional Target libraries
-set(module_widgets_target_libraries
+set(${KIT}_TARGET_LIBRARIES
   vtkSlicerReportingModuleMRML
   vtkSlicerAnnotationsModuleMRML
   )
 
 SlicerMacroBuildModuleWidgets(
-  NAME ${module_widgets_name}
-  EXPORT_DIRECTIVE ${module_widgets_export_directive}
-  INCLUDE_DIRECTORIES ${module_widgets_include_directories}
-  SRCS ${module_widgets_SRCS}
-  MOC_SRCS ${module_widgets_MOC_SRCS}
-  UI_SRCS ${module_widgets_UI_SRCS}
-  TARGET_LIBRARIES ${module_widgets_target_libraries}
-  RESOURCES ${module_widgets_resources}
+  NAME ${KIT}
+  EXPORT_DIRECTIVE ${${KIT}_EXPORT_DIRECTIVE}
+  INCLUDE_DIRECTORIES ${${KIT}_INCLUDE_DIRECTORIES}
+  SRCS ${${KIT}_SRCS}
+  MOC_SRCS ${${KIT}_MOC_SRCS}
+  UI_SRCS ${${KIT}_UI_SRCS}
+  TARGET_LIBRARIES ${${KIT}_TARGET_LIBRARIES}
+  RESOURCES ${${KIT}_RESOURCES}
   WRAP_PYTHONQT
   )
-
-# Qt Designer Plugins
-# add_subdirectory(DesignerPlugins)

@@ -154,7 +154,7 @@ class qSlicerReportingModuleWidget:
 
     # Add the tree widget
     if self.__useNewTreeView == 1:
-      self.__markupTreeView = slicer.qMRMLReportingTreeView()
+      self.__markupTreeView = slicer.modulewidget.qMRMLReportingTreeView()
       self.__markupTreeView.sceneModelType = "DisplayableHierarchy"
     else:
       self.__markupTreeView = slicer.qMRMLTreeView()
