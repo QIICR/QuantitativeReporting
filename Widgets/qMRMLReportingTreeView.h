@@ -31,7 +31,7 @@ class QShowEvent;
 
 // MRMLWidgets includes
 #include "qMRMLSortFilterProxyModel.h"
-#include "qMRMLWidgetsExport.h"
+#include "qSlicerReportingModuleWidgetsExport.h"
 
 class qMRMLSceneModel;
 class qMRMLReportingTreeViewPrivate;
@@ -39,7 +39,7 @@ class vtkMRMLNode;
 class vtkMRMLScene;
 
 // TODO: Rename to qMRMLSceneTreeView
-class QMRML_WIDGETS_EXPORT qMRMLReportingTreeView : public QTreeView
+class Q_SLICER_REPORTING_MODULE_WIDGETS_EXPORT qMRMLReportingTreeView : public QTreeView
 {
   Q_OBJECT
   QVTK_OBJECT

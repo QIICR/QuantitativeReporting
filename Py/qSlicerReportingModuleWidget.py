@@ -1,8 +1,9 @@
 from __main__ import vtk, qt, ctk, slicer
 
 import xml.dom.minidom
+import SlicerReportingModuleWidgetHelper
 
-from Helper import *
+from SlicerReportingModuleWidgetHelper import *
 
 import DICOMLib # for loading a volume on AIM import
 
@@ -154,7 +155,7 @@ class qSlicerReportingModuleWidget:
 
     # Add the tree widget
     if self.__useNewTreeView == 1:
-      self.__markupTreeView = slicer.qMRMLReportingTreeView()
+      self.__markupTreeView = slicer.modulewidget.qMRMLReportingTreeView()
       self.__markupTreeView.sceneModelType = "DisplayableHierarchy"
     else:
       self.__markupTreeView = slicer.qMRMLTreeView()
@@ -165,11 +166,11 @@ class qSlicerReportingModuleWidget:
     markupFrameLayout.addRow(self.__markupTreeView)
 
     # save/load report using AIM XML serialization
-    button = qt.QPushButton('Save Report ...')
+    button = qt.QPushButton('Save Report into AIM format...')
     button.connect('clicked()', self.onReportExport)
     self.layout.addWidget(button)
 
-    button = qt.QPushButton('Load Report ...')
+    button = qt.QPushButton('Load Report from AIM format...')
     button.connect('clicked()', self.onReportImport)
     self.layout.addWidget(button)
 
@@ -259,10 +260,10 @@ class qSlicerReportingModuleWidget:
       if uids == "None":
         print "Warning: volume",self.__vNode.GetName(),"was not loaded as a DICOM volume, will not be able to save your report in AIM XML format"
 
-      Helper.SetBgFgVolumes(self.__vNode.GetID(), '')
-      Helper.RotateToVolumePlanes()
+      SlicerReportingModuleWidgetHelper.SetBgFgVolumes(self.__vNode.GetID(), '')
+      SlicerReportingModuleWidgetHelper.RotateToVolumePlanes()
 
-      orientation = Helper.GetScanOrderSliceName(self.__vNode)
+      orientation = SlicerReportingModuleWidgetHelper.GetScanOrderSliceName(self.__vNode)
       print "Got scan order slice name:", orientation
       print "Please place mark ups in the ",orientation," slice viewer."
       self.__parameterNode.SetParameter('acquisitionSliceViewer',orientation)
@@ -489,7 +490,7 @@ class qSlicerReportingModuleWidget:
     reportID = pn.GetParameter('reportID')
 
     if reportID != None:
-      self.__rNode = Helper.getNodeByID(reportID)
+      self.__rNode = SlicerReportingModuleWidgetHelper.getNodeByID(reportID)
       # AF: looks like this does not trigger event, why?
       self.__reportSelector.setCurrentNode(self.__rNode)
       if self.__rNode != None:

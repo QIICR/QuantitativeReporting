@@ -28,7 +28,7 @@
 
 class qMRMLSceneDisplayableHierarchyModelPrivate;
 
-class Q_SLICER_MODULE_REPORTING_WIDGETS_EXPORT qMRMLSceneDisplayableHierarchyModel : public qMRMLSceneDisplayableModel
+class Q_SLICER_REPORTING_MODULE_WIDGETS_EXPORT qMRMLSceneDisplayableHierarchyModel : public qMRMLSceneDisplayableModel
 {
   Q_OBJECT
 
