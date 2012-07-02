@@ -5,7 +5,7 @@ from __main__ import vtk, slicer, tcl
 import sys
 import time
 
-class Helper( object ):
+class SlicerReportingModuleWidgetHelper( object ):
   '''
   classdocs
   '''

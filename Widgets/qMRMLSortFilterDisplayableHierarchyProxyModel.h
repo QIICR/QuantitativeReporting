@@ -30,7 +30,7 @@
 
 class qMRMLSortFilterDisplayableHierarchyProxyModelPrivate;
 
-class Q_SLICER_MODULE_REPORTING_WIDGETS_EXPORT qMRMLSortFilterDisplayableHierarchyProxyModel
+class Q_SLICER_REPORTING_MODULE_WIDGETS_EXPORT qMRMLSortFilterDisplayableHierarchyProxyModel
   : public qMRMLSortFilterProxyModel
 {
   Q_OBJECT
