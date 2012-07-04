@@ -108,7 +108,7 @@ public:
   /// utility methods to call from python
   void SetActiveMarkupHierarchyIDToNull();
   
-  bool DicomSegWrite(vtkCollection* labelNodes, const std::string fname);
+  std::string DicomSegWrite(vtkCollection* labelNodes, const std::string dirname);
   bool DicomSegRead(vtkCollection*, const std::string fname);
 
 protected:
@@ -138,7 +138,11 @@ private:
   vtkSlicerReportingModuleLogic(const vtkSlicerReportingModuleLogic&); // Not implemented
   void operator=(const vtkSlicerReportingModuleLogic&);               // Not implemented
 
+  // copy the content of Dcm tag from one dataset to another, or set to ""
+  //  if not available
   void copyDcmElement(const DcmTag&, DcmDataset*, DcmDataset*);
+  // get string representation of a Dcm tag, return "" if not available
+  std::string getDcmElementAsString(const DcmTag& tag, DcmDataset* dcmIn);
 
   QStringList GetMarkupPointCoordinatesStr(vtkMRMLAnnotationNode *ann);
   vtkMRMLScalarVolumeNode* GetMarkupVolumeNode(vtkMRMLAnnotationNode *ann);

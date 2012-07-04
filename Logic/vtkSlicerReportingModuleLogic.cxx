@@ -48,11 +48,13 @@
 
 // CTK includes
 #include <ctkDICOMDatabase.h>
+#include <ctkDICOMIndexer.h>
 
 // STD includes
 #include <cassert>
 #include <time.h>
 
+// DCMTK includes
 // DCMTK includes
 #include <dcmtk/dcmdata/dcmetinf.h>
 #include <dcmtk/dcmdata/dcfilefo.h>
@@ -64,6 +66,9 @@
 #include <dcmtk/ofstd/ofdatime.h>
 #include <dcmtk/dcmdata/dcuid.h>         /* for dcmtk version name */
 #include <dcmtk/dcmdata/dcdeftag.h>      /* for DCM_StudyInstanceUID */
+#include <dcmtk/dcmdata/dcvrda.h>        /* for DcmDate */
+#include <dcmtk/dcmdata/dcvrtm.h>        /* for DcmTime */
+#include <dcmtk/dcmdata/dcvrat.h>        /* for DcmAttribute */
 
 
 //----------------------------------------------------------------------------
@@ -1106,7 +1111,40 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     }
   }
 
-  this->DicomSegWrite(labelNodeCollection, "/Users/fedorov/test.dcm");
+  if(labelNodeCollection->GetNumberOfItems())
+    {
+    // save the SEG object, add it to the database, get the UIDs
+    //   and initialize the corresponding element in AIM
+    QSettings settings;
+    std::string dbPath = settings.value("DatabaseDirectory","").toString().toLatin1().data();
+    if(dbPath != "")
+      {
+      std::string filename =
+              this->DicomSegWrite(labelNodeCollection, dbPath+"/incoming");
+      if(filename != "")
+        {
+        const QString qfilename = QString(filename.c_str());
+        this->DICOMDatabase->insert(qfilename, 0);
+
+        DcmFileFormat segFileFormat;
+        OFCondition status = segFileFormat.loadFile(filename.c_str());
+        if(status.good())
+          {
+          DcmDataset *segDcm = segFileFormat.getAndRemoveDataset();
+          QDomElement segDom = doc.createElement("Segmentation");
+          segDom.setAttribute("cagridId","0");
+          segDom.setAttribute("sopInstanceUID",
+            this->getDcmElementAsString(DCM_SOPInstanceUID,segDcm).c_str());
+          segDom.setAttribute("sopClassUID",
+            this->getDcmElementAsString(DCM_SOPClassUID, segDcm).c_str());
+          segDom.setAttribute("referencedSopInstanceUID",
+            this->getDcmElementAsString(DCM_ReferencedSOPInstanceUID, segDcm).c_str());
+          segDom.setAttribute("segmentNumber","0");
+          root.appendChild(segDom);
+          }
+        }
+      }
+    }
 
   // (Step 5) Iterate over referenced volume UIDs and add to the report
   // imageReferenceCollection
@@ -1388,9 +1426,31 @@ void vtkSlicerReportingModuleLogic::copyDcmElement(const DcmTag& tag, DcmDataset
   DcmElement* element;
   DcmTag copy = tag;
   std::cout << "Copying tag " << copy.getTagName() << std::endl;
-  dcmIn->findAndGetElement(tag, element);
-  element->getString(str);
-  dcmOut->putAndInsertString(tag, str);
+  OFCondition cond = dcmIn->findAndGetElement(tag, element);
+  if(cond.good())
+  {
+    element->getString(str);
+    dcmOut->putAndInsertString(tag, str);
+  }
+  else
+  {
+    dcmOut->putAndInsertString(tag, "");
+  }
+}
+
+std::string vtkSlicerReportingModuleLogic::getDcmElementAsString(const DcmTag& tag, DcmDataset* dcmIn)
+{
+  char *str;
+  DcmElement* element;
+  DcmTag copy = tag;
+  std::cout << "Copying tag " << copy.getTagName() << std::endl;
+  OFCondition cond = dcmIn->findAndGetElement(tag, element);
+  if(cond.good())
+  {
+    element->getString(str);
+    return std::string(str);
+  }
+  return "";
 }
 
 //---------------------------------------------------------------------------
@@ -1438,7 +1498,7 @@ const char *vtkSlicerReportingModuleLogic::GetActiveReportHierarchyID()
 
 
 
-bool vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNodes, const std::string fname)
+std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNodes, const std::string dirname)
 {
   // TODO: need to have the 
   // iterate over all labels:
@@ -1446,6 +1506,7 @@ bool vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNodes, con
   //   - check that the reference has DICOM source
   unsigned numLabels = labelNodes->GetNumberOfItems();
   std::vector<std::string> refDcmSeriesUIDs;
+  std::vector<vtkImageData*> labelImages;
   std::string referenceNodeID;
   for(unsigned i=0;i<numLabels;i++)
   {
@@ -1453,8 +1514,10 @@ bool vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNodes, con
     if(!labelNode)
     {
         std::cout << "Expected label map" << std::endl;
-        return false;
+        return "";
     }
+    labelImages.push_back(labelNode->GetImageData());
+
     if(i==0)
     {
         referenceNodeID = labelNode->GetAttribute("AssociatedNodeID");
@@ -1463,17 +1526,18 @@ bool vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNodes, con
                 vtkMRMLScalarVolumeNode::SafeDownCast(this->GetMRMLScene()->GetNodeByID(referenceNodeID.c_str()));
         referenceNode->GetID();
         if(!referenceNode)
-            return false;
+            return "";
 
         const char* uids = referenceNode->GetAttribute("DICOM.instanceUIDs");
         if(uids == "")
-            return false;
+            return "";
 
         {
-          std::istringstream iss(std::string(uids));
+          std::istringstream iss(uids);
           std::string word;
+          const char sep = ' ';
           std::cout << "Reference dicom UIDs: ";
-          while(getline(iss,word,' ')) {
+          while(std::getline(iss, word, ' ')) {
             refDcmSeriesUIDs.push_back(word);
             std::cout << word << " ";
           }
@@ -1484,10 +1548,324 @@ bool vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNodes, con
     {
         std::string thisReferenceNodeID = labelNode->GetAttribute("AssociatedNodeID");
         if(thisReferenceNodeID != referenceNodeID)
-            return false;
+            return "";
     }
   }
-  return true;
+
+  // load the dcm datasets for the reference volume slices
+  std::vector<DcmDataset*> dcmDatasetVector;
+  for(std::vector<std::string>::const_iterator uidIt=refDcmSeriesUIDs.begin();
+    uidIt!=refDcmSeriesUIDs.end();++uidIt)
+    {
+    QSqlQuery query(this->DICOMDatabase->database());
+    query.prepare("SELECT Filename FROM Images WHERE SOPInstanceUID=?");
+    query.bindValue(0, QString((*uidIt).c_str()));
+    query.exec();
+    if(query.next())
+      {
+      QString fileName = query.value(0).toString();
+      DcmFileFormat fileFormat;
+      OFCondition status = fileFormat.loadFile(fileName.toLatin1().data());
+      if(status.good())
+        {
+        std::cout << "Loaded dataset for " << fileName.toLatin1().data() << std::endl;
+        dcmDatasetVector.push_back(fileFormat.getAndRemoveDataset());
+        }
+      else
+        {
+        std::cerr << "Failed to query the database! Exiting." << std::endl;
+        return "";
+        }
+      }
+    }
+
+
+  // create a DICOM dataset (see
+  // http://support.dcmtk.org/docs/mod_dcmdata.html#Examples)
+  DcmDataset *dcm0 = dcmDatasetVector[0];
+
+  DcmFileFormat fileformatOut;
+  DcmDataset *dataset = fileformatOut.getDataset();
+
+  // Patient IE
+  //  Patient module
+  copyDcmElement(DCM_PatientName, dcm0, dataset);
+  copyDcmElement(DCM_PatientID, dcm0, dataset);
+  copyDcmElement(DCM_PatientBirthDate, dcm0, dataset);
+  copyDcmElement(DCM_PatientSex, dcm0, dataset);
+
+  // Study IE
+  //  General Study module
+  copyDcmElement(DCM_StudyInstanceUID, dcm0, dataset);
+  copyDcmElement(DCM_StudyDate, dcm0, dataset);
+  copyDcmElement(DCM_StudyTime, dcm0, dataset);
+  copyDcmElement(DCM_ReferringPhysicianName, dcm0, dataset);
+  copyDcmElement(DCM_StudyID, dcm0, dataset);
+  dataset->putAndInsertString(DCM_StudyID, "1"); // David Clunie: should be initialized (not required, but good idea)
+  copyDcmElement(DCM_AccessionNumber, dcm0, dataset);
+
+  OFString contentDate, contentTime;    // David Clunie: must be present and initialized
+  DcmDate::getCurrentDate(contentDate);
+  DcmTime::getCurrentTime(contentTime);
+  dataset->putAndInsertString(DCM_ContentDate, contentDate.c_str());
+  dataset->putAndInsertString(DCM_ContentTime, contentTime.c_str());
+
+  // Series IE
+  //  General Series module
+  dataset->putAndInsertString(DCM_Modality,"SEG");
+  char uid[128];
+  char *seriesUIDStr = dcmGenerateUniqueIdentifier(uid, SITE_SERIES_UID_ROOT);
+  dataset->putAndInsertString(DCM_SeriesInstanceUID,seriesUIDStr);
+
+  //  Segmentation Series module
+  dataset->putAndInsertString(DCM_SeriesNumber,"1000");
+
+  // Frame Of Reference IE
+  dataset->putAndInsertString(DCM_FrameOfReferenceUID, seriesUIDStr);
+  dataset->putAndInsertString(DCM_PositionReferenceIndicator, ""); // David Clunie: must be present, may be empty
+
+  // Equipment IE
+  //  General Equipment module
+  dataset->putAndInsertString(DCM_Manufacturer, "3D Slicer Community");
+
+  //  Enhanced General Equipment module
+  dataset->putAndInsertString(DCM_ManufacturerModelName, "AndreyTestDICOMSegWriter v.0.0.1");
+  dataset->putAndInsertString(DCM_DeviceSerialNumber, "0.0.1");
+  dataset->putAndInsertString(DCM_SoftwareVersions, "0.0.1");
+
+  // Segmentation IE
+
+  dataset->putAndInsertString(DCM_InstanceNumber,"1");
+  dataset->putAndInsertString(DCM_InstanceNumber,"1");
+  dataset->putAndInsertUint16(DCM_FileMetaInformationVersion,0x0001);
+  dataset->putAndInsertString(DCM_SOPClassUID, UID_SegmentationStorage);
+
+  //  General Image module
+  dataset->putAndInsertString(DCM_InstanceNumber, "1");
+  dataset->putAndInsertString(DCM_SOPInstanceUID, dcmGenerateUniqueIdentifier(uid, SITE_INSTANCE_UID_ROOT));
+  dataset->putAndInsertString(DCM_ImageType,"DERIVED\\PRIMARY");
+
+  dataset->putAndInsertString(DCM_InstanceCreatorUID,OFFIS_UID_ROOT);
+
+  //  Image Pixel module
+  dataset->putAndInsertString(DCM_SamplesPerPixel,"1");
+  dataset->putAndInsertString(DCM_PhotometricInterpretation,"MONOCHROME2");
+
+  char buf[16] = {0};
+  int extent[6];
+  labelImages[0]->GetExtent(extent);
+  sprintf(buf,"%d", extent[1]+1);
+  dataset->putAndInsertString(DCM_Columns,buf);
+  sprintf(buf,"%d", extent[3]+1);
+  dataset->putAndInsertString(DCM_Rows,buf);
+
+  dataset->putAndInsertString(DCM_BitsAllocated,"1"); // XIP: 8
+  dataset->putAndInsertString(DCM_BitsStored,"1"); // XIP: 8
+  dataset->putAndInsertString(DCM_HighBit,"0");
+  dataset->putAndInsertString(DCM_PixelRepresentation,"0");
+
+  sprintf(buf,"%d", extent[5]+1);
+  dataset->putAndInsertString(DCM_NumberOfFrames,buf);
+
+  dataset->putAndInsertString(DCM_LossyImageCompression,"00");
+
+  copyDcmElement(DCM_PixelSpacing, dcm0, dataset);
+  copyDcmElement(DCM_SliceThickness, dcm0, dataset);
+
+  //   Segmentation Image module
+  dataset->putAndInsertString(DCM_SegmentationType, "BINARY");
+  dataset->putAndInsertString(DCM_ContentLabel, "ROI"); // CS
+  dataset->putAndInsertString(DCM_ContentDescription, "3D Slicer segmentation result");
+  dataset->putAndInsertString(DCM_ContentCreatorName, "3DSlicer");
+
+  // segment sequence [0062,0002]
+  DcmItem *Item = NULL, *subItem = NULL, *subItem2 = NULL, *subItem3 = NULL;
+  dataset->findOrCreateSequenceItem(DCM_SegmentSequence, Item);
+
+  // AF TODO: go over all labels and insert separate item for each one
+  Item->putAndInsertString(DCM_SegmentNumber, "1");
+  Item->putAndInsertString(DCM_SegmentLabel, "Segmentation"); // AF TODO: this should be initialized based on the label value!
+  Item->putAndInsertString(DCM_SegmentAlgorithmType, "SEMIAUTOMATIC");
+  Item->putAndInsertString(DCM_SegmentAlgorithmName, "Editor");
+
+  // general anatomy mandatory macro
+  Item->findOrCreateSequenceItem(DCM_AnatomicRegionSequence, subItem);
+  subItem->putAndInsertString(DCM_CodeValue, "T-D0050");
+  subItem->putAndInsertString(DCM_CodingSchemeDesignator,"SRT");
+  subItem->putAndInsertString(DCM_CodeMeaning,"Tissue");
+
+  //segmentation properties - category
+  Item->findOrCreateSequenceItem(DCM_SegmentedPropertyCategoryCodeSequence, subItem);
+  subItem->putAndInsertString(DCM_CodeValue,"T-D0050");
+  subItem->putAndInsertString(DCM_CodingSchemeDesignator,"SRT");
+  subItem->putAndInsertString(DCM_CodeMeaning,"Tissue");
+
+  //segmentation properties - type
+  Item->findOrCreateSequenceItem(DCM_SegmentedPropertyTypeCodeSequence, subItem);
+  subItem->putAndInsertString(DCM_CodeValue,"M-03010");
+  subItem->putAndInsertString(DCM_CodingSchemeDesignator,"SRT");
+  subItem->putAndInsertString(DCM_CodeMeaning,"Nodule");
+
+  //  Multi-frame Functional Groups Module
+  //   Shared functional groups sequence
+  std::cout << "Before initializing SharedFunctionalGroupsSequence" << std::endl;
+  dataset->findOrCreateSequenceItem(DCM_SharedFunctionalGroupsSequence, Item);
+  Item->findOrCreateSequenceItem(DCM_DerivationImageSequence, subItem);
+  const unsigned long itemNum = extent[5];
+  for(unsigned i=0;i<itemNum+1;i++)
+    {
+
+    subItem->findOrCreateSequenceItem(DCM_SourceImageSequence, subItem2, i);
+    char *str;
+    DcmElement *element;
+    DcmDataset *dataset = dcmDatasetVector[i];
+    dataset->findAndGetElement(DCM_SOPClassUID, element, i);
+    element->getString(str);
+    subItem2->putAndInsertString(DCM_ReferencedSOPClassUID, str);
+    dataset->findAndGetElement(DCM_SOPInstanceUID, element);
+    element->getString(str);
+    subItem2->putAndInsertString(DCM_ReferencedSOPInstanceUID, str);
+    subItem2->putAndInsertString(DCM_ReferencedFrameNumber, "1");
+
+    subItem2->findOrCreateSequenceItem(DCM_PurposeOfReferenceCodeSequence, subItem3);
+    subItem3->putAndInsertString(DCM_CodeValue, "121322");
+    subItem3->putAndInsertString(DCM_CodingSchemeDesignator, "DCM");
+    subItem3->putAndInsertString(DCM_CodeMeaning, "Source image for image processing operation");
+
+    }
+
+  subItem->findOrCreateSequenceItem(DCM_DerivationCodeSequence, subItem2);
+  subItem2->putAndInsertString(DCM_CodeValue, "113076");
+  subItem2->putAndInsertString(DCM_CodingSchemeDesignator, "DCM");
+  subItem2->putAndInsertString(DCM_CodeMeaning, "Segmentation");
+
+  char pixelSpacingStr[16], sliceThicknessStr[16];
+  {
+    char *str;
+    DcmElement *element;
+    dcmDatasetVector[0]->findAndGetElement(DCM_PixelSpacing, element);
+    element->getString(str);
+    strcpy(&pixelSpacingStr[0], str);
+    dcmDatasetVector[0]->findAndGetElement(DCM_SliceThickness, element);
+    element->getString(str);
+    strcpy(&sliceThicknessStr[0], str);
+   }
+    {
+    // Elements identical for each frame should be in shared group
+    char *str;
+    DcmElement *element;
+    dcmDatasetVector[0]->findAndGetElement(DCM_ImageOrientationPatient, element);
+    element->getString(str);
+    Item->findOrCreateSequenceItem(DCM_PlaneOrientationSequence, subItem);
+    subItem->putAndInsertString(DCM_ImageOrientationPatient, str);
+
+    Item->findOrCreateSequenceItem(DCM_PixelMeasuresSequence, subItem);
+    subItem->putAndInsertString(DCM_SliceThickness, sliceThicknessStr);
+    subItem->putAndInsertString(DCM_PixelSpacing, pixelSpacingStr);
+    }
+
+  //Derivation Image functional group
+  for(unsigned i=0;i<itemNum+1;i++)
+    {
+    dataset->findOrCreateSequenceItem(DCM_PerFrameFunctionalGroupsSequence, Item, i);
+
+    char buf[64], *str;
+    DcmElement *element;
+
+    Item->findOrCreateSequenceItem(DCM_FrameContentSequence, subItem);
+    subItem->putAndInsertString(DCM_StackID, "1");
+    sprintf(buf, "%d", i+1);
+    subItem->putAndInsertString(DCM_InStackPositionNumber, buf);
+    sprintf(buf, "1\\%d", i+1);
+    subItem->putAndInsertString(DCM_DimensionIndexValues, buf);
+
+    dcmDatasetVector[i]->findAndGetElement(DCM_ImagePositionPatient, element);
+    element->getString(str);
+    Item->findOrCreateSequenceItem(DCM_PlanePositionSequence, subItem);
+    subItem->putAndInsertString(DCM_ImagePositionPatient, str);
+
+    Item->findOrCreateSequenceItem(DCM_SegmentIdentificationSequence, subItem);
+    subItem->putAndInsertString(DCM_ReferencedSegmentNumber, "1");
+
+    }
+
+
+  // Multi-frame Dimension module
+    {
+    dataset->findOrCreateSequenceItem(DCM_DimensionOrganizationSequence, Item);
+    char dimensionuid[128];
+    char *dimensionUIDStr = dcmGenerateUniqueIdentifier(dimensionuid, SITE_SERIES_UID_ROOT);
+    Item->putAndInsertString(DCM_DimensionOrganizationUID, dimensionUIDStr);
+
+    dataset->findOrCreateSequenceItem(DCM_DimensionIndexSequence, Item, 0);
+
+    Item->putAndInsertString(DCM_DimensionOrganizationUID, dimensionUIDStr);
+
+    DcmAttributeTag dimAttr(DCM_StackID);
+    Uint16 *dimAttrArray = new Uint16[2];
+
+    dimAttr.putTagVal(DCM_StackID);
+    dimAttr.getUint16Array(dimAttrArray);
+    Item->putAndInsertUint16Array(DCM_DimensionIndexPointer, dimAttrArray, 1);
+
+    dimAttr.putTagVal(DCM_FrameContentSequence);
+    dimAttr.getUint16Array(dimAttrArray);
+    Item->putAndInsertUint16Array(DCM_FunctionalGroupPointer, dimAttrArray, 1);
+
+    dataset->findOrCreateSequenceItem(DCM_DimensionIndexSequence, Item, 1);
+
+    Item->putAndInsertString(DCM_DimensionOrganizationUID, dimensionUIDStr);
+
+    dimAttr.putTagVal(DCM_InStackPositionNumber);
+    dimAttr.getUint16Array(dimAttrArray);
+    Item->putAndInsertUint16Array(DCM_DimensionIndexPointer, dimAttrArray, 1);
+
+    dimAttr.putTagVal(DCM_FrameContentSequence);
+    dimAttr.getUint16Array(dimAttrArray);
+    Item->putAndInsertUint16Array(DCM_FunctionalGroupPointer, dimAttrArray, 1);
+
+    //delete [] dimAttrArray;
+    }
+
+
+  // pixel data
+  //
+  std::cout << "Preparing pixel data" << std::endl;
+  int nbytes = (int) (float((extent[1]+1)*(extent[3]+1)*(extent[5]+1))/8.);
+  int total = 0;
+  unsigned char *pixelArray = new unsigned char[nbytes];
+  for(int i=0;i<nbytes;i++)
+    pixelArray[i] = 0;
+
+  for(int k=0;k<extent[5]+1;k++)
+    {
+    for(int j=0;j<extent[3]+1;j++)
+      {
+      for(int i=0;i<extent[1]+1;i++)
+        {
+        int byte = total / 8, bit = total % 8;
+        total++;
+        pixelArray[byte] |= ((unsigned char) labelImages[0]->GetScalarComponentAsFloat(i,j,k,0)) << bit;
+        }
+      }
+    }
+
+
+  dataset->putAndInsertUint8Array(DCM_PixelData, pixelArray, nbytes);//write pixels
+
+  std::cout << "DICOM SEG created" << std::endl;
+
+  delete [] pixelArray;
+
+  std::string filename = dirname+"/"+seriesUIDStr+".dcm";
+  OFCondition status = fileformatOut.saveFile(filename.c_str(), EXS_LittleEndianExplicit);
+  if(status.bad())
+  {
+    std::cout << "Error writing: " << status.text() << std::endl;
+    return "";
+  }
+
+  return filename;
 }
 
 bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, const std::string fname)
