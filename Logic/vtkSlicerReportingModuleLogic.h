@@ -108,8 +108,8 @@ public:
   /// utility methods to call from python
   void SetActiveMarkupHierarchyIDToNull();
   
-  bool WriteLabelAsSegObject(vtkMRMLVolumeNode* srcNode, vtkMRMLScalarVolumeNode* labelNode, char* filename);
-  //bool WriteAllLabelsAsSegObject(vtkMRMLScalarVolumeNode* labelNode, char* filename);
+  bool DicomSegWrite(vtkCollection* labelNodes, const std::string fname);
+  bool DicomSegRead(vtkCollection*, const std::string fname);
 
 protected:
   vtkSlicerReportingModuleLogic();
@@ -153,7 +153,17 @@ private:
   /// label volumes if they're associated with the current volume being
   /// annotated
   int GUIHidden;
-  
+
+/*
+  struct VocabularyItem 
+    {
+    unsigned LabelValue;
+    std::string CodeValue;
+    std::string CodeMeaning;
+    std::string CodingSchemeDesignator;
+    }
+*/
+
   ctkDICOMDatabase *DICOMDatabase;
 };
 

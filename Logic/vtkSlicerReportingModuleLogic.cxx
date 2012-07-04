@@ -1015,6 +1015,8 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   //   final step
   QStringList allInstanceUIDs;
   int shapeId = 0;
+  vtkSmartPointer<vtkCollection> labelNodeCollection = vtkSmartPointer<vtkCollection>::New();
+
   if (markupHierarchyNode)
     {
     // get all the hierarchy nodes under the mark up node
@@ -1030,6 +1032,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
         // print out a point
         vtkMRMLAnnotationFiducialNode *fidNode = vtkMRMLAnnotationFiducialNode::SafeDownCast(mrmlAssociatedNode);          
         vtkMRMLAnnotationRulerNode *rulerNode = vtkMRMLAnnotationRulerNode::SafeDownCast(mrmlAssociatedNode);
+        vtkMRMLScalarVolumeNode *labelNode = vtkMRMLScalarVolumeNode::SafeDownCast(mrmlAssociatedNode);
 
         if(fidNode || rulerNode)
           {
@@ -1091,6 +1094,10 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
           this->AddSpatialCoordinateCollectionElement(doc, gs, coordStr, sliceUIDList);
           gsc.appendChild(gs);
         }
+      if(labelNode)
+        {
+          labelNodeCollection->AddItem(labelNode);
+        }
       else
         {
         vtkWarningMacro("SaveReportToAIM: unsupported markup type, of class: " << mrmlAssociatedNode->GetClassName());
@@ -1098,6 +1105,8 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
       }
     }
   }
+
+  this->DicomSegWrite(labelNodeCollection, "/Users/fedorov/test.dcm");
 
   // (Step 5) Iterate over referenced volume UIDs and add to the report
   // imageReferenceCollection
@@ -1373,19 +1382,6 @@ QStringList vtkSlicerReportingModuleLogic::GetMarkupPointCoordinatesStr(vtkMRMLA
   return sl;
 }
 
-bool vtkSlicerReportingModuleLogic::WriteLabelAsSegObject(vtkMRMLVolumeNode* srcNode,
-  vtkMRMLScalarVolumeNode* labelNode, char* filename)
-{
-
-  vtkSmartPointer<vtkImageData> labelImage = labelNode->GetImageData();
-  if(!labelImage)
-  {
-      std::cout << "Failed to get image data!" << std::endl;
-      return -1;
-  }
-  return EXIT_SUCCESS;
-}
-
 void vtkSlicerReportingModuleLogic::copyDcmElement(const DcmTag& tag, DcmDataset* dcmIn, DcmDataset* dcmOut)
 {
   char *str;
@@ -1438,4 +1434,63 @@ const char *vtkSlicerReportingModuleLogic::GetActiveReportHierarchyID()
     vtkErrorMacro("GetActiveReportHierarchyID: no hierarchy node associated with report id in parameter node " << parameterNode->GetID() << ", report id of " << reportID);
     return NULL;
     }
+}
+
+
+
+bool vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNodes, const std::string fname)
+{
+  // TODO: need to have the 
+  // iterate over all labels:
+  //   - check that the reference is the same
+  //   - check that the reference has DICOM source
+  unsigned numLabels = labelNodes->GetNumberOfItems();
+  std::vector<std::string> refDcmSeriesUIDs;
+  std::string referenceNodeID;
+  for(unsigned i=0;i<numLabels;i++)
+  {
+    vtkSmartPointer<vtkMRMLScalarVolumeNode> labelNode = vtkMRMLScalarVolumeNode::SafeDownCast(labelNodes->GetItemAsObject(i));
+    if(!labelNode)
+    {
+        std::cout << "Expected label map" << std::endl;
+        return false;
+    }
+    if(i==0)
+    {
+        referenceNodeID = labelNode->GetAttribute("AssociatedNodeID");
+
+        vtkMRMLScalarVolumeNode* referenceNode =
+                vtkMRMLScalarVolumeNode::SafeDownCast(this->GetMRMLScene()->GetNodeByID(referenceNodeID.c_str()));
+        referenceNode->GetID();
+        if(!referenceNode)
+            return false;
+
+        const char* uids = referenceNode->GetAttribute("DICOM.instanceUIDs");
+        if(uids == "")
+            return false;
+
+        {
+          std::istringstream iss(std::string(uids));
+          std::string word;
+          std::cout << "Reference dicom UIDs: ";
+          while(getline(iss,word,' ')) {
+            refDcmSeriesUIDs.push_back(word);
+            std::cout << word << " ";
+          }
+          std::cout << std::endl;
+        }
+    }
+    else
+    {
+        std::string thisReferenceNodeID = labelNode->GetAttribute("AssociatedNodeID");
+        if(thisReferenceNodeID != referenceNodeID)
+            return false;
+    }
+  }
+  return true;
+}
+
+bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, const std::string fname)
+{
+    return true;
 }
