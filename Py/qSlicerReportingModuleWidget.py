@@ -282,8 +282,11 @@ class qSlicerReportingModuleWidget:
       SlicerReportingModuleWidgetHelper.RotateToVolumePlanes()
 
       orientation = SlicerReportingModuleWidgetHelper.GetScanOrderSliceName(self.__vNode)
-      print "Got scan order slice name:", orientation
-      print "Please place mark ups in the ",orientation," slice viewer."
+      # print "Got scan order slice name:", orientation
+      message = "Please place mark ups in the " + orientation + " slice viewer."
+      print message
+      messageBox = qt.QMessageBox()
+      messageBox.information(self.parent, "Mark up placement", message)
       self.__parameterNode.SetParameter('acquisitionSliceViewer',orientation)
 
       # print "Calling logic to set up hierarchy"

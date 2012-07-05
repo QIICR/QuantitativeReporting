@@ -297,6 +297,8 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     }
 
   vtkMRMLAnnotationNode *annotationNode = vtkMRMLAnnotationNode::SafeDownCast(node);
+
+  /// check that the annotation was placed on the acquisition plane
   
   /// check that the annotation has a valid UID
   std::string UID = this->GetSliceUIDFromMarkUp(annotationNode);
@@ -317,6 +319,7 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     {
     this->SetErrorMessage("");
     }
+  
   /// make a new hierarchy node to create a parallel tree?
   /// for now, just reasign it
   vtkMRMLHierarchyNode *hnode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(node->GetScene(), node->GetID());
