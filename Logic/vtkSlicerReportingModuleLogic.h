@@ -104,7 +104,11 @@ public:
   
   /// utility methods to call from python
   void SetActiveMarkupHierarchyIDToNull();
-  
+
+  /// set/get the error string
+  vtkGetStringMacro(ErrorMessage);
+  vtkSetStringMacro(ErrorMessage);
+
 protected:
   vtkSlicerReportingModuleLogic();
   virtual ~vtkSlicerReportingModuleLogic();
@@ -147,6 +151,9 @@ private:
   int GUIHidden;
   
   ctkDICOMDatabase *DICOMDatabase;
+
+  /// save an error string to pass to the gui, reset when test passes
+  char *ErrorMessage;
 };
 
 #endif
