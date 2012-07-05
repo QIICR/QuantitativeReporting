@@ -108,6 +108,7 @@ public:
   /// utility methods to call from python
   void SetActiveMarkupHierarchyIDToNull();
   
+  bool IsDicomSeg(const std::string fname);
   std::string DicomSegWrite(vtkCollection* labelNodes, const std::string dirname);
   bool DicomSegRead(vtkCollection*, const std::string fname);
 

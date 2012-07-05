@@ -2,6 +2,7 @@
 SET(KIT_PYTHON_SCRIPTS
   SlicerReportingModuleWidgetHelper.py
   qSlicerReportingModuleWidget.py
+  DICOMSegmentationPlugin.py
   )
 
 SET(KIT_PYTHON_RESOURCES

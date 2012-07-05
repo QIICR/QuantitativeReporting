@@ -1496,7 +1496,18 @@ const char *vtkSlicerReportingModuleLogic::GetActiveReportHierarchyID()
     }
 }
 
-
+bool vtkSlicerReportingModuleLogic::IsDicomSeg(const std::string fname)
+{
+   DcmFileFormat fileFormat;
+   OFCondition status = fileFormat.loadFile(fname.c_str());
+   if(status.good())
+   {
+     DcmDataset *dcmDataset = fileFormat.getAndRemoveDataset();
+     if(this->getDcmElementAsString(DCM_Modality, dcmDataset) == "SEG")
+       return true;
+   }
+   return false;
+}
 
 std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNodes, const std::string dirname)
 {
@@ -1868,7 +1879,20 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
   return filename;
 }
 
-bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, const std::string fname)
+/* Read DICOM SEG object and create label(s) that correspond to the segments it stores.
+  Assume that the SEG object is in the DB; assume that the reference series is also in the DB (?)
+
+  This function does not make any assumptions about whether the volume that corresponds to the reference
+  is in the scene or not.
+
+  Relies on the functionality that allows to reconstruct the volume geometry from the list of filenames.
+*/
+bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, const std::string instanceUID)
 {
+    // query the filename for the seg object from the database
+    // get the list of reference UIDs
+    // read the volume geometry
+    // initialize the volume pixel array
+    // create new volume for each segment?
     return true;
 }
