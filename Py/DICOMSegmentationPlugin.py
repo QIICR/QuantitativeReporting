@@ -42,12 +42,29 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
     for file in files:
 
-      isDicomSeg = slicer.modules.reporting.logic().IsDicomSeg(file)
+      slicer.dicomDatabase.loadFileHeader(file)
+      d = slicer.dicomDatabase.headerValue("0008,103e") # SeriesDescription
+      name = ""
+
+      try:
+        name = d[d.index('[')+1:d.index(']')]
+      except ValueError:
+        name = "Unknown"
+
+      d = slicer.dicomDatabase.headerValue("0020,0011")
+      try:
+        num = d[d.index('[')+1:d.index(']')]
+        name = num + ": " + name
+      except ValueError:
+        pass
+
+      reportingLogic = slicer.modules.reporting.logic()
+      isDicomSeg = reportingLogic.IsDicomSeg(file)
 
       if isDicomSeg:
         loadable = DICOMLib.DICOMLoadable()
         loadable.files = file
-        loadable.name = desc + ' - as a DICOM SEG object'
+        loadable.name = name + ' - as a DICOM SEG object'
         loadable.tooltip = loadable.name
         loadable.selected = True
         loadables.append(loadable)
@@ -59,8 +76,6 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     """ Call Reporting logic to load the DICOM SEG object
     """
     print('DICOM SEG load()')
-
-    slicer.modules.reporting.logic().
 
     return True
 
@@ -81,6 +96,7 @@ class DICOMSegmentationPlugin:
     Plugin to the DICOM Module to parse and load DICOM SEG modality.
     No module interface here, only in the DICOM module
     """
+    parent.dependencies = ['Reporting']
     parent.acknowledgementText = """
     This DICOM Plugin was developed by 
     Andrey Fedorov, BWH.
