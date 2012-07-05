@@ -134,6 +134,8 @@ protected:
   
   int AddSpatialCoordinateCollectionElement(QDomDocument&, QDomElement&, QStringList&, QStringList&);
 
+  std::string GetFileNameFromUID(std::string uid);
+
 private:
 
   vtkSlicerReportingModuleLogic(const vtkSlicerReportingModuleLogic&); // Not implemented

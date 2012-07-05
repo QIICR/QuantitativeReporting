@@ -24,6 +24,7 @@
 #include <vtkMRMLAnnotationFiducialNode.h>
 #include <vtkMRMLAnnotationHierarchyNode.h>
 #include <vtkMRMLAnnotationRulerNode.h>
+#include <vtkMRMLVolumeArchetypeStorageNode.h>
 #include <vtkMRMLDisplayableHierarchyNode.h>
 #include <vtkMRMLDisplayNode.h>
 #include <vtkMRMLReportingReportNode.h>
@@ -1438,6 +1439,20 @@ void vtkSlicerReportingModuleLogic::copyDcmElement(const DcmTag& tag, DcmDataset
   }
 }
 
+std::string vtkSlicerReportingModuleLogic::GetFileNameFromUID(const std::string uid)
+{
+  QSqlQuery query(this->DICOMDatabase->database());
+  query.prepare("SELECT Filename FROM Images WHERE SOPInstanceUID=?");
+  query.bindValue(0, QString(uid.c_str()));
+  query.exec();
+  if(query.next())
+  {
+    QString fileName = query.value(0).toString();
+    return fileName.toLatin1().data();
+  }
+  return "";
+}
+
 std::string vtkSlicerReportingModuleLogic::getDcmElementAsString(const DcmTag& tag, DcmDataset* dcmIn)
 {
   char *str;
@@ -1568,28 +1583,22 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
   for(std::vector<std::string>::const_iterator uidIt=refDcmSeriesUIDs.begin();
     uidIt!=refDcmSeriesUIDs.end();++uidIt)
     {
-    QSqlQuery query(this->DICOMDatabase->database());
-    query.prepare("SELECT Filename FROM Images WHERE SOPInstanceUID=?");
-    query.bindValue(0, QString((*uidIt).c_str()));
-    query.exec();
-    if(query.next())
-      {
-      QString fileName = query.value(0).toString();
-      DcmFileFormat fileFormat;
-      OFCondition status = fileFormat.loadFile(fileName.toLatin1().data());
-      if(status.good())
-        {
-        std::cout << "Loaded dataset for " << fileName.toLatin1().data() << std::endl;
-        dcmDatasetVector.push_back(fileFormat.getAndRemoveDataset());
-        }
-      else
-        {
-        std::cerr << "Failed to query the database! Exiting." << std::endl;
+    std::string fileName = this->GetFileNameFromUID(*uidIt);
+    if(fileName == "")
         return "";
-        }
+    DcmFileFormat fileFormat;
+    OFCondition status = fileFormat.loadFile(fileName.c_str());
+    if(status.good())
+      {
+      std::cout << "Loaded dataset for " << fileName << std::endl;
+      dcmDatasetVector.push_back(fileFormat.getAndRemoveDataset());
+      }
+      else
+      {
+      std::cerr << "Failed to query the database! Exiting." << std::endl;
+      return "";
       }
     }
-
 
   // create a DICOM dataset (see
   // http://support.dcmtk.org/docs/mod_dcmdata.html#Examples)
@@ -1894,5 +1903,122 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
     // read the volume geometry
     // initialize the volume pixel array
     // create new volume for each segment?
+    std::string segFileName = this->GetFileNameFromUID(instanceUID);
+    if(segFileName == "")
+        return false;
+
+    DcmFileFormat fileFormat;
+    DcmDataset *segDataset;
+    OFCondition status = fileFormat.loadFile(segFileName.c_str());
+    if(status.good())
+      {
+      std::cout << "Loaded dataset for " << segFileName << std::endl;
+      segDataset = fileFormat.getAndRemoveDataset();
+      }
+
+    // No go if this is not a SEG modality
+      {
+      DcmElement *el;
+      char* str;
+      OFCondition status =
+        segDataset->findAndGetElement(DCM_SOPClassUID, el);
+      if(status.bad())
+        {
+        std::cout << "Failed to get class UID" << std::endl;
+        return -1;
+        }
+      status = el->getString(str);
+      if(status.bad())
+        return -1;
+      if(strcmp(str, UID_SegmentationStorage))
+        {
+        std::cerr << "Input DICOM should be a SEG object!" << std::endl;
+        return -1;
+        }
+      }
+
+    // Step 2: get the UIDs of the source sequence to initialize the geometry
+    std::vector<std::string> referenceFramesUIDs;
+    {
+      DcmItem *item1, *item2, *item3;
+      DcmElement *el;
+      OFCondition status;
+      char* str;
+      status = segDataset->findAndGetSequenceItem(DCM_SharedFunctionalGroupsSequence, item1);
+      if(status.bad())
+        return -2;
+      status = item1->findAndGetSequenceItem(DCM_DerivationImageSequence, item2);
+      if(status.bad())
+        return -2;
+      //status = item2->findAndGetSequenceItem(DCM_SourceImageSequence, item3);
+      // TODO: how to get the number of items in sequence?
+      for(int i=0;;i++)
+      {
+        status = item2->findAndGetSequenceItem(DCM_SourceImageSequence, item3, i);
+        if(status.bad())
+          break;
+        status = item3->findAndGetElement(DCM_ReferencedSOPInstanceUID, el);
+        if(status.bad())
+          return -3;
+        status = el->getString(str);
+        if(status.bad())
+          return -4;
+        std::cout << "Next UID: " << str << std::endl;
+        referenceFramesUIDs.push_back(str);
+      }
+    }
+
+  std::cout << referenceFramesUIDs.size() << " reference UIDs found" << std::endl;
+
+  vtkSmartPointer<vtkMRMLVolumeArchetypeStorageNode> sNode = vtkSmartPointer<vtkMRMLVolumeArchetypeStorageNode>::New();
+  sNode->ResetFileNameList();
+
+  // TODO: initialize geometry directly from the frame information,
+  //  no real need to read referenced series here
+  for(std::vector<std::string>::const_iterator uidIt=referenceFramesUIDs.begin();
+    uidIt!=referenceFramesUIDs.end();++uidIt)
+    {
+      std::string frameFileName = this->GetFileNameFromUID(*uidIt);
+      sNode->AddFileName(frameFileName.c_str());
+    }
+    sNode->SetSingleFile(0);
+
+    vtkSmartPointer<vtkMRMLScalarVolumeNode> vNode = vtkSmartPointer<vtkMRMLScalarVolumeNode>::New();
+    sNode->ReadData(vNode);
+
+    // Step 4: Initialize the image
+    const Uint8 *pixelArray;
+      {
+      unsigned long count;
+      const DcmTagKey pdTag = DCM_PixelData;
+      OFCondition status =
+        segDataset->findAndGetUint8Array(pdTag, pixelArray, &count, false);
+      if(!status.good())
+        return -5;
+      std::cout << "Pixel array length is " << count << std::endl;
+
+      }
+
+    vtkImageData *imageData = vNode->GetImageData();
+    int extent[6];
+    imageData->GetExtent(extent);
+
+    int total = 0;
+    for(int k=0;k<extent[5]+1;k++)
+      {
+      for(int j=0;j<extent[3]+1;j++)
+        {
+        for(int i=0;i<extent[1]+1;i++)
+          {
+          int byte = total/8, bit = total % 8;
+          int value = (pixelArray[byte] >> bit) & 1;
+          imageData->SetScalarComponentFromFloat(i,j,k,0,value);
+          total++;
+          }
+        }
+      }
+
+    labelNodes->AddItem(vNode);
+
     return true;
 }
