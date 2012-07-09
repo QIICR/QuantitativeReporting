@@ -80,6 +80,7 @@ vtkSlicerReportingModuleLogic::vtkSlicerReportingModuleLogic()
 {
   this->ActiveParameterNodeID = NULL;
   this->ActiveMarkupHierarchyID = NULL;
+  this->ErrorMessage = NULL;
   this->DICOMDatabase = NULL;
   this->GUIHidden = 0;
 
@@ -99,6 +100,11 @@ vtkSlicerReportingModuleLogic::~vtkSlicerReportingModuleLogic()
     delete [] this->ActiveMarkupHierarchyID;
     this->ActiveMarkupHierarchyID = NULL;
     }
+  if (this->ErrorMessage)
+    {
+    delete [] this->ErrorMessage;
+    this->ErrorMessage = NULL;
+    }
 }
 
 //----------------------------------------------------------------------------
@@ -108,6 +114,7 @@ void vtkSlicerReportingModuleLogic::PrintSelf(ostream& os, vtkIndent indent)
 
   os << indent << "Active Parameter Node ID = " << (this->ActiveParameterNodeID ? this->ActiveParameterNodeID : "null") << std::endl;
   os << indent << "Active Markup Hierarchy ID = " << (this->GetActiveMarkupHierarchyID() ? this->GetActiveMarkupHierarchyID() : "null") << "\n";
+  os << indent << "Error Message " << (this->ErrorMessage ? this->GetErrorMessage() : "none") << "\n";
   os << indent << "GUI Hidden = " << (this->GUIHidden ? "true" : "false") << "\n";
 
 }
@@ -311,14 +318,29 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     }
 
   vtkMRMLAnnotationNode *annotationNode = vtkMRMLAnnotationNode::SafeDownCast(node);
+
+  /// check that the annotation was placed on the acquisition plane
   
   /// check that the annotation has a valid UID
   std::string UID = this->GetSliceUIDFromMarkUp(annotationNode);
   if (UID.compare("NONE") == 0)
     {
-    vtkDebugMacro("OnMRMLSceneNodeAdded: annotation " << annotationNode->GetName() << " isn't associated with a single UID from a volume, not using it for this report");
+    std::string errorMessage;
+    errorMessage = std::string("Newly added annotation '");
+    errorMessage += std::string( annotationNode->GetName());
+    errorMessage += std::string("' isn't associated with a single UID from a volume, not using it for this report");
+    vtkDebugMacro(<< errorMessage.c_str());
+    // let the GUI know by invoking an event
+    this->SetErrorMessage(errorMessage.c_str());
+    vtkDebugMacro("Logic: Invoking ErrorEvent");
+    this->InvokeEvent(vtkCommand::ErrorEvent, (void *)(errorMessage.c_str()));
     return;
     }
+  else
+    {
+    this->SetErrorMessage("");
+    }
+  
   /// make a new hierarchy node to create a parallel tree?
   /// for now, just reasign it
   vtkMRMLHierarchyNode *hnode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(node->GetScene(), node->GetID());

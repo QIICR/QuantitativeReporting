@@ -112,6 +112,10 @@ public:
   std::string DicomSegWrite(vtkCollection* labelNodes, const std::string dirname);
   bool DicomSegRead(vtkCollection*, const std::string fname);
 
+  /// set/get the error string
+  vtkGetStringMacro(ErrorMessage);
+  vtkSetStringMacro(ErrorMessage);
+
 protected:
   vtkSlicerReportingModuleLogic();
   virtual ~vtkSlicerReportingModuleLogic();
@@ -172,6 +176,9 @@ private:
 */
 
   ctkDICOMDatabase *DICOMDatabase;
+
+  /// save an error string to pass to the gui, reset when test passes
+  char *ErrorMessage;
 };
 
 #endif

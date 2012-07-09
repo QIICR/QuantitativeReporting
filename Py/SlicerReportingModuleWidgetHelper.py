@@ -139,6 +139,25 @@ class SlicerReportingModuleWidgetHelper( object ):
     return s
 
   '''
+  Create and return a unit length vector from v[3]
+  '''
+  @staticmethod
+  def GetUnitVector(v):
+    import math
+    vectorLength = math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2])
+    # print 'vectorLength = ',vectorLength
+    v2 = [0,0,0]
+    if vectorLength != 0:
+      v2[0] = v[0] / vectorLength
+      v2[1] = v[1] / vectorLength
+      v2[2] = v[2] / vectorLength
+      # print 'Input vector =",v,", unit vector = ',v2
+    else:
+      print 'Vector was of length 0, cannot make it a unit vector'
+    return v2
+
+
+  '''
   Figure out the slice viewer with the scan direction images
   '''
   @staticmethod
@@ -161,13 +180,14 @@ class SlicerReportingModuleWidgetHelper( object ):
     if orientation == "Unknown":
       print "Unable to detect orientation from IJK to RAS matrix of volume"
     else:
-      print "Orientation of volume is ",orientation,". Please place mark ups in the ",orientation," slice viewer."
+      print "Orientation of volume is ",orientation,"."
     # return orientation
 
     # get the Z/K to RAS column vector from the volumes IJK to RAS matrix
     kToRAS = [0,0,0]
     vol.GetKToRASDirection(kToRAS)
-    kToRASVector = [kToRAS[0],kToRAS[1],kToRAS[2],1]
+    kToRASVector = [kToRAS[0],kToRAS[1],kToRAS[2]]
+    kToRASVectorUnit = SlicerReportingModuleWidgetHelper.GetUnitVector(kToRASVector)
 
     # iterate over slice widgets to get slice nodes
     lm = slicer.app.layoutManager()
@@ -175,18 +195,26 @@ class SlicerReportingModuleWidgetHelper( object ):
 
     import numpy
 
-    mat = vtk.vtkMatrix4x4()
+   
     sliceViewerName = "not found"
     for s in range(logics.GetNumberOfItems()):
       l = logics.GetItemAsObject(s)
+      mat = vtk.vtkMatrix4x4()
       mat = l.GetSliceNode().GetSliceToRAS()
-      zToRAS = [0,0,0,1]
-      zToRAS[0] = mat.GetElement(2,0)
-      zToRAS[1] = mat.GetElement(2,1)
+      # print s,": matrix = \n",mat
+      zToRAS = [0,0,0]
+      zToRAS[0] = mat.GetElement(0,2)
+      zToRAS[1] = mat.GetElement(1,2)
       zToRAS[2] = mat.GetElement(2,2)
-      dotprod = numpy.dot(kToRASVector,zToRAS)
-      print s,": dot product =",dotprod    
-      if dotprod < 0.001:
+      zToRASUnit = SlicerReportingModuleWidgetHelper.GetUnitVector(zToRAS)
+
+      dotprod = numpy.dot(kToRASVectorUnit,zToRASUnit)
+      # print s,":",l.GetSliceNode().GetName()," kToRAS = ",kToRASVectorUnit,", slice node zToRAS = ",zToRASUnit,", dot product =",dotprod
+      # to find the vectors that line up in the same direction want a dot product of 1 or -1
+      diff = numpy.abs(dotprod) - 1.0
+      diff = numpy.abs(diff)
+      # print  "dot product diff from 1 = ",diff
+      if diff < 0.001:
         sliceViewerName = l.GetSliceNode().GetName()
         print "Found a slice viewer aligned to volume, name = ",sliceViewerName
 

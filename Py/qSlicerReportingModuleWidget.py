@@ -188,6 +188,15 @@ class qSlicerReportingModuleWidget:
     self.__logic.GUIHiddenOff()
     self.updateWidgetFromParameters()
 
+    # respond to error events
+    print 'Enter: Setting up connection to respond to logic error events'
+    hasObserver = self.__logic.HasObserver(vtk.vtkCommand.ErrorEvent)
+    if hasObserver == 0:
+      tag = self.__logic.AddObserver(vtk.vtkCommand.ErrorEvent, self.respondToErrorMessage)
+      # print '\tobserver tag = ',tag
+    else:
+      print 'Logic already has an observer on the ErrorEvent'
+
     vnode = self.__volumeSelector.currentNode()
     if vnode != None:
       # print "Enter: setting active hierarchy from node ",vnode.GetID()
@@ -202,7 +211,16 @@ class qSlicerReportingModuleWidget:
     # print "Reporting Exit. Letting logic know that module has been exited"
     # let the module logic know that the GUI is hidden, so that fiducials can go elsewehre
     self.__logic.GUIHiddenOn()
+    # disconnect observation
+    self.__logic.RemoveObservers(vtk.vtkCommand.ErrorEvent)
 
+  # respond to error events from the logic
+  def respondToErrorMessage(self, caller, event):
+    errorMessage = self.__logic.GetErrorMessage()
+    print 'respondToErrorMessage, event = ',event,', message =\n\t',errorMessage
+    errorDialog = qt.QErrorMessage(self.parent)
+    errorDialog.showMessage(errorMessage)
+    
 
   # AF: I am not exactly sure what are the situations when MRML scene would
   # change, but I recall handling of this is necessary, otherwise adding
@@ -264,8 +282,11 @@ class qSlicerReportingModuleWidget:
       SlicerReportingModuleWidgetHelper.RotateToVolumePlanes()
 
       orientation = SlicerReportingModuleWidgetHelper.GetScanOrderSliceName(self.__vNode)
-      print "Got scan order slice name:", orientation
-      print "Please place mark ups in the ",orientation," slice viewer."
+      # print "Got scan order slice name:", orientation
+      message = "Please place mark ups in the " + orientation + " slice viewer."
+      print message
+      messageBox = qt.QMessageBox()
+      messageBox.information(self.parent, "Mark up placement", message)
       self.__parameterNode.SetParameter('acquisitionSliceViewer',orientation)
 
       # print "Calling logic to set up hierarchy"
