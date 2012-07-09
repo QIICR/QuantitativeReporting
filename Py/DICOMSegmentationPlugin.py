@@ -43,8 +43,13 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     for file in files:
 
       slicer.dicomDatabase.loadFileHeader(file)
+      uid = slicer.dicomDatabase.headerValue("0020,000E") # SeriesInstanceUID
+      try:
+        uid = uid[uid.index('[')+1:uid.index(']')]
+      except ValueError:
+        pass
+
       d = slicer.dicomDatabase.headerValue("0008,103e") # SeriesDescription
-      name = ""
 
       try:
         name = d[d.index('[')+1:d.index(']')]
@@ -56,9 +61,14 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
         num = d[d.index('[')+1:d.index(']')]
         name = num + ": " + name
       except ValueError:
-        pass
+        return []
 
-      reportingLogic = slicer.modules.reporting.logic()
+      reportingLogic = None
+      try:
+        reportingLogic = slicer.modules.reporting.logic()
+      except AttributeError:
+        return []
+
       isDicomSeg = reportingLogic.IsDicomSeg(file)
 
       if isDicomSeg:
@@ -67,6 +77,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
         loadable.name = name + ' - as a DICOM SEG object'
         loadable.tooltip = loadable.name
         loadable.selected = True
+        loadable.uid = uid
         loadables.append(loadable)
         print('DICOM SEG modality found')
 
@@ -76,6 +87,22 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     """ Call Reporting logic to load the DICOM SEG object
     """
     print('DICOM SEG load()')
+    labelNodes = vtk.vtkCollection()
+
+    uid = None
+
+    try:
+      reportingLogic = slicer.modules.reporting.logic()
+      uid = loadable.uid
+    except AttributeError:
+      return False
+
+    res = False
+    res = reportingLogic.DicomSegRead(labelNodes, uid)
+    print 'Read this many labels:',labelNodes.GetNumberOfItems()
+
+    for i in range(labelNodes.GetNumberOfItems()):
+      slicer.mrmlScene.AddNode(labelNodes.GetItemAsObject(i))
 
     return True
 
