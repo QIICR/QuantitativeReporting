@@ -988,12 +988,91 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   equipment.setAttribute("softwareVersion","0.0.1");
   root.appendChild(equipment);
 
+  // Extract patient information from the referenced volume
+  //
   QDomElement person = doc.createElement("person");
-  person.setAttribute("birthDate","1990-01-01T00:00:00");
+
+  // load up the header information using the volumne's first uid
+  QString uids = volumeNode->GetAttribute("DICOM.instanceUIDs");
+  QString volumeFirstUID = uids.split(" ")[0];
+  vtkDebugMacro("Loading instance header from uid " << qPrintable(volumeFirstUID));
+  this->DICOMDatabase->loadInstanceHeader(volumeFirstUID);
+
+  // PatientBirthDate and PatientBirthTime
+  QString headerValue = this->DICOMDatabase->headerValue("0010,0030");
+  if (headerValue.size() == 0 ||
+      headerValue.contains("(no value available)"))
+    {
+    person.setAttribute("birthDate","1990-01-01T00:00:00");
+    }
+  else
+    {
+    QString patientBirthDate = headerValue.split("]")[0].split("[")[1];
+    vtkDebugMacro("patientBirthDate = " << qPrintable(patientBirthDate));
+    // parse birth date out from YYYYMMDD
+    QString fullBirthDate = patientBirthDate.mid(0,4) + QString("-") + patientBirthDate.mid(4,2) + QString("-") + patientBirthDate.mid(6,2);
+    QString headerValue2 = this->DICOMDatabase->headerValue("0010,0032");
+    QString fullBirthTime = QString("T00:00:00");
+    if (headerValue2.size() != 0 &&
+        !headerValue2.contains("(no value available)"))
+      {      
+      QString patientBirthTime = headerValue2.split("]")[0].split("[")[1];
+      vtkDebugMacro("patientBirthTime = " << qPrintable(patientBirthTime) );
+      if (patientBirthTime.size() >= 6)
+        {
+        // parse from HHMMSS
+        fullBirthTime = patientBirthTime.mid(0,2) + QString("-") + patientBirthTime.mid(2,2) + QString("-") + patientBirthTime.mid(4,2);
+        }
+      }
+    person.setAttribute("birthDate", fullBirthDate + fullBirthTime);
+    }
+
   person.setAttribute("cagridId","0");
-  person.setAttribute("id","123456");
-  person.setAttribute("name","Anonymous");
-  person.setAttribute("sex","M");
+  
+  // PatientID
+  headerValue = this->DICOMDatabase->headerValue("0010,0020");
+  if (headerValue.size() == 0 ||
+      headerValue.contains("(no value available)"))
+    {
+    // not found, use a dummy string
+    person.setAttribute("id","123456");
+    }
+  else
+    {
+    QString patientID = headerValue.split("]")[0].split("[")[1];
+    person.setAttribute("id",patientID);
+    vtkDebugMacro("Patient id = " << qPrintable(patientID) );
+    //      value = d[d.index('[')+1:d.index(']')]
+    
+    }
+
+  // PatientName
+  headerValue = this->DICOMDatabase->headerValue("0010,0010");
+  if (headerValue.size() == 0 ||
+      headerValue.contains("(no value available)"))
+    {
+    person.setAttribute("name","Anonymous");
+    }
+  else
+    {
+    QString patientName = headerValue.split("]")[0].split("[")[1];
+    vtkDebugMacro("patientName = " << qPrintable(patientName) );
+    person.setAttribute("name", patientName);
+    }
+
+  // PatientSex
+  headerValue = this->DICOMDatabase->headerValue("0010,0040");
+  if (headerValue.size() == 0 ||
+      headerValue.contains("(no value available)"))
+    {
+    person.setAttribute("sex","M");
+    }
+  else
+    {
+    QString patientSex = headerValue.split("]")[0].split("[")[1];
+    vtkDebugMacro("patientSex = " << qPrintable(patientSex) );
+    person.setAttribute("sex", patientSex);
+    }
   root.appendChild(person);
 
   // (Step 4) Go over the markup elements and add them to the geometric shape
@@ -1184,6 +1263,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   QDomElement irc = doc.createElement("imageReferenceCollection");
   root.appendChild(irc);
 
+  
   //for(std::vector<QStringList>::const_iterator it=volumeUIDLists.begin();
   //  it!=volumeUIDLists.end();++it)
   //  {
