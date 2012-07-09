@@ -84,6 +84,8 @@ vtkSlicerReportingModuleLogic::vtkSlicerReportingModuleLogic()
   this->DICOMDatabase = NULL;
   this->GUIHidden = 0;
 
+  this->InitializeDICOMDatabase();
+
   vtkDebugMacro("********* vtkSlicerReportingModuleLogic Constructor **********");
 }
 
@@ -122,6 +124,9 @@ void vtkSlicerReportingModuleLogic::PrintSelf(ostream& os, vtkIndent indent)
 //---------------------------------------------------------------------------
 bool vtkSlicerReportingModuleLogic::InitializeDICOMDatabase()
 {
+  if(this->DICOMDatabase)
+    return true; // database has already been initialized
+
   QSettings settings;
   QString dbPath = settings.value("DatabaseDirectory","").toString();
   if (dbPath.compare("") == 0)
