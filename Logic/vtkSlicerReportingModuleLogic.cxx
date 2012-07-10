@@ -2126,6 +2126,15 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
 
     vNode->LabelMapOn();
     vNode->SetAttribute("DICOM.instanceUIDs", instanceUID.c_str());
+
+    std::string referenceInstanceUIDs;
+    for(std::vector<std::string>::const_iterator uidIt=referenceFramesUIDs.begin();
+      uidIt!=referenceFramesUIDs.end();++uidIt)
+    {
+      referenceInstanceUIDs += *uidIt + std::string(" ");
+    }
+ 
+    vNode->SetAttribute("DICOM.referenceInstanceUIDs", referenceInstanceUIDs.c_str());
     labelNodes->AddItem(vNode);
 
     return true;

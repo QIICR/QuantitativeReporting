@@ -115,6 +115,8 @@ public:
   /// set/get the error string
   vtkGetStringMacro(ErrorMessage);
   vtkSetStringMacro(ErrorMessage);
+  
+  std::string GetFileNameFromUID(std::string uid);
 
 protected:
   vtkSlicerReportingModuleLogic();
@@ -137,8 +139,6 @@ protected:
   const char *GetActiveReportHierarchyID();
   
   int AddSpatialCoordinateCollectionElement(QDomDocument&, QDomElement&, QStringList&, QStringList&);
-
-  std::string GetFileNameFromUID(std::string uid);
 
 private:
 

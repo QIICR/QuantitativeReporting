@@ -473,6 +473,56 @@ class qSlicerReportingModuleWidget:
         ruler.Initialize(slicer.mrmlScene)
         # AF: Initialize() adds to the scene ...
 
+    for node in dom.getElementsByTagName('Segmentation'):
+      # read all labels that are available in the SEG object
+      # check if the referenced volume is already in the scene
+      #   if not, load it
+      # initialize AssociatedNodeID for the label node to point to the
+      # reference
+      print('Importing a segmentation')
+      labelNodes = vtk.vtkCollection()
+      referenceNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScalarVolumeNode')
+
+      uid = node.getAttribute('sopInstanceUID')
+
+      res = False
+      res = self.__logic.DicomSegRead(labelNodes, uid)
+      print 'Read this many labels:',labelNodes.GetNumberOfItems()
+  
+      # read the reference node
+      label0 = labelNodes.GetItemAsObject(0)
+
+      referenceUIDs = label0.GetAttribute('DICOM.referenceInstanceUIDs')
+      print('Seg object reference uids: ',referenceUIDs)
+
+      if referenceUIDs != None:
+
+        # TODO: need to check if this volume is not already in the scene by
+        # checking the list of UIDs?
+
+        # cannot create this from python?
+        reader = slicer.vtkMRMLVolumeArchetypeStorageNode()
+        reader.ResetFileNameList()
+
+        for uid in string.split(referenceUIDs, ' '):
+
+          fname = self.__logic.GetFileNameFromUID(uid)
+          reader.AddFileName(fname)
+          print('Adding fname: ', fname)
+
+        reader.SetFileName(string.split(referenceUIDs, ' ')[0])
+        reader.SetSingleFile(0)
+        
+        referenceNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScalarVolumeNode')
+        reader.ReadData(referenceNode)
+
+        slicer.mrmlScene.AddNode(referenceNode)
+
+      for i in range(labelNodes.GetNumberOfItems()):
+        labelNode = labelNodes.GetItemAsObject(i)
+        labelNode.SetAttribute('AssociatedNodeID', referenceNode.GetID())
+        slicer.mrmlScene.AddNode(labelNodes.GetItemAsObject(i))
+
     newReport.SetDescription(desc)
 
     # update the GUI
