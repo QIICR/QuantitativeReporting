@@ -1162,8 +1162,17 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
           DcmDataset *segDcm = segFileFormat.getAndRemoveDataset();
           QDomElement segDom = doc.createElement("Segmentation");
           segDom.setAttribute("cagridId","0");
-          segDom.setAttribute("sopInstanceUID",
-            this->getDcmElementAsString(DCM_SOPInstanceUID,segDcm).c_str());
+
+          std::string instanceUID = 
+            this->getDcmElementAsString(DCM_SOPInstanceUID,segDcm).c_str();
+
+          /*
+          We should not reference directly in AIM the original data referenced from seg object, right?
+          Then what should be the logic on loading DICOM SEG -- load referenced dataset automatically?
+          allInstanceUIDs << QString(instanceUID.c_str());
+          */
+
+          segDom.setAttribute("sopInstanceUID", instanceUID.c_str());
           segDom.setAttribute("sopClassUID",
             this->getDcmElementAsString(DCM_SOPClassUID, segDcm).c_str());
           segDom.setAttribute("referencedSopInstanceUID",
@@ -1187,57 +1196,43 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
 
   // iterate over all instance UIDs and find all the series and corresponding
   // study/series UIDs referenced by the markups we have
-  std::map<QString, QStringList> seriesToImageList;  // seriesUID to the list of unique imageUIDs
+  std::map<QString, QStringList> seriesToInstanceList;  // seriesUID to the list of corresponding instance UIDs
   std::map<QString, QStringList> studyToSeriesList;  // studyUID to the list of unique seriesUIDs
+  std::map<QString, DcmDataset*> instanceToDcm; // instanceUID to DcmDataset
   for(int i=0;i<allInstanceUIDs.size();i++)
     {
-    // query db only for the first UID in the list, since they should all
-    // belong to the same series
-    this->DICOMDatabase->loadInstanceHeader(allInstanceUIDs[i].toLatin1().data());
-    QString imageUID = this->DICOMDatabase->headerValue("0008,0018");
-    QString studyUID = this->DICOMDatabase->headerValue("0020,000d");
-    QString seriesUID = this->DICOMDatabase->headerValue("0020,000e");
-    QString classUID = QString("uninitialized");
-//    QString classUID = this->DICOMDatabase->headerValue("0008,0016");
-//    TODO: classUID is not stored correctly in the database for now, skip it
-    // AF: why not keep the actual values in the database?
+    
+    std::string fileName = this->GetFileNameFromUID(allInstanceUIDs[i].toLatin1().data());
+    if(fileName == "")
+        return EXIT_FAILURE;
+    DcmFileFormat fileFormat;
+    OFCondition status = fileFormat.loadFile(fileName.c_str());
+    if(!status.good())
+      return EXIT_FAILURE;
 
-    std::cout << "imageUID = " << imageUID.toLatin1().data() << std::endl;
+    DcmDataset *dcm = fileFormat.getAndRemoveDataset();
+    instanceToDcm[allInstanceUIDs[i]] = dcm;
+
+    QString instanceUID = QString(this->getDcmElementAsString(DCM_SOPInstanceUID, dcm).c_str());
+    QString studyUID = QString(this->getDcmElementAsString(DCM_StudyInstanceUID, dcm).c_str());
+    QString seriesUID = QString(this->getDcmElementAsString(DCM_SeriesInstanceUID, dcm).c_str());
+
+    std::cout << "instanceUID = " << instanceUID.toLatin1().data() << std::endl;
     std::cout << "studyUID = " << studyUID.toLatin1().data() << std::endl;
     std::cout << "seriesUID = " << seriesUID.toLatin1().data() << std::endl;
-//   std::cout << "sclassUID = " << classUID.toLatin1().data() << std::endl;
-
-    if (imageUID.size() == 0)
+          
+    if(seriesToInstanceList.find(seriesUID) == seriesToInstanceList.end())
       {
-      vtkErrorMacro("SaveReportToAIM: for instance uid #" << i << ", got an empty imageUID string. Cannot parse for a valid image UID");
-      return EXIT_FAILURE;
-      }
-    imageUID = imageUID.split("]")[0].split("[")[1];
-    if (studyUID.size() == 0)
-      {
-      vtkErrorMacro("SaveReportToAIM: for instance uid #" << i << ", got an empty studyUID string. Cannot parse for a valid study UID");
-      return EXIT_FAILURE;
-      }
-    studyUID = studyUID.split("]")[0].split("[")[1];
-    if (seriesUID.size() == 0)
-      {
-      vtkErrorMacro("SaveReportToAIM: for instance uid #" << i << ", got an empty seriesUID string. Cannot parse for a valid series UID");
-      return EXIT_FAILURE;
-      }
-    seriesUID = seriesUID.split("]")[0].split("[")[1];
-
-    if(seriesToImageList.find(seriesUID) == seriesToImageList.end())
-      {
-      seriesToImageList[seriesUID] = QStringList() << imageUID;
+      seriesToInstanceList[seriesUID] = QStringList() << instanceUID;
       }
     else
       {
-      if(seriesToImageList[seriesUID].indexOf(imageUID) == -1)
+      if(seriesToInstanceList[seriesUID].indexOf(instanceUID) == -1)
         {
-        seriesToImageList[seriesUID] << imageUID;
+        seriesToInstanceList[seriesUID] << instanceUID;
         }
       }
-    if(studyToSeriesList.find(studyUID) == seriesToImageList.end())
+    if(studyToSeriesList.find(studyUID) == studyToSeriesList.end())
       {
       studyToSeriesList[studyUID] = QStringList() << seriesUID;
       }
@@ -1253,9 +1248,6 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   QDomElement irc = doc.createElement("imageReferenceCollection");
   root.appendChild(irc);
 
-  //for(std::vector<QStringList>::const_iterator it=volumeUIDLists.begin();
-  //  it!=volumeUIDLists.end();++it)
-  //  {
   for(std::map<QString,QStringList>::const_iterator mIt=studyToSeriesList.begin();
       mIt!=studyToSeriesList.end();++mIt)
     {
@@ -1296,13 +1288,15 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
       QDomElement ic = doc.createElement("imageCollection");
       series.appendChild(ic);
 
-      QStringList uidList = seriesToImageList[seriesUID];
+      QStringList uidList = seriesToInstanceList[seriesUID];
 
       for(int i=0;i<uidList.size();i++)
         {
         QDomElement image = doc.createElement("Image");
         image.setAttribute("cagridId","0");
-        image.setAttribute("sopClassUID","NA"); // FIXME
+        DcmDataset *dcm = instanceToDcm[uidList[i].toLatin1().data()];
+        std::string classUID = this->getDcmElementAsString(DCM_SOPClassUID, dcm);
+        image.setAttribute("sopClassUID", QString(classUID.c_str()));
         image.setAttribute("sopInstanceUID",uidList[i]);
         ic.appendChild(image);
         }
@@ -1583,7 +1577,7 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
             return "";
 
         const char* uids = referenceNode->GetAttribute("DICOM.instanceUIDs");
-        if(uids == "")
+        if(!uids)
             return "";
 
         {
