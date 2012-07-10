@@ -1153,6 +1153,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
         {
         const QString qfilename = QString(filename.c_str());
         this->DICOMDatabase->insert(qfilename, 0);
+        std::cout << "Inserted file into the database: " << filename << std::endl;
 
         DcmFileFormat segFileFormat;
         OFCondition status = segFileFormat.loadFile(filename.c_str());
@@ -1932,7 +1933,10 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
     // create new volume for each segment?
     std::string segFileName = this->GetFileNameFromUID(instanceUID);
     if(segFileName == "")
-        return false;
+      {
+      std::cout << "Failed to get the filename from DB for " << instanceUID << std::endl;
+      return false;
+      }
 
     DcmFileFormat fileFormat;
     DcmDataset *segDataset;

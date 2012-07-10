@@ -42,12 +42,16 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
     for file in files:
 
+      print 'DICOM SEG plugin is parsing file ', file
       slicer.dicomDatabase.loadFileHeader(file)
-      uid = slicer.dicomDatabase.headerValue("0020,000E") # SeriesInstanceUID
+      uid = slicer.dicomDatabase.headerValue("0008,0018") # SOPInstanceUID
+      print 'Unparsed uid:', uid
       try:
         uid = uid[uid.index('[')+1:uid.index(']')]
       except ValueError:
-        pass
+        return []
+
+      print 'DICOM SEG UID = ', uid
 
       d = slicer.dicomDatabase.headerValue("0008,103e") # SeriesDescription
 
@@ -94,6 +98,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     try:
       reportingLogic = slicer.modules.reporting.logic()
       uid = loadable.uid
+      print 'in load(): uid = ', uid
     except AttributeError:
       return False
 
