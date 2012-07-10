@@ -1548,7 +1548,7 @@ bool vtkSlicerReportingModuleLogic::IsDicomSeg(const std::string fname)
 
 std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNodes, const std::string dirname)
 {
-  // TODO: need to have the 
+  // TODO: what should be the behavior if the label node references a DICOM SEG already?
   // iterate over all labels:
   //   - check that the reference is the same
   //   - check that the reference has DICOM source
@@ -2046,6 +2046,7 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
       }
 
     vNode->LabelMapOn();
+    vNode->SetAttribute("DICOM.instanceUIDs", instanceUID.c_str());
     labelNodes->AddItem(vNode);
 
     return true;
