@@ -2010,6 +2010,8 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
     uidIt!=referenceFramesUIDs.end();++uidIt)
     {
       std::string frameFileName = this->GetFileNameFromUID(*uidIt);
+      if(uidIt == referenceFramesUIDs.begin())
+        sNode->SetFileName(frameFileName.c_str());
       sNode->AddFileName(frameFileName.c_str());
     }
     sNode->SetSingleFile(0);
@@ -2049,6 +2051,7 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
         }
       }
 
+    vNode->LabelMapOn();
     labelNodes->AddItem(vNode);
 
     return true;
