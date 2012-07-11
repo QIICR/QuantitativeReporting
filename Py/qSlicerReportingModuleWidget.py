@@ -281,6 +281,17 @@ class qSlicerReportingModuleWidget:
       SlicerReportingModuleWidgetHelper.SetBgFgVolumes(self.__vNode.GetID(), '')
       SlicerReportingModuleWidgetHelper.RotateToVolumePlanes()
 
+      # go over all label nodes in the scene
+      # if there is a label that has the selected volume as associated node, 
+      #   initialize label selector to show that label
+      volumeNodes = slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode')
+      for i in range(volumeNodes.GetNumberOfItems()):
+        vol = volumeNodes.GetItemAsObject(i)
+        associatedNodeID = vol.GetAttribute('AssociatedNodeID')
+        label = vol.GetAttribute('LabelMap')
+        if associatedNodeID == self.__vNode.GetID() and label == '1':
+          SlicerReportingModuleWidgetHelper.SetLabelVolume(vol.GetID())
+
       orientation = SlicerReportingModuleWidgetHelper.GetScanOrderSliceName(self.__vNode)
       # print "Got scan order slice name:", orientation
       message = "Please place mark ups in the " + orientation + " slice viewer."

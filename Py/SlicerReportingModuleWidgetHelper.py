@@ -87,6 +87,13 @@ class SlicerReportingModuleWidgetHelper( object ):
     appLogic.PropagateVolumeSelection()
 
   @staticmethod
+  def SetLabelVolume(label):
+    appLogic = slicer.app.applicationLogic()
+    selectionNode = appLogic.GetSelectionNode()
+    selectionNode.SetReferenceActiveLabelVolumeID(label)
+    appLogic.PropagateVolumeSelection()
+
+  @staticmethod
   def RotateToVolumePlanes():
     # AF TODO: check with Steve if this has any undesired consequences
     tcl('EffectSWidget::RotateToVolumePlanes')
