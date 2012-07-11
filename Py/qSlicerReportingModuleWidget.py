@@ -66,6 +66,7 @@ class qSlicerReportingModuleWidget:
         break
     if self.__parameterNode == None:
       self.__parameterNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScriptedModuleNode')
+      self.__parameterNode.SetReferenceCount(self.__parameterNode.GetReferenceCount()-1)
       self.__parameterNode.SetModuleName('Reporting')
       slicer.mrmlScene.AddNode(self.__parameterNode)
 
@@ -285,6 +286,7 @@ class qSlicerReportingModuleWidget:
       # if there is a label that has the selected volume as associated node, 
       #   initialize label selector to show that label
       volumeNodes = slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode')
+      volumeNodes.SetReferenceCount(volumeNodes.GetReferenceCount()-1)
       for i in range(volumeNodes.GetNumberOfItems()):
         vol = volumeNodes.GetItemAsObject(i)
         associatedNodeID = vol.GetAttribute('AssociatedNodeID')
@@ -351,6 +353,7 @@ class qSlicerReportingModuleWidget:
 
     # For now, always create a new report node
     newReport = slicer.mrmlScene.CreateNodeByClass('vtkMRMLReportingReportNode')
+    newReport.SetReferenceCount(newReport.GetReferenceCount()-1)
     slicer.mrmlScene.AddNode(newReport)
     self.__reportSelector.setCurrentNode(newReport)
     self.onReportNodeChanged()
@@ -463,6 +466,7 @@ class qSlicerReportingModuleWidget:
           print 'Number of coordinates not good for a fiducial'
           return
         fiducial = slicer.mrmlScene.CreateNodeByClass('vtkMRMLAnnotationFiducialNode')
+        fiducial.SetReferenceCount(fiducial.GetReferenceCount()-1)
         # associate it with the volume
         fiducial.SetAttribute("AssociatedNodeID", volume.GetID())
         # ??? Why the API is so inconsistent -- there's no SetPosition1() ???
@@ -476,6 +480,7 @@ class qSlicerReportingModuleWidget:
           print 'Number of coordinates not good for a ruler'
 
         ruler = slicer.mrmlScene.CreateNodeByClass('vtkMRMLAnnotationRulerNode')
+        ruler.SetReferenceCount(ruler.GetReferenceCount()-1)
         # associate it with the volume
         ruler.SetAttribute("AssociatedNodeID", volume.GetID())
         print 'Initializing with points ',rasPointList[0],' and ',rasPointList[1]
@@ -493,6 +498,7 @@ class qSlicerReportingModuleWidget:
       print('Importing a segmentation')
       labelNodes = vtk.vtkCollection()
       referenceNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScalarVolumeNode')
+      referenceNode.SetReferenceCount(referenceNode.GetReferenceCount()-1)
 
       uid = node.getAttribute('sopInstanceUID')
 
@@ -535,6 +541,7 @@ class qSlicerReportingModuleWidget:
         nodeToAdd = referenceVolume
 
         allVolumeNodes = slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode')
+        allVolumeNodes.SetReferenceCount(allVolumeNodes.GetReferenceCount()-1)
         for i in range(allVolumeNodes.GetNumberOfItems()):
           v = allVolumeNodes.GetItemAsObject(i)
           uids = v.GetAttribute('DICOM.instanceUIDs')
