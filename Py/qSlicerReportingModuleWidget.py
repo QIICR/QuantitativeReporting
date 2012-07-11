@@ -486,21 +486,26 @@ class qSlicerReportingModuleWidget:
       uid = node.getAttribute('sopInstanceUID')
 
       res = False
-      res = self.__logic.DicomSegRead(labelNodes, uid)
-      print 'Read this many labels:',labelNodes.GetNumberOfItems()
-  
+      res = self.__logic.DicomSegRead(labelNodes, uid)  
+      print('Read this many labels from the seg object:'+str(labelNodes.GetNumberOfItems()))
+
       # read the reference node
       label0 = labelNodes.GetItemAsObject(0)
 
       referenceUIDs = label0.GetAttribute('DICOM.referenceInstanceUIDs')
-      print('Seg object reference uids: ',referenceUIDs)
+      print('Seg object reference uids: '+referenceUIDs)
 
-      if referenceUIDs != None:
+      for i in range(labelNodes.GetNumberOfItems()):
+        labelNode = labelNodes.GetItemAsObject(i)
+        labelNode.SetAttribute('AssociatedNodeID', volumeList[0].GetID())
+        slicer.mrmlScene.AddNode(labelNode)
 
-        # TODO: need to check if this volume is not already in the scene by
-        # checking the list of UIDs?
+      # AF: this shuould not be necessary with the "proper" AIM input, since
+      # only one volume should be present in the report, and only one item in
+      # that volume should be annotated
+      if 0:
+      # if referenceUIDs != None:
 
-        # cannot create this from python?
         reader = slicer.vtkMRMLVolumeArchetypeStorageNode()
         reader.ResetFileNameList()
 
@@ -508,20 +513,35 @@ class qSlicerReportingModuleWidget:
 
           fname = self.__logic.GetFileNameFromUID(uid)
           reader.AddFileName(fname)
-          print('Adding fname: ', fname)
 
         reader.SetFileName(string.split(referenceUIDs, ' ')[0])
         reader.SetSingleFile(0)
         
-        referenceNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScalarVolumeNode')
-        reader.ReadData(referenceNode)
+        referenceVolume = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScalarVolumeNode')
+        referenceVolumeUIDs = referenceVolume.GetAttribute('DICOM.instanceUIDs')
+        reader.ReadData(referenceVolume)
 
-        slicer.mrmlScene.AddNode(referenceNode)
+        nodeToAdd = referenceVolume
 
-      for i in range(labelNodes.GetNumberOfItems()):
-        labelNode = labelNodes.GetItemAsObject(i)
-        labelNode.SetAttribute('AssociatedNodeID', referenceNode.GetID())
-        slicer.mrmlScene.AddNode(labelNodes.GetItemAsObject(i))
+        allVolumeNodes = slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode')
+        for i in range(allVolumeNodes.GetNumberOfItems()):
+          v = allVolumeNodes.GetItemAsObject(i)
+          uids = v.GetAttribute('DICOM.instanceUIDs')
+          if uids == referenceNodeUIDs:
+            print('Referenced node is already in the scene!')
+            nodeToAdd = None
+            referenceNode = v
+            break
+
+        if nodeToAdd != None:
+          slicer.mrmlScene.AddNode(nodeToAdd)
+
+        self.__logic.InitializeHierarchyForVolume(referenceNode)
+
+        for i in range(labelNodes.GetNumberOfItems()):
+          labelNode = labelNodes.GetItemAsObject(i)
+          labelNode.SetAttribute('AssociatedNodeID', referenceNode.GetID())
+          slicer.mrmlScene.AddNode(labelNodes.GetItemAsObject(i))
 
     newReport.SetDescription(desc)
 
