@@ -6,6 +6,7 @@ import SlicerReportingModuleWidgetHelper
 from SlicerReportingModuleWidgetHelper import *
 
 import DICOMLib # for loading a volume on AIM import
+from EditColor import *
 
 EXIT_SUCCESS=0
 
@@ -144,6 +145,19 @@ class qSlicerReportingModuleWidget:
 
     annotationsFrameLayout.addRow(label, self.__annotationName)
 
+    reportNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLReportingReportNode')
+    reportNode.SetReferenceCount(reportNode.GetReferenceCount()-1)
+    colorNodes = slicer.mrmlScene.GetNodesByClass('vtkMRMLColorNode')
+    colorNodes.SetReferenceCount(colorNodes.GetReferenceCount()-1)
+    
+    for i in range(colorNodes.GetNumberOfItems()):
+      cn = colorNodes.GetItemAsObject(i)
+      cnName = cn.GetName()
+      if cnName == 'GenericAnatomyColors':
+        reportNode.SetColorNodeID(cn.GetID())
+
+    toolsColor = EditColor(self.__annotationsFrame,reportNode=reportNode)
+
     self.__markupFrame = ctk.ctkCollapsibleButton()
     self.__markupFrame.text = "Markup"
     self.__markupFrame.collapsed = 0
@@ -274,6 +288,8 @@ class qSlicerReportingModuleWidget:
     # get the current volume node
     self.__vNode = self.__volumeSelector.currentNode()
     if self.__vNode != None:
+      # allow the volume to be selected only once
+      self.__volumeSelector.enabled = 0
       # is it a DICOM volume? check for UID attribute
       uids = self.__vNode.GetAttribute("DICOM.instanceUIDs")
       if uids == "None":
@@ -621,7 +637,9 @@ class qSlicerReportingModuleWidget:
     volume = self.__volumeSelector.currentNode()
 
     if report != None:
-      self.__volumeSelector.enabled = 1
+
+      if self.__vNode == None:
+        self.__volumeSelector.enabled = 1
       
       if volume != None:
         self.__markupFrame.enabled = 1

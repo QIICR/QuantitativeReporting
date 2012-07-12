@@ -61,23 +61,24 @@ class VTK_SLICER_REPORTING_MODULE_MRML_EXPORT vtkMRMLReportingReportNode : publi
   /// Get node XML tag name (like Volume, Model)
   virtual const char* GetNodeTagName() {return "MRMLReportingReport";};
 
-  /// Update the stored reference to another node in the scene
-  //virtual void UpdateReferenceID(const char *oldID, const char *newID);
-
-  /// Updates this node if it depends on other nodes
-  /// when the node is deleted in the scene
-  //virtual void UpdateReferences();
-
-  // Description:
-  //virtual void UpdateScene(vtkMRMLScene *scene);
-
-  //virtual void ProcessMRMLEvents ( vtkObject *caller, unsigned long event, void *callData);
+  std::string GetVolumeNodeID();
+  void SetVolumeNodeID(std::string);
   
+  vtkGetMacro(FindingLabel, int);
+  vtkSetMacro(FindingLabel, int);
+
+  std::string GetColorNodeID();
+  void SetColorNodeID(std::string);
+
 protected:
   vtkMRMLReportingReportNode();
   ~vtkMRMLReportingReportNode();
   vtkMRMLReportingReportNode(const vtkMRMLReportingReportNode&);
   void operator=(const vtkMRMLReportingReportNode&);
+
+  std::string VolumeNodeID;   // volume being annotated
+  int   FindingLabel;   // label assigned to the structure being annotated
+  std::string ColorNodeID;    // color node used to associate the label with the term
 };
 
 #endif
