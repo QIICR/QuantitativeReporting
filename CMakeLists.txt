@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 2.8.7)
 
 #-----------------------------------------------------------------------------
+set(MODULE_NAME Reporting)
+set(MODULE_TITLE ${MODULE_NAME})
+
+string(TOUPPER ${MODULE_NAME} MODULE_NAME_UPPER)
+
+#-----------------------------------------------------------------------------
 if(NOT Slicer_SOURCE_DIR)
   set(EXTENSION_NAME Reporting)
   set(EXTENSION_HOMEPAGE "http://wiki.slicer.org/slicerWiki/index.php/Documentation/4.1/Modules/Reporting")
@@ -8,16 +14,11 @@ if(NOT Slicer_SOURCE_DIR)
   set(EXTENSION_CONTRIBUTORS "Andrey Fedorov (SPL), Nicole Aucoin (SPL), Steve Pieper (SPL)")
   set(EXTENSION_DESCRIPTION "")
   set(EXTENSION_ICONURL "https://github.com/fedorov/Reporting/blob/master/Resources/Icons/ReportingModule.png")
-  
+
   find_package(Slicer REQUIRED)
   include(${Slicer_USE_FILE})
 endif()
 
-#-----------------------------------------------------------------------------
-set(MODULE_NAME Reporting)
-set(MODULE_TITLE ${MODULE_NAME})
-
-string(TOUPPER ${MODULE_NAME} MODULE_NAME_UPPER)
 
 #-----------------------------------------------------------------------------
 add_subdirectory(MRML)
