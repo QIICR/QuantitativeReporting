@@ -10,40 +10,24 @@ class SlicerReportingModuleWidgetHelper( object ):
   classdocs
   '''
 
+  # TODO: add a capability to control the level of messages
   @staticmethod
   def Info( message ):
-    '''
-    
-    '''
-
-    #print "[ChangeTrackerPy " + time.strftime( "%m/%d/%Y %H:%M:%S" ) + "]: " + str( message )
-    #sys.stdout.flush()
+    print("[Reporting " + time.strftime( "%m/%d/%Y %H:%M:%S" ) + "]: INFO: " + str( message ))
+    sys.stdout.flush()
 
   @staticmethod
   def Warning( message ):
-    '''
-    
-    '''
-
-    #print "[ChangeTrackerPy " + time.strftime( "%m/%d/%Y %H:%M:%S" ) + "]: WARNING: " + str( message )
-    #sys.stdout.flush()
+    print("[Reporting " + time.strftime( "%m/%d/%Y %H:%M:%S" ) + "]: WARNING: " + str( message ))
+    sys.stdout.flush()
 
   @staticmethod
   def Error( message ):
-    '''
-    
-    '''
-
-    print "[ChangeTrackerPy " + time.strftime( "%m/%d/%Y %H:%M:%S" ) + "]: ERROR: " + str( message )
+    print("[Reporting " + time.strftime( "%m/%d/%Y %H:%M:%S" ) + "]: ERROR: " + str( message ))
     sys.stdout.flush()
-
 
   @staticmethod
   def Debug( message ):
-    '''
-    
-    '''
-
     showDebugOutput = 0
     from time import strftime
     if showDebugOutput:
@@ -59,24 +43,6 @@ class SlicerReportingModuleWidgetHelper( object ):
       spacer += " "
 
     return spacer
-
-
-  @staticmethod
-  def GetNthStepId( n ):
-    '''
-    '''
-    steps = [None, # 0
-             'SelectScans', # 1
-             'DefineROI', # 2
-             'SegmentROI', # 3
-             'AnalyzeROI', # 4
-             'ReportROI', # 5
-             ]                        
-
-    if n < 0 or n > len( steps ):
-      n = 0
-
-    return steps[n]
 
   @staticmethod
   def SetBgFgVolumes(bg, fg):
@@ -103,13 +69,6 @@ class SlicerReportingModuleWidgetHelper( object ):
     for n in range(numLogics):
       l = sliceLogics.GetItemAsObject(n)
       l.SnapSliceOffsetToIJK() 
-
-  @staticmethod
-  def SetLabelVolume(lb):
-    appLogic = slicer.app.applicationLogic()
-    selectionNode = appLogic.GetSelectionNode()
-    selectionNode.SetReferenceActiveLabelVolumeID(lb)
-    appLogic.PropagateVolumeSelection()
 
   @staticmethod
   def findChildren(widget=None,name="",text=""):
@@ -160,9 +119,8 @@ class SlicerReportingModuleWidgetHelper( object ):
       v2[2] = v[2] / vectorLength
       # print 'Input vector =",v,", unit vector = ',v2
     else:
-      print 'Vector was of length 0, cannot make it a unit vector'
+      SlicerReportingModuleWidgetHelper.Error('Vector was of length 0, cannot make it a unit vector')
     return v2
-
 
   '''
   Figure out the slice viewer with the scan direction images
@@ -171,7 +129,7 @@ class SlicerReportingModuleWidgetHelper( object ):
   def GetScanOrderSliceName(vol):
     if vol == None:
       return ""
-    print "GetScanOrderSlice: volume =",vol.GetName()
+    SlicerReportingModuleWidgetHelper.Info("GetScanOrderSlice: volume = "+vol.GetName())
     # figure out scan order
     mat = vtk.vtkMatrix4x4()
     vol.GetIJKToRASMatrix(mat)
@@ -185,9 +143,9 @@ class SlicerReportingModuleWidgetHelper( object ):
     elif scanOrder == "IS" or scanOrder == "SI":
       orientation = "Axial"
     if orientation == "Unknown":
-      print "Unable to detect orientation from IJK to RAS matrix of volume"
+      SlicerReportingModuleWidgetHelper.Error("Unable to detect orientation from IJK to RAS matrix of volume")
     else:
-      print "Orientation of volume is ",orientation,"."
+      SlicerReportingModuleWidgetHelper.Info("Orientation of volume is "+orientation+".")
     # return orientation
 
     # get the Z/K to RAS column vector from the volumes IJK to RAS matrix
@@ -223,10 +181,10 @@ class SlicerReportingModuleWidgetHelper( object ):
       # print  "dot product diff from 1 = ",diff
       if diff < 0.001:
         sliceViewerName = l.GetSliceNode().GetName()
-        print "Found a slice viewer aligned to volume, name = ",sliceViewerName
+        SlicerReportingModuleWidgetHelper.Info("Found a slice viewer aligned to volume, name = "+sliceViewerName)
 
     if sliceViewerName == "not found":
-      print "No slice viewer slice to RAS vectors line up, using volume compute scan order of ", orientation
+      SlicerReportingModuleWidgetHelper.Error("No slice viewer slice to RAS vectors line up, using volume compute scan order of "+orientation)
       return orientation
     else:
       return sliceViewerName
