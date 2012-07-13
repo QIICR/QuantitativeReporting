@@ -32,6 +32,7 @@ vtkMRMLReportingReportNode::vtkMRMLReportingReportNode()
   this->VolumeNodeID = "";
   this->ColorNodeID = "";
   this->FindingLabel = 1;
+  this->AIMFileName = "";
 }
 
 //----------------------------------------------------------------------------
@@ -39,6 +40,7 @@ vtkMRMLReportingReportNode::~vtkMRMLReportingReportNode()
 {
   this->VolumeNodeID = "";
   this->ColorNodeID = "";
+  this->AIMFileName = "";
 }
 
 //----------------------------------------------------------------------------
@@ -67,6 +69,10 @@ void vtkMRMLReportingReportNode::ReadXMLAttributes(const char** atts)
       {
       this->SetColorNodeID(attValue);
       }
+    if(strcmp(attName, "AIMFileName"))
+      {
+      this->SetAIMFileName(attValue);
+      }
     }
 
     this->EndModify(disabledModify);
@@ -81,6 +87,7 @@ void vtkMRMLReportingReportNode::WriteXML(ostream& of, int nIndent)
   of << indent << " VolumeNodeID=\"" << this->VolumeNodeID << "\"";
   of << indent << " FindingLabel=\"" << this->FindingLabel << "\"";
   of << indent << " ColorNodeID=\"" << this->ColorNodeID << "\"";
+  of << indent << " AIMFileName=\"" << this->AIMFileName << "\"";
 }
 
 //----------------------------------------------------------------------------
@@ -99,6 +106,7 @@ void vtkMRMLReportingReportNode::PrintSelf(ostream& os, vtkIndent indent)
   os << indent << "VolumeNodeID: " << this->VolumeNodeID << "\n";
   os << indent << "FindingLabel: " << this->FindingLabel << "\n";
   os << indent << "ColorNodeID: " << this->ColorNodeID << "\n";
+  os << indent << "AIMFileName: " << this->AIMFileName << "\n";
 }
 
 //----------------------------------------------------------------------------
@@ -123,4 +131,16 @@ void vtkMRMLReportingReportNode::SetColorNodeID(std::string id)
 std::string vtkMRMLReportingReportNode::GetColorNodeID()
 {
   return this->ColorNodeID;
+}
+
+//----------------------------------------------------------------------------
+void vtkMRMLReportingReportNode::SetAIMFileName(std::string fname)
+{
+  this->AIMFileName = fname;
+}
+
+//----------------------------------------------------------------------------
+std::string vtkMRMLReportingReportNode::GetAIMFileName()
+{
+  return this->AIMFileName;
 }

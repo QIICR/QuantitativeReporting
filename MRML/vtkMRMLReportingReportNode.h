@@ -69,6 +69,9 @@ class VTK_SLICER_REPORTING_MODULE_MRML_EXPORT vtkMRMLReportingReportNode : publi
 
   std::string GetColorNodeID();
   void SetColorNodeID(std::string);
+  
+  std::string GetAIMFileName();
+  void SetAIMFileName(std::string);
 
 protected:
   vtkMRMLReportingReportNode();
@@ -79,6 +82,7 @@ protected:
   std::string VolumeNodeID;   // volume being annotated
   int   FindingLabel;   // label assigned to the structure being annotated
   std::string ColorNodeID;    // color node used to associate the label with the term
+  std::string AIMFileName; // XML file that will be used for serialization in AIM format
 };
 
 #endif
