@@ -65,9 +65,6 @@ class qSlicerReportingModuleWidget:
       Helper.Error('Unable to set logic active parameter node')
 
   def setup( self ):
-
-    self.parent.connect('mrmlSceneChanged(vtkMRMLScene*)', self.onMRMLSceneChanged)
-    
     #
     # Input frame
     #
@@ -203,17 +200,6 @@ class qSlicerReportingModuleWidget:
     
   def onMRMLSceneChanged(self, mrmlScene):
     return
-    #self.__volumeSelector.setMRMLScene(slicer.mrmlScene)
-    self.__reportSelector.setMRMLScene(slicer.mrmlScene)
-    # print 'Current report node: ',self.__reportSelector.currentNode()
-    
-    # self.onAnnotatedVolumeNodeChanged()
-    
-    if mrmlScene != self.__logic.GetMRMLScene():
-      self.__logic.SetMRMLScene(mrmlScene)
-      self.__logic.RegisterNodes()
-    # AF: need to look what this means ...
-    # self.__logic.GetMRMLManager().SetMRMLScene(mrmlScene)
     
   def annotationNameChanged(self, newName):
     if self.__rNode != None:
