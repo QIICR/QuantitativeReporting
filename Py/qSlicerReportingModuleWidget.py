@@ -1,10 +1,7 @@
 from __main__ import vtk, qt, ctk, slicer
 
 import xml.dom.minidom
-import SlicerReportingModuleWidgetHelper
-
-from SlicerReportingModuleWidgetHelper import *
-
+from SlicerReportingModuleWidgetHelper import SlicerReportingModuleWidgetHelper as Helper
 import DICOMLib # for loading a volume on AIM import
 
 EXIT_SUCCESS=0
@@ -14,28 +11,25 @@ class qSlicerReportingModuleWidget:
 
     if not parent:
       self.parent = slicer.qMRMLWidget()
-      self.parent.setLayout( qt.QVBoxLayout() )
+      self.parent.setLayout( qt.QVBoxLayout())
+      self.parent.setMRMLScene(slicer.mrmlScene)
+      self.layout = self.parent.layout()
+      self.setup()
+      self.parent.show()
     else:
       self.parent = parent
-
-    self.layout = self.parent.layout()
-
-    # this flag is 1 if there is an update in progress
-    self.__updating = 1
+      self.layout = parent.layout()
 
     # Reference to the logic that Slicer instantiated
     self.__logic  = slicer.modules.reporting.logic()
     if not self.__logic:
       # create a new instance
-      print "Creating a new instance of the Reporting logic"
       self.__logic = slicer.modulelogic.vtkSlicerReportingModuleLogic()
 
     if self.__logic.InitializeDICOMDatabase():
-      print 'DICOM database initialized correctly!'
+      Helper.Info('DICOM database initialized correctly!')
     else:
-      print 'Failed to initialize DICOM database'
-
-    # print 'Logic is ',self.__logic
+      Helper.Error('Failed to initialize DICOM database!')
 
     if not self.__logic.GetMRMLScene():
       # set the logic's mrml scene
@@ -45,15 +39,6 @@ class qSlicerReportingModuleWidget:
     self.exportFileName = None
     self.exportFileDialog = None
 
-    if not parent:
-      self.setup()
-      self.parent.setMRMLScene( slicer.mrmlScene )
-      # after setup, be ready for events
-      self.__updating = 0
-
-      self.parent.show()
-
-
     # initialize parameter node
     self.__parameterNode = None
     nNodes = slicer.mrmlScene.GetNumberOfNodesByClass('vtkMRMLScriptedModuleNode')
@@ -62,7 +47,7 @@ class qSlicerReportingModuleWidget:
       nodeid = None
       if compNode.GetModuleName() == 'Reporting':
         self.__parameterNode = compNode
-        print 'Found existing Reporting parameter node'
+        'Found existing Reporting parameter node'
         break
     if self.__parameterNode == None:
       self.__parameterNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScriptedModuleNode')
@@ -76,17 +61,16 @@ class qSlicerReportingModuleWidget:
     if self.__parameterNode != None:
       paramID = self.__parameterNode.GetID()
       self.__logic.SetActiveParameterNodeID(paramID)
-      # print 'Set logic active parameter node id from',self.__parameterNode.GetID(),", logic id is now =",self.__logic.GetActiveParameterNodeID()
     else:
-      print 'Unable to set logic active parameter node'
+      Helper.Error('Unable to set logic active parameter node')
 
   def setup( self ):
-    # Use the logic associated with the module
-    #if not self.__logic:
-    #  self.__logic = self.parent.module().logic()
 
     self.parent.connect('mrmlSceneChanged(vtkMRMLScene*)', self.onMRMLSceneChanged)
     
+    #
+    # Input frame
+    #
     self.__inputFrame = ctk.ctkCollapsibleButton()
     self.__inputFrame.text = "Input"
     self.__inputFrame.collapsed = 0
@@ -94,13 +78,7 @@ class qSlicerReportingModuleWidget:
     
     self.layout.addWidget(self.__inputFrame)
 
-    '''
-    Report MRML node, will contain:
-     -- pointer to the markup elements hierarchy head
-    On updates:
-     -- reset the content of the widgets
-     -- existing content repopulated from the node
-    '''
+    # Active report node
     label = qt.QLabel('Report: ')
     self.__reportSelector = slicer.qMRMLNodeComboBox()
     self.__reportSelector.nodeTypes =  ['vtkMRMLReportingReportNode']
@@ -112,18 +90,11 @@ class qSlicerReportingModuleWidget:
     self.__reportSelector.connect('mrmlSceneChanged(vtkMRMLScene*)', self.onMRMLSceneChanged)
     self.__reportSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onReportNodeChanged)
  
-    '''
-    Choose the volume being annotated.
-    Will need to handle selection change:
-      -- on new, update viewers, create storage node 
-      -- on swich ask if the previous report should be saved
-    TODO: disable this unless Report selector is initialized!
-    '''
+    # Volume being annotated (only one is allowed for the report)
     label = qt.QLabel('Annotated volume: ')
     self.__volumeSelector = slicer.qMRMLNodeComboBox()
     self.__volumeSelector.nodeTypes = ['vtkMRMLScalarVolumeNode']
     self.__volumeSelector.setMRMLScene(slicer.mrmlScene)
-    # todo: move the connection to the report drop down
     self.__volumeSelector.addEnabled = 0
     
     inputFrameLayout.addRow(label, self.__volumeSelector)
@@ -131,6 +102,10 @@ class qSlicerReportingModuleWidget:
     self.__volumeSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onAnnotatedVolumeNodeChanged)
     self.__volumeSelector.connect('mrmlSceneChanged(vtkMRMLScene*)', self.onMRMLSceneChanged)
 
+    #
+    # Annotation frame -- verbal (vocabulary-based) description of what is
+    # being annotated/marked up in this report
+    #
     self.__annotationsFrame = ctk.ctkCollapsibleButton()
     self.__annotationsFrame.text = "Annotation"
     self.__annotationsFrame.collapsed = 0
@@ -138,12 +113,18 @@ class qSlicerReportingModuleWidget:
     
     self.layout.addWidget(self.__annotationsFrame)
 
+    # Annotation name -- this will be replaced with a selector populated
+    # based on a LUT
     label = qt.QLabel('Annotation name')
     self.__annotationName = qt.QLineEdit()
     self.__annotationName.connect('textChanged(QString)',self.annotationNameChanged)
 
     annotationsFrameLayout.addRow(label, self.__annotationName)
 
+    #
+    # Markup frame -- summary of all the markup elements contained in the
+    # report
+    #
     self.__markupFrame = ctk.ctkCollapsibleButton()
     self.__markupFrame.text = "Markup"
     self.__markupFrame.collapsed = 0
@@ -163,10 +144,9 @@ class qSlicerReportingModuleWidget:
       self.__markupTreeView.sceneModelType = "Displayable"
     self.__markupTreeView.setMRMLScene(self.__logic.GetMRMLScene())
         
-
     markupFrameLayout.addRow(self.__markupTreeView)
 
-    # save/load report using AIM XML serialization
+    # Buttons to save/load report using AIM XML serialization
     button = qt.QPushButton('Save Report into AIM format...')
     button.connect('clicked()', self.onReportExport)
     self.layout.addWidget(button)
@@ -184,19 +164,18 @@ class qSlicerReportingModuleWidget:
     lm = slicer.app.layoutManager()
     lm.setLayout(26) # two over two
 
-    # print "Reporting Enter"
     # update the logic to know that the module has been entered
     self.__logic.GUIHiddenOff()
     self.updateWidgetFromParameters()
 
     # respond to error events
-    print 'Enter: Setting up connection to respond to logic error events'
+    Helper.Info('Enter: Setting up connection to respond to logic error events')
     hasObserver = self.__logic.HasObserver(vtk.vtkCommand.ErrorEvent)
     if hasObserver == 0:
       tag = self.__logic.AddObserver(vtk.vtkCommand.ErrorEvent, self.respondToErrorMessage)
       # print '\tobserver tag = ',tag
     else:
-      print 'Logic already has an observer on the ErrorEvent'
+      Helper.Debug('Logic already has an observer on the ErrorEvent')
 
     vnode = self.__volumeSelector.currentNode()
     if vnode != None:
@@ -218,15 +197,12 @@ class qSlicerReportingModuleWidget:
   # respond to error events from the logic
   def respondToErrorMessage(self, caller, event):
     errorMessage = self.__logic.GetErrorMessage()
-    print 'respondToErrorMessage, event = ',event,', message =\n\t',errorMessage
+    Helper.Debug('respondToErrorMessage, event = ',event,', message =\n\t',errorMessage)
     errorDialog = qt.QErrorMessage(self.parent)
     errorDialog.showMessage(errorMessage)
     
-
-  # AF: I am not exactly sure what are the situations when MRML scene would
-  # change, but I recall handling of this is necessary, otherwise adding
-  # nodes from selector would not work correctly
   def onMRMLSceneChanged(self, mrmlScene):
+    return
     #self.__volumeSelector.setMRMLScene(slicer.mrmlScene)
     self.__reportSelector.setMRMLScene(slicer.mrmlScene)
     # print 'Current report node: ',self.__reportSelector.currentNode()
@@ -244,7 +220,6 @@ class qSlicerReportingModuleWidget:
       self.__rNode.SetDescription(newName)
 
   def updateTreeView(self):
-    # print "updateTreeView()"
     # make the tree view update
     if self.__useNewTreeView == 1:
       self.__markupTreeView.updateTreeView()
@@ -259,7 +234,7 @@ class qSlicerReportingModuleWidget:
       self.__markupTreeView.model().showHiddenForTypes = showHiddenNodeTypes
     # set the root to be the current report hierarchy root 
     if self.__rNode == None:
-      print "updateTreeView: report node is not initialized!"
+      Helper.Error("updateTreeView: report node is not initialized!")
       return
     else:
       # the tree root node has to be a hierarchy node, so get the associated hierarchy node for the active report node
@@ -270,17 +245,17 @@ class qSlicerReportingModuleWidget:
         self.__markupTreeView.expandAll()
 
   def onAnnotatedVolumeNodeChanged(self):
-    print "onAnnotatedVolumeNodeChanged()"
+    Helper.Debug("onAnnotatedVolumeNodeChanged()")
     # get the current volume node
     self.__vNode = self.__volumeSelector.currentNode()
     if self.__vNode != None:
       # is it a DICOM volume? check for UID attribute
       uids = self.__vNode.GetAttribute("DICOM.instanceUIDs")
       if uids == "None":
-        print "Warning: volume",self.__vNode.GetName(),"was not loaded as a DICOM volume, will not be able to save your report in AIM XML format"
+        Helper.Error("DANGER: volume",self.__vNode.GetName(),"was not loaded as a DICOM volume, will not be able to save your report in AIM XML format")
 
-      SlicerReportingModuleWidgetHelper.SetBgFgVolumes(self.__vNode.GetID(), '')
-      SlicerReportingModuleWidgetHelper.RotateToVolumePlanes()
+      Helper.SetBgFgVolumes(self.__vNode.GetID(), '')
+      Helper.RotateToVolumePlanes()
 
       # go over all label nodes in the scene
       # if there is a label that has the selected volume as associated node, 
@@ -292,12 +267,12 @@ class qSlicerReportingModuleWidget:
         associatedNodeID = vol.GetAttribute('AssociatedNodeID')
         label = vol.GetAttribute('LabelMap')
         if associatedNodeID == self.__vNode.GetID() and label == '1':
-          SlicerReportingModuleWidgetHelper.SetLabelVolume(vol.GetID())
+          Helper.SetLabelVolume(vol.GetID())
 
-      orientation = SlicerReportingModuleWidgetHelper.GetScanOrderSliceName(self.__vNode)
+      orientation = Helper.GetScanOrderSliceName(self.__vNode)
       # print "Got scan order slice name:", orientation
       message = "Please place mark ups in the " + orientation + " slice viewer."
-      print message
+      Helper.Debug(message)
       messageBox = qt.QMessageBox()
       messageBox.information(self.parent, "Mark up placement", message)
       self.__parameterNode.SetParameter('acquisitionSliceViewer',orientation)
@@ -307,11 +282,8 @@ class qSlicerReportingModuleWidget:
       # AF: do we need this call here?
       self.updateTreeView()
 
-     
-
-
   def onReportNodeChanged(self):
-    print "onReportNodeChanged()"
+    Helper.Debug("onReportNodeChanged()")
     # TODO
     #  -- initialize annotations and markup frames based on the report node
     #  content
@@ -349,7 +321,7 @@ class qSlicerReportingModuleWidget:
     #  -- warn the user if the selected report node is not empty
     #  -- populate the selected report node, initializing annotation template,
     #  content, markup hierarchy and content
-    print 'onReportImport'
+    Helper.Debug('onReportImport')
 
     # For now, always create a new report node
     newReport = slicer.mrmlScene.CreateNodeByClass('vtkMRMLReportingReportNode')
@@ -367,8 +339,8 @@ class qSlicerReportingModuleWidget:
 
     dom = xml.dom.minidom.parse(fileName)
 
-    print 'Parsed AIM report:'
-    print dom.toxml()
+    Helper.Debug('Parsed AIM report:')
+    Helper.Debug(dom.toxml())
 
     volumeList = []
 
@@ -379,7 +351,7 @@ class qSlicerReportingModuleWidget:
     # get the annotation element and retrieve its name
     annotations = dom.getElementsByTagName('ImageAnnotation')
     if len(annotations) == 0:
-      print 'AIM file does not contain any annotations!'
+      Helper.Info('AIM file does not contain any annotations!')
       return
     ann = annotations[0]
     desc = ann.getAttribute('name')
@@ -395,14 +367,14 @@ class qSlicerReportingModuleWidget:
       volume = loader.volumeNode
 
       if volume == None:
-        print 'Failed to read series!'
+        Helper.Error('Failed to read series!')
         return
 
       volumeList.append(volume)
       self.__logic.InitializeHierarchyForVolume(volume)
 
     if len(volumeList) != 1:
-      print 'ERROR: AIM does not allow to have more than one volume per file!'
+      Helper.Error('AIM does not allow to have more than one volume per file!')
       return
 
     #if volume != None:
@@ -437,7 +409,7 @@ class qSlicerReportingModuleWidget:
               uid = coord.getAttribute('imageReferenceUID')
               uidList.append(uid)
    
-      print 'Coordinate list: ', ijCoordList
+      Helper.Debug('Coordinate list: '+str(ijCoordList))
 
       ijk2ras = vtk.vtkMatrix4x4()
       volume.GetIJKToRASMatrix(ijk2ras)
@@ -455,16 +427,17 @@ class qSlicerReportingModuleWidget:
         # print "k = ",k,", totalSlices = ",totalSlices 
         pointIJK = [ijCoordList[ij*2], ijCoordList[ij*2+1], k, 1.]
         pointRAS = ijk2ras.MultiplyPoint(pointIJK)
-        print 'Input point: ',pointIJK
-        print 'Converted point: ',pointRAS
+        Helper.Debug('Input point: '+str(pointIJK))
+        Helper.Debug('Converted point: '+str(pointRAS))
         rasPointList.append(pointRAS[0:3])
 
       # instantiate the markup elements
       if elementType == 'Point':
-        print "Importing a fiducial!"
+        Helper.Debug("Importing a fiducial!")
         if len(ijCoordList) != 2:
-          print 'Number of coordinates not good for a fiducial'
+          Helper.Error('Number of coordinates not good for a fiducial')
           return
+
         fiducial = slicer.mrmlScene.CreateNodeByClass('vtkMRMLAnnotationFiducialNode')
         fiducial.SetReferenceCount(fiducial.GetReferenceCount()-1)
         # associate it with the volume
@@ -475,15 +448,16 @@ class qSlicerReportingModuleWidget:
         # adding to hierarchy is handled by the Reporting logic
 
       if elementType == 'MultiPoint':
-        print "Importing a ruler!"
+        Helper.Debug("Importing a ruler!")
         if len(ijCoordList) != 4:
-          print 'Number of coordinates not good for a ruler'
+          Helper.Error('Number of coordinates not good for a ruler')
+          return
 
         ruler = slicer.mrmlScene.CreateNodeByClass('vtkMRMLAnnotationRulerNode')
         ruler.SetReferenceCount(ruler.GetReferenceCount()-1)
         # associate it with the volume
         ruler.SetAttribute("AssociatedNodeID", volume.GetID())
-        print 'Initializing with points ',rasPointList[0],' and ',rasPointList[1]
+        Helper.Debug('Initializing with points '+str(rasPointList[0])+' and '+str(rasPointList[1]))
         ruler.SetPosition1(rasPointList[0])
         ruler.SetPosition2(rasPointList[1])
         ruler.Initialize(slicer.mrmlScene)
@@ -495,7 +469,7 @@ class qSlicerReportingModuleWidget:
       #   if not, load it
       # initialize AssociatedNodeID for the label node to point to the
       # reference
-      print('Importing a segmentation')
+      Helper.Debug('Importing a segmentation')
       labelNodes = vtk.vtkCollection()
       referenceNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScalarVolumeNode')
       referenceNode.SetReferenceCount(referenceNode.GetReferenceCount()-1)
@@ -504,13 +478,13 @@ class qSlicerReportingModuleWidget:
 
       res = False
       res = self.__logic.DicomSegRead(labelNodes, uid)  
-      print('Read this many labels from the seg object:'+str(labelNodes.GetNumberOfItems()))
+      Helper.Debug('Read this many labels from the seg object:'+str(labelNodes.GetNumberOfItems()))
 
       # read the reference node
       label0 = labelNodes.GetItemAsObject(0)
 
       referenceUIDs = label0.GetAttribute('DICOM.referenceInstanceUIDs')
-      print('Seg object reference uids: '+referenceUIDs)
+      Helper.Debug('Seg object reference uids: '+referenceUIDs)
 
       for i in range(labelNodes.GetNumberOfItems()):
         labelNode = labelNodes.GetItemAsObject(i)
@@ -571,14 +545,14 @@ class qSlicerReportingModuleWidget:
   Save report to an xml file
   '''
   def onReportExport(self):
-    print 'onReportingReportExport'
+    Helper.Debug('onReportingReportExport')
     
     #  -- popup file dialog prompting output file
     fileName = qt.QFileDialog.getSaveFileName(self.parent, "Save AIM report","/","XML Files (*.xml)")
     if fileName == '':
       return
 
-    print 'Will export to ', fileName
+    Helper.Debug('Will export to '+fileName)
 
     # use the currently selected report
     self.__rNode = self.__reportSelector.currentNode()
@@ -588,9 +562,9 @@ class qSlicerReportingModuleWidget:
     #  -- traverse markup hierarchy and translate
     retval = self.__logic.SaveReportToAIM(self.__rNode, fileName)
     if retval == EXIT_FAILURE:
-      print "Failed to save report to file '",fileName,"'"
+      Helper.Error("Failed to save report to file '"+fileName+"'")
     else:
-      print "Saved report to file '",fileName,"'"
+      Helper.Debug("Saved report to file '"+fileName+"'")
 
   def updateWidgetFromParameters(self):
     pn = self.__parameterNode
@@ -599,7 +573,7 @@ class qSlicerReportingModuleWidget:
     reportID = pn.GetParameter('reportID')
 
     if reportID != None:
-      self.__rNode = SlicerReportingModuleWidgetHelper.getNodeByID(reportID)
+      self.__rNode = Helper.getNodeByID(reportID)
       # AF: looks like this does not trigger event, why?
       self.__reportSelector.setCurrentNode(self.__rNode)
       if self.__rNode != None:
