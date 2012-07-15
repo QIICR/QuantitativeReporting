@@ -22,9 +22,10 @@ comment = """
 
 class EditColor(object):
 
-  def __init__(self, parent=0, reportNode=None):
+  def __init__(self, parent=0, colorNode=None, reportNode=None):
 
     self.reportNode = reportNode
+    self.colorNode = colorNode
 
     self.colorBox = None
     if parent == 0:
@@ -41,7 +42,8 @@ class EditColor(object):
     self.cleanup()
 
   def cleanup(self, QObject=None):
-    pass
+    if self.reportNode:
+      self.reportNode.RemoveObserver(self.observerTag)
 
   def create(self):
     self.frame = qt.QFrame(self.parent)
@@ -57,23 +59,31 @@ class EditColor(object):
     self.frame.layout().addWidget(self.labelName)
 
     self.colorSpin = qt.QSpinBox(self.frame)
-    self.colorSpin.setValue(self.reportNode.GetFindingLabel())
+    if self.reportNode != None:
+      self.colorSpin.setValue(self.reportNode.GetFindingLabel())
+    else:
+      self.colorSpin.setValue(1)
+
     self.colorSpin.setToolTip( "Click colored patch at right to bring up color selection pop up window.  Use the 'c' key to bring up color popup menu." )
     self.frame.layout().addWidget(self.colorSpin)
+    self.colorSpin.enabled = 0
 
     self.colorPatch = qt.QPushButton(self.frame)
     self.colorPatch.setObjectName('colorPatch')
     self.frame.layout().addWidget(self.colorPatch)
 
     # self.updateParameterNode(slicer.mrmlScene, vtk.vtkCommand.ModifiedEvent)
-    self.updateGUIFromMRML(self.reportNode, vtk.vtkCommand.ModifiedEvent)
+    if self.reportNode:
+      self.updateGUIFromMRML(self.reportNode, vtk.vtkCommand.ModifiedEvent)
 
     self.frame.connect( 'destroyed(QObject)', self.cleanup)
     self.colorSpin.connect( 'valueChanged(int)', self.updateMRMLFromGUI)
     self.colorPatch.connect( 'clicked()', self.showColorBox )
 
     # TODO: remove observer properly
-    tag = self.reportNode.AddObserver(vtk.vtkCommand.ModifiedEvent, self.updateGUIFromMRML)
+    self.observerTag = None
+    if self.reportNode:
+      self.observerTag = self.reportNode.AddObserver(vtk.vtkCommand.ModifiedEvent, self.updateGUIFromMRML)
 
     '''
     # TODO: change this to look for specfic events (added, removed...)
@@ -103,7 +113,7 @@ class EditColor(object):
   def updateMRMLFromGUI(self, label):
     # self.parameterNode.SetParameter(self.parameter, str(label))
     if self.reportNode:
-      reportNode.SetFindingLabel(int(label))
+      self.reportNode.SetFindingLabel(int(label))
 
   #
   # update the GUI from MRML
@@ -124,32 +134,29 @@ class EditColor(object):
       self.cleanup()
       return
 
-    # colorNode = self.editUtil.getColorNode()
-    colorNode = slicer.mrmlScene.GetNodeByID(self.reportNode.GetColorNodeID())
-    if colorNode:
+    if self.colorNode:
       self.frame.setDisabled(0)
-      self.labelName.setText( colorNode.GetColorName( label ) )
-      lut = colorNode.GetLookupTable()
+      self.labelName.setText( self.colorNode.GetColorName( label ) )
+      lut = self.colorNode.GetLookupTable()
       rgb = lut.GetTableValue( label )
       self.colorPatch.setStyleSheet( 
           "background-color: rgb(%s,%s,%s)" % (rgb[0]*255, rgb[1]*255, rgb[2]*255) )
-      self.colorSpin.setMaximum( colorNode.GetNumberOfColors()-1 )
+      self.colorSpin.setMaximum( self.colorNode.GetNumberOfColors()-1 )
     else:
       self.frame.setDisabled(1)
 
 
   def showColorBox(self):
-    if self.reportNode == None:
-      print 'Report node is empty'
-      return
-
-    colorNode = slicer.mrmlScene.GetNodeByID(self.reportNode.GetColorNodeID())
-    if colorNode == None:
-      print 'Color node not found for ',self.reportNode.GetColorNodeID()
-      return
-
     if not self.colorBox:
-      self.colorBox = ColorBox.ColorBox(reportNode=self.reportNode, colorNode=colorNode)
+      self.colorBox = ColorBox.ColorBox(reportNode=self.reportNode, colorNode=self.colorNode)
 
     print 'Will show color box'
-    self.colorBox.show(reportNode=self.reportNode, colorNode=colorNode)
+    self.colorBox.show(reportNode=self.reportNode, colorNode=self.colorNode)
+
+  def setReportNode(self,reportNode):
+    if self.reportNode:
+      self.reportNode.RemoveObserver(self.observerTag)
+
+    self.reportNode = reportNode
+    self.updateGUIFromMRML(self.reportNode, vtk.vtkCommand.ModifiedEvent)
+    self.observerTag = self.reportNode.AddObserver(vtk.vtkCommand.ModifiedEvent, self.updateGUIFromMRML)
