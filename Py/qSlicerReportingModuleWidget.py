@@ -4,6 +4,8 @@ import xml.dom.minidom
 from SlicerReportingModuleWidgetHelper import SlicerReportingModuleWidgetHelper as Helper
 import DICOMLib # for loading a volume on AIM import
 from EditColor import *
+from DICOMLib import DICOMPlugin
+from DICOMLib import DICOMLoadable
 
 EXIT_SUCCESS=0
 
@@ -368,21 +370,13 @@ class qSlicerReportingModuleWidget:
 
       volName = 'AIM volume '+str(volId)
 
-      loader = DICOMLib.DICOMLoader(filelist, volName)
-      
-      '''
-      loader = slicer.vtkMRMLVolumeArchetypeStorageNode()
-      loader.ResetFileNameList()
-      for f in filelist:
-        loader.AddFileName(f)
-      loader.SetFileName(filelist[0])
-      loader.SetSingleFile(0)
+      scalarVolumePlugin = slicer.modules.dicomPlugins['DICOMScalarVolumePlugin']()
+      scalarVolumeLoadables = scalarVolumePlugin.examine([filelist])
+      if len(scalarVolumeLoadables) == 0:
+        Helper.ErrorPopup(self.parent, 'Error loading AIM', 'Failed to load the volume node reference in the file')
 
-      volume = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScalarVolumeNode')
-      volume.SetReferenceCount(volume.GetReferenceCount()-1)
-      loader.ReadData(volume)
-      slicer.mrmlScene.AddNode(volume)
-      '''
+      loader = DICOMLib.DICOMLoader(scalarVolumeLoadables[0].files, volName)
+      volume = loader.volumeNode
 
       if volume == None:
         Helper.Error('Failed to read series!')
@@ -394,8 +388,6 @@ class qSlicerReportingModuleWidget:
 
       volumeList.append(volume)
       Helper.Debug('Volume read from AIM report:')
-      print volume
-      
 
       self.__logic.InitializeHierarchyForVolume(volume)
       newReport.SetVolumeNodeID(volume.GetID())
