@@ -109,6 +109,7 @@ public:
   void SetActiveMarkupHierarchyIDToNull();
   
   bool IsDicomSeg(const std::string fname);
+  // TODO: consider taking report as as a parameter here?
   std::string DicomSegWrite(vtkCollection* labelNodes, const std::string dirname);
   bool DicomSegRead(vtkCollection*, const std::string fname);
 

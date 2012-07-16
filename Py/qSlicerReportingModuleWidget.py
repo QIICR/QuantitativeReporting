@@ -506,8 +506,13 @@ class qSlicerReportingModuleWidget:
       Helper.Debug('Seg object reference uids: '+referenceUIDs)
 
       for i in range(labelNodes.GetNumberOfItems()):
+        displayNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScalarVolumeDisplayNode')
+        displayNode.SetReferenceCount(displayNode.GetReferenceCount()-1)
+        displayNode.SetAndObserveColorNodeID(self.__defaultColorNode.GetID())
+        slicer.mrmlScene.AddNode(displayNode)
         labelNode = labelNodes.GetItemAsObject(i)
         labelNode.SetAttribute('AssociatedNodeID', volumeList[0].GetID())
+        labelNode.SetAndObserveDisplayNodeID(displayNode.GetID())
         slicer.mrmlScene.AddNode(labelNode)
 
       # AF: this shuould not be necessary with the "proper" AIM input, since
@@ -550,8 +555,13 @@ class qSlicerReportingModuleWidget:
         self.__logic.InitializeHierarchyForVolume(referenceNode)
 
         for i in range(labelNodes.GetNumberOfItems()):
+          displayNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScalarVolumeDisplayNode')
+          displayNode.SetReferenceCount(displayNode.GetReferenceCount()-1)
+          displayNode.SetAndObserveColorNodeID(self.__defaultColorNode.GetID())
+          slicer.mrmlScene.AddNode(displayNode)
           labelNode = labelNodes.GetItemAsObject(i)
           labelNode.SetAttribute('AssociatedNodeID', referenceNode.GetID())
+          labelNode.SetAndObserveDisplayNodeID(displayNode.GetID())
           slicer.mrmlScene.AddNode(labelNodes.GetItemAsObject(i))
 
     # update the GUI
