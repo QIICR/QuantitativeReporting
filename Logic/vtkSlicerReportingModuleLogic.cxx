@@ -986,10 +986,19 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   root.setAttribute("codeSchemeDesignator", "RANO");
   root.setAttribute("dateTime",timeStr);
 
-  vtkMRMLColorNode *colorNode = vtkMRMLColorNode::SafeDownCast(this->GetMRMLScene()->GetNodeByID(reportNode->GetColorNodeID()));
+  vtkMRMLColorNode *colorNode = NULL;
+  if (reportNode->GetColorNodeID().size() == 0)
+    {
+    vtkErrorMacro("No color node defined in report! Cannot get label description for finding.");
+    return EXIT_FAILURE;
+    }
+  else
+    {
+    colorNode = vtkMRMLColorNode::SafeDownCast(this->GetMRMLScene()->GetNodeByID(reportNode->GetColorNodeID()));
+    }
   if(!colorNode)
     {
-    std::cerr << "Failed to get label decription" << std::endl;
+    vtkErrorMacro("Failed to get label decription from color node " << reportNode->GetColorNodeID());
     return EXIT_FAILURE;
     }
 
@@ -1308,11 +1317,17 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     
     std::string fileName = this->GetFileNameFromUID(allInstanceUIDs[i].toLatin1().data());
     if(fileName == "")
-        return EXIT_FAILURE;
+      {
+      vtkErrorMacro("Failed to get filename from uid " << i << ": " << qPrintable(allInstanceUIDs[i]));
+      return EXIT_FAILURE;
+      }
     DcmFileFormat fileFormat;
     OFCondition status = fileFormat.loadFile(fileName.c_str());
     if(!status.good())
+      {
+      vtkErrorMacro("Failed to load file " << fileName.c_str());
       return EXIT_FAILURE;
+      }
 
     DcmDataset *dcm = fileFormat.getAndRemoveDataset();
     instanceToDcm[allInstanceUIDs[i]] = dcm;
@@ -1518,10 +1533,10 @@ QStringList vtkSlicerReportingModuleLogic::GetMarkupPointCoordinatesStr(vtkMRMLA
 
   vtkMRMLScalarVolumeNode *vol = this->GetMarkupVolumeNode(ann);
   if(!vol)
-  {
+    {
     vtkErrorMacro("Failed to obtain volume pointer!");
     return sl;
-  }
+    }
   vtkSmartPointer<vtkMatrix4x4> ras2ijk = vtkSmartPointer<vtkMatrix4x4>::New();
   vol->GetRASToIJKMatrix(ras2ijk);
 
@@ -1529,6 +1544,7 @@ QStringList vtkSlicerReportingModuleLogic::GetMarkupPointCoordinatesStr(vtkMRMLA
   {
     double ras[4] = {0.0, 0.0, 0.0, 1.0};
     cpNode->GetControlPointWorldCoordinates(i, ras);
+    std::cout << "RAS = " << ras[0] << ", " << ras[1] << ", " << ras[2] << std::endl;
     // convert point from ras to ijk
     double ijk[4] = {0.0, 0.0, 0.0, 1.0};
     ras2ijk->MultiplyPoint(ras, ijk);

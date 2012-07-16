@@ -8,6 +8,8 @@ import os, sys
 
 import DICOMLib # for loading a volume on AIM import
 
+from SlicerReportingModuleWidgetHelper import SlicerReportingModuleWidgetHelper as Helper
+
 class ReportingTesting(unittest.TestCase):
   def setUp(self):
     pass
@@ -50,31 +52,39 @@ class ReportingTesting(unittest.TestCase):
       print "ERROR: failed to init database"
       return
 
+    testFileNames = []
+    for n in [487, 488, 489]:
+      filename = os.path.join(testDataPath, "instance_" + str(n) + ".dcm")
+      print "Adding file ", filename
+      testFileNames.append(filename)
+
     # check to see if the test data is already in it
-    seriesUID = "1.2.392.200103.20080913.113635.2.2009.6.22.21.43.10.23432.1"
+    patients = ddb.patients()
+    if len(patients) == 0:
+      # add the files
+      for filename in testFileNames:
+        print "Inserting file ", filename
+        retval = ddb.insert(filename)
+      patients = ddb.patients()
+      if len(patients) == 0:
+        print "ERROR: unable to add test files to database!"
+        print testFileNames
+        return
+
+    # get the UID for the series
+    study = ddb.studiesForPatient(patients[0])
+    series = ddb.seriesForStudy(study[0])
+    seriesUID = series[0]
+        
+    # seriesUID = "1.2.392.200103.20080913.113635.2.2009.6.22.21.43.10.23432.1"
     # seriesUID = "2.16.840.1.114362.1.759508.1251415878280.192"
     # seriesUID = "1.3.12.2.1107.5.1.4.53031.30000011032906120157800000219"
     print "For test, using the AIM sample volume with series UID of ",seriesUID
     fileList = ddb.filesForSeries(seriesUID)
     print "fileList = ", fileList
     if not fileList:
-      print "ERROR: sample series with id ",seriesUID," not found in database, loading up a known volume"
-      # add some data to it
-      # ddb.insert(testDataPath)
-      
-      # TODO: set the UIDs
-      for n in [487, 488, 489]:
-        filename = os.path.join(testDataPath, "instance_" + str(n) + ".dcm")
-        print "Inserting file ", filename
-        retval = ddb.insert(filename)
-        print "return from insert = ",retval
-      fileList = ddb.filesForSeries(seriesUID)
-      if not fileList:
-        print "ERROR! Failed to add files from ", testDataPath," to dicom database!"
-        return
-      else:
-        print "Successfully added files from ", testDataPath," to dicom database!"
-        print fileList
+      print "ERROR: sample series with id ",seriesUID," not found in database!"
+      return
 
     # get or add a parameter node
     parameterNode = slicer.mrmlScene.GetNthNodeByClass(0,'vtkMRMLScriptedModuleNode')
@@ -123,9 +133,7 @@ class ReportingTesting(unittest.TestCase):
     fidNode.SetVisible(1)
     fidNode.SetLocked(0)
     print "Calling set fid coords"
-    # startCoords = [102.023, 132.812, -422.29]
-    # startCoords = [54.6385, 402.397, 58]
-    startCoords = [15.8, 70.8, -126.7]
+    startCoords = [15.8, 70.8, -126.7]    
     fidNode.SetFiducialCoordinates(startCoords[0],startCoords[1],startCoords[2])
     print "Starting fiducial coordinates: ",startCoords
     # point it to the volume
@@ -152,16 +160,23 @@ class ReportingTesting(unittest.TestCase):
     #
     # output AIM XML
     #
-    aimFileName = '/tmp/ReportingRoundTripTest.xml'
+    aimFileName = slicer.app.slicerHome + '/Testing/Temporary/ReportingRoundTripTest.xml'
+    reportNode.SetAIMFileName(aimFileName)
+    # set the color id
+    colorID = slicer.mrmlScene.GetNodesByName("GenericAnatomyColors").GetItemAsObject(0).GetID()
+    reportNode.SetColorNodeID(colorID)
 
-    retval = l.SaveReportToAIM(reportNode,aimFileName)
+    print "Saving report to file ",aimFileName
+    retval = l.SaveReportToAIM(reportNode)
 
     if (retval != 0):
-      print("ERROR: unable to save report to aim file",aimFileName)
+      print("ERROR: unable to save report to aim file",aimFileName,", retval=",retval)
     else:
       print("Saved report to aim file",aimFileName)
 
     self.assertEqual(retval, 0)
+
+    print "\n\n\nReloading aim file..."
 
     #
     # now clear the scene so can read in
@@ -173,12 +188,13 @@ class ReportingTesting(unittest.TestCase):
     # load in the aim file
     #
     newReport = slicer.mrmlScene.CreateNodeByClass('vtkMRMLReportingReportNode')
+    newReport.SetReferenceCount(newReport.GetReferenceCount()-1)
+    # set the default color map
+    newReport.SetColorNodeID(colorID)
     slicer.mrmlScene.AddNode(newReport)
     parameterNode.SetParameter("reportID", newReport.GetID())
 
-    loadAIM = ReportingLoadAIM()
-    desc = loadAIM.load(fileName)
-    newReport.SetDescription(desc)
+    Helper.LoadAIMFile(newReport,aimFileName)
 
     # get the fiducial
     endCoords = [0,0,0]
@@ -199,5 +215,8 @@ class ReportingTesting(unittest.TestCase):
 
     print "Difference between coordinates after loaded the aim file and value from before stored the aim file: ", xdiff, ydiff, zdiff,". Total difference = ",diffTotal
 
-    self.assertLess(diffTotal, 0.1)
+    if diffTotal < 0.1:
+      pass
+    else:
+      fail
 

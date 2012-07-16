@@ -5,6 +5,11 @@ from __main__ import vtk, slicer, tcl, qt
 import sys
 import time
 
+import xml.dom.minidom
+import DICOMLib # for loading a volume on AIM import
+from DICOMLib import DICOMPlugin
+from DICOMLib import DICOMLoadable
+
 class SlicerReportingModuleWidgetHelper( object ):
   '''
   classdocs
@@ -200,3 +205,227 @@ class SlicerReportingModuleWidgetHelper( object ):
     else:
       return sliceViewers
 
+  '''
+  Parse and load an aim file
+  '''
+  @staticmethod
+  def LoadAIMFile(newReport, fileName):
+    dom = xml.dom.minidom.parse(fileName)
+
+    SlicerReportingModuleWidgetHelper.Debug('Parsed AIM report:')
+    SlicerReportingModuleWidgetHelper.Debug(dom.toxml())
+
+    volumeList = []
+
+    ddb = slicer.dicomDatabase
+    volId = 1
+    volume = None
+  
+    # get the annotation element and retrieve its name
+    annotations = dom.getElementsByTagName('ImageAnnotation')
+    if len(annotations) == 0:
+      SlicerReportingModuleWidgetHelper.Info('AIM file does not contain any annotations!')
+      return
+    ann = annotations[0]
+    desc = ann.getAttribute('name')
+
+    # pull all the volumes that are referenced into the scene
+    for node in dom.getElementsByTagName('ImageSeries'):
+      instanceUID = node.getAttribute('instanceUID')
+      filelist = ddb.filesForSeries(instanceUID)
+
+      volName = 'AIM volume '+str(volId)
+
+      scalarVolumePlugin = slicer.modules.dicomPlugins['DICOMScalarVolumePlugin']()
+      scalarVolumeLoadables = scalarVolumePlugin.examine([filelist])
+      if len(scalarVolumeLoadables) == 0:
+        SlicerReportingModuleWidgetHelper.ErrorPopup(self.parent, 'Error loading AIM', 'Failed to load the volume node reference in the file')
+
+      loader = DICOMLib.DICOMLoader(scalarVolumeLoadables[0].files, volName)
+      volume = loader.volumeNode
+
+      if volume == None:
+        SlicerReportingModuleWidgetHelper.Error('Failed to read series!')
+        return
+
+      if len(volumeList) != 0:
+        SlicerReportingModuleWidgetHelper.ErrorPopup(self.parent, 'Error importing AIM report', 'Report references more than one volume, which is not allowed!')
+        return
+
+      volumeList.append(volume)
+      SlicerReportingModuleWidgetHelper.Debug('Volume read from AIM report:')
+
+      slicer.modules.reporting.logic().InitializeHierarchyForVolume(volume)
+      newReport.SetVolumeNodeID(volume.GetID())
+
+    if len(volumeList) != 1:
+      SlicerReportingModuleWidgetHelper.Error('AIM does not allow to have more than one volume per file!')
+      return
+
+    #if volume != None:
+    #  self.__volumeSelector.setCurrentNode(volume)
+
+    instanceUIDs = volume.GetAttribute('DICOM.instanceUIDs')
+    instanceUIDList = instanceUIDs.split()
+
+    # AF: GeometricShape is inside geometricShapeCollection, but
+    # there's no need to parse at that level, I think 
+    # 
+    # geometricShapeCollection
+    #  |
+    #  +-spatialCoordinateCollection
+    #     |
+    #     +-SpatialCoordinate
+    #
+
+    for node in dom.getElementsByTagName('GeometricShape'):
+
+      ijCoordList = []
+      rasPointList = []
+      uidList = []
+      elementType = node.getAttribute('xsi:type')
+ 
+      for child in node.childNodes:
+        if child.nodeName == 'spatialCoordinateCollection':
+          for coord in child.childNodes:
+            if coord.nodeName == 'SpatialCoordinate':
+              ijCoordList.append(float(coord.getAttribute('x')))
+              ijCoordList.append(float(coord.getAttribute('y')))
+              uid = coord.getAttribute('imageReferenceUID')
+              uidList.append(uid)
+   
+      SlicerReportingModuleWidgetHelper.Debug('Coordinate list: '+str(ijCoordList))
+
+      ijk2ras = vtk.vtkMatrix4x4()
+      volume.GetIJKToRASMatrix(ijk2ras)
+
+
+      # convert each point from IJ to RAS
+      for ij in range(len(uidList)):
+        pointUID = uidList[ij]
+        # locate the UID in the list assigned to the volume
+        totalSlices = len(instanceUIDList)
+        for k in range(len(instanceUIDList)):
+          if pointUID == instanceUIDList[k]:
+            break
+
+        # print "k = ",k,", totalSlices = ",totalSlices 
+        pointIJK = [ijCoordList[ij*2], ijCoordList[ij*2+1], k, 1.]
+        pointRAS = ijk2ras.MultiplyPoint(pointIJK)
+        SlicerReportingModuleWidgetHelper.Debug('Input point: '+str(pointIJK))
+        SlicerReportingModuleWidgetHelper.Debug('Converted point: '+str(pointRAS))
+        rasPointList.append(pointRAS[0:3])
+
+      # instantiate the markup elements
+      if elementType == 'Point':
+        SlicerReportingModuleWidgetHelper.Debug("Importing a fiducial!")
+        if len(ijCoordList) != 2:
+          SlicerReportingModuleWidgetHelper.Error('Number of coordinates not good for a fiducial')
+          return
+
+        fiducial = slicer.mrmlScene.CreateNodeByClass('vtkMRMLAnnotationFiducialNode')
+        fiducial.SetReferenceCount(fiducial.GetReferenceCount()-1)
+        # associate it with the volume
+        fiducial.SetAttribute("AssociatedNodeID", volume.GetID())
+        # ??? Why the API is so inconsistent -- there's no SetPosition1() ???
+        fiducial.SetFiducialCoordinates(rasPointList[0])
+        fiducial.Initialize(slicer.mrmlScene)
+        # adding to hierarchy is handled by the Reporting logic
+
+      if elementType == 'MultiPoint':
+        SlicerReportingModuleWidgetHelper.Debug("Importing a ruler!")
+        if len(ijCoordList) != 4:
+          SlicerReportingModuleWidgetHelper.Error('Number of coordinates not good for a ruler')
+          return
+
+        ruler = slicer.mrmlScene.CreateNodeByClass('vtkMRMLAnnotationRulerNode')
+        ruler.SetReferenceCount(ruler.GetReferenceCount()-1)
+        # associate it with the volume
+        ruler.SetAttribute("AssociatedNodeID", volume.GetID())
+        SlicerReportingModuleWidgetHelper.Debug('Initializing with points '+str(rasPointList[0])+' and '+str(rasPointList[1]))
+        ruler.SetPosition1(rasPointList[0])
+        ruler.SetPosition2(rasPointList[1])
+        ruler.Initialize(slicer.mrmlScene)
+        # AF: Initialize() adds to the scene ...
+
+    for node in dom.getElementsByTagName('Segmentation'):
+      # read all labels that are available in the SEG object
+      # check if the referenced volume is already in the scene
+      #   if not, load it
+      # initialize AssociatedNodeID for the label node to point to the
+      # reference
+      SlicerReportingModuleWidgetHelper.Debug('Importing a segmentation')
+      labelNodes = vtk.vtkCollection()
+      referenceNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScalarVolumeNode')
+      referenceNode.SetReferenceCount(referenceNode.GetReferenceCount()-1)
+
+      uid = node.getAttribute('sopInstanceUID')
+
+      res = False
+      res = slicer.modules.reporting.logic().DicomSegRead(labelNodes, uid)  
+      SlicerReportingModuleWidgetHelper.Debug('Read this many labels from the seg object:'+str(labelNodes.GetNumberOfItems()))
+
+      # read the reference node
+      label0 = labelNodes.GetItemAsObject(0)
+
+      referenceUIDs = label0.GetAttribute('DICOM.referenceInstanceUIDs')
+      SlicerReportingModuleWidgetHelper.Debug('Seg object reference uids: '+referenceUIDs)
+
+      for i in range(labelNodes.GetNumberOfItems()):
+        displayNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScalarVolumeDisplayNode')
+        displayNode.SetReferenceCount(displayNode.GetReferenceCount()-1)
+        displayNode.SetAndObserveColorNodeID(newReport.GetColorNodeID())
+        slicer.mrmlScene.AddNode(displayNode)
+        labelNode = labelNodes.GetItemAsObject(i)
+        labelNode.SetAttribute('AssociatedNodeID', volumeList[0].GetID())
+        labelNode.SetAndObserveDisplayNodeID(displayNode.GetID())
+        slicer.mrmlScene.AddNode(labelNode)
+
+      # AF: this shuould not be necessary with the "proper" AIM input, since
+      # only one volume should be present in the report, and only one item in
+      # that volume should be annotated
+      if 0:
+      # if referenceUIDs != None:
+
+        reader = slicer.vtkMRMLVolumeArchetypeStorageNode()
+        reader.ResetFileNameList()
+
+        for uid in string.split(referenceUIDs, ' '):
+
+          fname = slicer.modules.reporting.logic().GetFileNameFromUID(uid)
+          reader.AddFileName(fname)
+
+        reader.SetFileName(string.split(referenceUIDs, ' ')[0])
+        reader.SetSingleFile(0)
+        
+        referenceVolume = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScalarVolumeNode')
+        referenceVolumeUIDs = referenceVolume.GetAttribute('DICOM.instanceUIDs')
+        reader.ReadData(referenceVolume)
+
+        nodeToAdd = referenceVolume
+
+        allVolumeNodes = slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode')
+        allVolumeNodes.SetReferenceCount(allVolumeNodes.GetReferenceCount()-1)
+        for i in range(allVolumeNodes.GetNumberOfItems()):
+          v = allVolumeNodes.GetItemAsObject(i)
+          uids = v.GetAttribute('DICOM.instanceUIDs')
+          if uids == referenceNodeUIDs:
+            print('Referenced node is already in the scene!')
+            nodeToAdd = None
+            referenceNode = v
+            break
+
+        if nodeToAdd != None:
+          slicer.mrmlScene.AddNode(nodeToAdd)
+
+        slicer.modules.reporting.logic().InitializeHierarchyForVolume(referenceNode)
+
+        for i in range(labelNodes.GetNumberOfItems()):
+          displayNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScalarVolumeDisplayNode')
+          displayNode.SetReferenceCount(displayNode.GetReferenceCount()-1)
+          displayNode.SetAndObserveColorNodeID(newReport.GetColorNodeID())
+          slicer.mrmlScene.AddNode(displayNode)
+          labelNode = labelNodes.GetItemAsObject(i)
+          labelNode.SetAttribute('AssociatedNodeID', referenceNode.GetID())
+          labelNode.SetAndObserveDisplayNodeID(displayNode.GetID())
+          slicer.mrmlScene.AddNode(labelNodes.GetItemAsObject(i))
