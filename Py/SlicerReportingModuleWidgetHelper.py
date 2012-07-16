@@ -135,7 +135,7 @@ class SlicerReportingModuleWidgetHelper( object ):
     return v2
 
   '''
-  Figure out the slice viewer with the scan direction images
+  Figure out the slice viewer(s) with the scan direction images, return as a list
   '''
   @staticmethod
   def GetScanOrderSliceName(vol):
@@ -172,8 +172,7 @@ class SlicerReportingModuleWidgetHelper( object ):
 
     import numpy
 
-   
-    sliceViewerName = "not found"
+    sliceViewers = []
     for s in range(logics.GetNumberOfItems()):
       l = logics.GetItemAsObject(s)
       mat = vtk.vtkMatrix4x4()
@@ -192,12 +191,12 @@ class SlicerReportingModuleWidgetHelper( object ):
       diff = numpy.abs(diff)
       # print  "dot product diff from 1 = ",diff
       if diff < 0.001:
-        sliceViewerName = l.GetSliceNode().GetName()
-        SlicerReportingModuleWidgetHelper.Info("Found a slice viewer aligned to volume, name = "+sliceViewerName)
+        sliceViewers.append(l.GetSliceNode().GetName())
+        SlicerReportingModuleWidgetHelper.Info("Finding slice viewers aligned to volume, name = " + l.GetSliceNode().GetName())
 
-    if sliceViewerName == "not found":
+    if len(sliceViewers) == 0:
       SlicerReportingModuleWidgetHelper.Error("No slice viewer slice to RAS vectors line up, using volume compute scan order of "+orientation)
       return orientation
     else:
-      return sliceViewerName
+      return sliceViewers
 

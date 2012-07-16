@@ -269,10 +269,20 @@ class qSlicerReportingModuleWidget:
           Helper.SetLabelVolume(vol.GetID())
 
       orientation = Helper.GetScanOrderSliceName(self.__vNode)
-      message = "Please place mark ups in the " + orientation + " slice viewer."
+      message = "Please place mark ups in the "
+      for sliceViewer in orientation:
+          message = message + sliceViewer
+          if orientation.index(sliceViewer) < (len(orientation) - 1 ):
+            message = message + ", "
+      message = message + " slice viewer"
+      if len(orientation) > 1:
+        message = message + "s."
+      else:
+        message = message + "."
       Helper.Debug(message)
       Helper.InfoPopup(self.parent, "Markup placement", message)
-      self.__parameterNode.SetParameter('acquisitionSliceViewer',orientation)
+      # take the first one
+      self.__parameterNode.SetParameter('acquisitionSliceViewer',orientation[0])
 
       # print "Calling logic to set up hierarchy"
       self.__logic.InitializeHierarchyForVolume(self.__vNode)
