@@ -57,7 +57,6 @@
 #include <time.h>
 
 // DCMTK includes
-// DCMTK includes
 #include <dcmtk/dcmdata/dcmetinf.h>
 #include <dcmtk/dcmdata/dcfilefo.h>
 #include <dcmtk/dcmdata/dcuid.h>
@@ -71,6 +70,9 @@
 #include <dcmtk/dcmdata/dcvrda.h>        /* for DcmDate */
 #include <dcmtk/dcmdata/dcvrtm.h>        /* for DcmTime */
 #include <dcmtk/dcmdata/dcvrat.h>        /* for DcmAttribute */
+
+// SlicerApp includes
+#include "qSlicerApplication.h"
 
 
 //----------------------------------------------------------------------------
@@ -1019,7 +1021,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   QDomElement user = doc.createElement("user");
   user.setAttribute("cagridId","0");
   user.setAttribute("loginName",envUser.c_str());
-  user.setAttribute("name","slicer");
+  user.setAttribute("name",envUser.c_str());
   user.setAttribute("numberWithinRoleOfClinicalTrial","1");
   user.setAttribute("roleInTrial","Performing");
   root.appendChild(user);
@@ -1027,8 +1029,14 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   QDomElement equipment = doc.createElement("equipment");
   equipment.setAttribute("cagridId","0");
   equipment.setAttribute("manufacturerModelName","3D_Slicer_4_Reporting");
-  equipment.setAttribute("manufacturerName","Brigham and Women's Hospital");
-  equipment.setAttribute("softwareVersion","0.0.1");
+  equipment.setAttribute("manufacturerName","Brigham and Women's Hospital, Surgical Planning Lab");
+  // get the slicer version
+  qSlicerApplication* slicer = qSlicerApplication::application();
+  QString slicerVersion = QString("Slicer ") + slicer->applicationVersion() + " r" + slicer->repositoryRevision();
+  // set the Reporting module version, Id will give the git hash of the blob
+  const char *reportingVersion = " Reporting $Id$";
+  std::string softwareVersion = std::string(qPrintable(slicerVersion)) + std::string(reportingVersion);
+  equipment.setAttribute("softwareVersion",softwareVersion.c_str());
   root.appendChild(equipment);
 
   // Extract patient information from the referenced volume
@@ -1679,7 +1687,7 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
         {
           std::istringstream iss(uids);
           std::string word;
-          const char sep = ' ';
+//          const char sep = ' ';
           std::cout << "Reference dicom UIDs: ";
           while(std::getline(iss, word, ' ')) {
             refDcmSeriesUIDs.push_back(word);
