@@ -2,7 +2,8 @@
 SET(KIT_PYTHON_SCRIPTS
   SlicerReportingModuleWidgetHelper.py
   qSlicerReportingModuleWidget.py
-  DICOMSegmentationPlugin.py
+  EditColor.py
+  ColorBox.py
   )
 
 SET(KIT_PYTHON_RESOURCES

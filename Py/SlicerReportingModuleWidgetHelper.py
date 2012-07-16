@@ -1,5 +1,5 @@
 # slicer imports
-from __main__ import vtk, slicer, tcl
+from __main__ import vtk, slicer, tcl, qt
 
 # python includes
 import sys
@@ -17,22 +17,34 @@ class SlicerReportingModuleWidgetHelper( object ):
     sys.stdout.flush()
 
   @staticmethod
+  def InfoPopup(parent, title, message):
+    messageBox = qt.QMessageBox()
+    messageBox.information(parent, title, message)
+
+  @staticmethod
   def Warning( message ):
     print("[Reporting " + time.strftime( "%m/%d/%Y %H:%M:%S" ) + "]: WARNING: " + str( message ))
     sys.stdout.flush()
+  
+  @staticmethod
+  def WarningPopup(parent, title, message):
+    messageBox = qt.QMessageBox()
+    messageBox.warning(parent, title, message)
 
   @staticmethod
   def Error( message ):
     print("[Reporting " + time.strftime( "%m/%d/%Y %H:%M:%S" ) + "]: ERROR: " + str( message ))
     sys.stdout.flush()
+  
+  @staticmethod
+  def ErrorPopup(parent, title, message):
+    messageBox = qt.QMessageBox()
+    messageBox.critical(parent, title, message)
 
   @staticmethod
   def Debug( message ):
-    showDebugOutput = 0
-    from time import strftime
-    if showDebugOutput:
-        print "[ChangeTrackerPy " + time.strftime( "%m/%d/%Y %H:%M:%S" ) + "] DEBUG: " + str( message )
-        sys.stdout.flush()
+    print "[Reporting " + time.strftime( "%m/%d/%Y %H:%M:%S" ) + "] DEBUG: " + str( message )
+    sys.stdout.flush()
 
   @staticmethod
   def CreateSpace( n ):

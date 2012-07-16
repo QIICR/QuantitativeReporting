@@ -24,6 +24,7 @@
 #include <vtkMRMLAnnotationFiducialNode.h>
 #include <vtkMRMLAnnotationHierarchyNode.h>
 #include <vtkMRMLAnnotationRulerNode.h>
+#include <vtkMRMLColorNode.h>
 #include <vtkMRMLVolumeArchetypeStorageNode.h>
 #include <vtkMRMLDisplayableHierarchyNode.h>
 #include <vtkMRMLDisplayNode.h>
@@ -355,19 +356,26 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     }
 
   // rename it from the reporting node
-  vtkMRMLNode *reportNode = NULL;
+  vtkMRMLReportingReportNode *reportNode = NULL;
   vtkMRMLNode *activeReport = this->GetMRMLScene()->GetNodeByID(this->GetActiveReportHierarchyID());
   if (activeReport)
     {
     vtkMRMLDisplayableHierarchyNode *reportHierarchyNode = vtkMRMLDisplayableHierarchyNode::SafeDownCast(activeReport);
     if (reportHierarchyNode)
       {
-      reportNode = reportHierarchyNode->GetAssociatedNode();
+      reportNode = vtkMRMLReportingReportNode::SafeDownCast(reportHierarchyNode->GetAssociatedNode());
       }
     }
   if (annotationNode && reportNode)
     {
-    const char *desc = reportNode->GetDescription();
+    vtkMRMLColorNode *colorNode = vtkMRMLColorNode::SafeDownCast(this->GetMRMLScene()->GetNodeByID(reportNode->GetColorNodeID()));
+    if(!colorNode)
+      {
+      std::cerr << "Failed to get label decription" << std::endl;
+      return;
+      }
+
+    const char *desc = colorNode->GetColorName(reportNode->GetFindingLabel());
     std::string annotationName;
     if (desc)
       {
@@ -887,7 +895,7 @@ void vtkSlicerReportingModuleLogic::HideAnnotationsForOtherReports(vtkMRMLReport
 }
 
 //---------------------------------------------------------------------------
-int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *reportNode, const char *filename)
+int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *reportNode)
 {
   if(!this->DICOMDatabase)
     {
@@ -901,7 +909,8 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     return EXIT_FAILURE;
     }
   
-  if (!filename)
+  std::string filename = reportNode->GetAIMFileName();
+  if (filename == "")
     {
     vtkErrorMacro("SaveReportToAIM: no file name given.");
     return EXIT_FAILURE;
@@ -974,7 +983,15 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   root.setAttribute("codeValue", "RANO");
   root.setAttribute("codeSchemeDesignator", "RANO");
   root.setAttribute("dateTime",timeStr);
-  root.setAttribute("name",reportNode->GetDescription());
+
+  vtkMRMLColorNode *colorNode = vtkMRMLColorNode::SafeDownCast(this->GetMRMLScene()->GetNodeByID(reportNode->GetColorNodeID()));
+  if(!colorNode)
+    {
+    std::cerr << "Failed to get label decription" << std::endl;
+    return EXIT_FAILURE;
+    }
+
+  root.setAttribute("name", colorNode->GetColorName(reportNode->GetFindingLabel()));
   root.setAttribute("uniqueIdentifier","n.a");
   root.setAttribute("xmlns:xsi","http://www.w3.org/2001/XMLSchema-instance");
   root.setAttribute("xsi:schemaLocation","gme://caCORE.caCORE/3.2/edu.northwestern.radiology.AIM AIM_v3_rv11_XML.xsd");
@@ -1388,7 +1405,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   QString xml = doc.toString();
   std::cout << qPrintable(xml);
 
-  std::ofstream outputFile(filename);
+  std::ofstream outputFile(filename.c_str());
   outputFile << qPrintable(xml);
 
   return EXIT_SUCCESS;
