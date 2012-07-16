@@ -4,6 +4,7 @@ import unittest
 # import slicer
 from  __main__ import vtk, qt, ctk, slicer
 import time
+import os, sys
 
 import DICOMLib # for loading a volume on AIM import
 
@@ -22,15 +23,58 @@ class ReportingTesting(unittest.TestCase):
 
     # l = slicer.modulelogic.vtkSlicerReportingModuleLogic()
     l = slicer.modules.reporting.logic() 
-    
 
-    if (1):
-      # l.SetMRMLScene(slicer.mrmlScene)
-      if (l.InitializeDICOMDatabase()):
-        print 'RoundTripTest: DICOM database initialized correctly!'
+    # testDataPath = os.path.normpath(os.path.join(os.path.realpath(__file__), "..", "..", "Prototype/TestData/DICOM.CT/")   
+    print "Reporting round trip test, current working directory = ",os.getcwd()
+    testDataPath = os.path.join(os.getcwd(),"Testing/Temporary/DICOM.CT")
+    # testDataPath = "/projects/birn/nicole/Slicer4/Reporting/Prototype/TestData/DICOM.CT"
+    print "test data path = ",testDataPath
+ 
+    # set up a new DICOM database
+    print "Creating a dicomDatabase!"
+    ddb = ctk.ctkDICOMDatabase()
+    if not ddb:
+      print "ERROR: failed to create a new dicom database!"
+      return   
+    dbpath = slicer.app.slicerHome + '/Testing/Temporary/TestingDCMDB/ctkDICOM.sql'
+    print 'database path set to ',dbpath
+    if not os.path.exists(os.path.dirname(dbpath)):
+      print 'Creating dir ',os.path.dirname(dbpath)
+      os.makedirs(os.path.dirname(dbpath))
+    ddb.openDatabase(dbpath,"ReportingTesting")
+    if not ddb.isOpen:
+      print "ERROR: failed to open a new dicom database at path ",dbpath
+      return
+    retval = ddb.initializeDatabase()
+    if not retval:
+      print "ERROR: failed to init database"
+      return
+
+    # check to see if the test data is already in it
+    seriesUID = "1.2.392.200103.20080913.113635.2.2009.6.22.21.43.10.23432.1"
+    # seriesUID = "2.16.840.1.114362.1.759508.1251415878280.192"
+    # seriesUID = "1.3.12.2.1107.5.1.4.53031.30000011032906120157800000219"
+    print "For test, using the AIM sample volume with series UID of ",seriesUID
+    fileList = ddb.filesForSeries(seriesUID)
+    print "fileList = ", fileList
+    if not fileList:
+      print "ERROR: sample series with id ",seriesUID," not found in database, loading up a known volume"
+      # add some data to it
+      # ddb.insert(testDataPath)
+      
+      # TODO: set the UIDs
+      for n in [487, 488, 489]:
+        filename = os.path.join(testDataPath, "instance_" + str(n) + ".dcm")
+        print "Inserting file ", filename
+        retval = ddb.insert(filename)
+        print "return from insert = ",retval
+      fileList = ddb.filesForSeries(seriesUID)
+      if not fileList:
+        print "ERROR! Failed to add files from ", testDataPath," to dicom database!"
+        return
       else:
-        print 'RoundTripTest: Failed to initialize DICOM database'
-        self.assertEqual(1,0)
+        print "Successfully added files from ", testDataPath," to dicom database!"
+        print fileList
 
     # get or add a parameter node
     parameterNode = slicer.mrmlScene.GetNthNodeByClass(0,'vtkMRMLScriptedModuleNode')
@@ -51,28 +95,20 @@ class ReportingTesting(unittest.TestCase):
     print "Init hierarchy for report node, set parameter node to report id of ",reportNode.GetID()
     l.InitializeHierarchyForReport(reportNode)
 
-
     #
     # get some sample data from the database
     #
-    ddb = slicer.dicomDatabase
-    if not ddb:
-      print "ERROR: unable to get at the slicer dicomDatabase!"
-      return
-
-    print "Dicom data base = ",ddb
     volId = 1
     volumeNode = None
     volName = 'AIM volume '+str(volId)
-    seriesUID = "1.3.12.2.1107.5.1.4.53031.30000011032906120157800000219"
-    print "For test, using the AIM sample volume with series UID of ",seriesUID
-    filelist = ddb.filesForSeries(seriesUID)
-    # print "filelist = ", filelist
-    loader = DICOMLib.DICOMLoader(filelist, volName)
+
+    print "Dicom data base = ",ddb
+
+    loader = DICOMLib.DICOMLoader(fileList, volName)
     volumeNode = loader.volumeNode
     # print "volumeNode = ",volumeNode
 
-    print "InitHierForVolume"
+    print "Initialize Hierarchy For Volume with id ",volumeNode.GetID()
     l.InitializeHierarchyForVolume(volumeNode)
     print "---Now active mark up is ",l.GetActiveMarkupHierarchyID()
     print "adding a fiducial"
@@ -87,7 +123,9 @@ class ReportingTesting(unittest.TestCase):
     fidNode.SetVisible(1)
     fidNode.SetLocked(0)
     print "Calling set fid coords"
-    startCoords = [102.023, 132.812, -422.29]
+    # startCoords = [102.023, 132.812, -422.29]
+    # startCoords = [54.6385, 402.397, 58]
+    startCoords = [15.8, 70.8, -126.7]
     fidNode.SetFiducialCoordinates(startCoords[0],startCoords[1],startCoords[2])
     print "Starting fiducial coordinates: ",startCoords
     # point it to the volume
@@ -138,29 +176,28 @@ class ReportingTesting(unittest.TestCase):
     slicer.mrmlScene.AddNode(newReport)
     parameterNode.SetParameter("reportID", newReport.GetID())
 
-    if 0:
-      loadAIM = ReportingLoadAIM()
-      desc = loadAIM.load(fileName)
-      newReport.SetDescription(desc)
+    loadAIM = ReportingLoadAIM()
+    desc = loadAIM.load(fileName)
+    newReport.SetDescription(desc)
 
-      # get the fiducial
-      endCoords = [0,0,0]
-      col = slicer.mrmlScene.GetNodesByClass("vtkMRMLAnnotationFiducialNode")
-      for c in range(col.GetNumberOfItems()):
-        f = col.GetItemAsObject(c)
-        if f.GetName() == fidName:
-          print "Found original fiducial with name", f.GetName()
-          f.GetFiducialCoordinates(endCoords)
+    # get the fiducial
+    endCoords = [0,0,0]
+    col = slicer.mrmlScene.GetNodesByClass("vtkMRMLAnnotationFiducialNode")
+    for c in range(col.GetNumberOfItems()):
+      f = col.GetItemAsObject(c)
+      if f.GetName() == fidName:
+        print "Found original fiducial with name", f.GetName()
+        f.GetFiducialCoordinates(endCoords)
 
-      print "Start Coords = ",startCoords[0],startCoords[1],startCoords[2]
-      print "End Coords = ",endCoords
+    print "Start Coords = ",startCoords[0],startCoords[1],startCoords[2]
+    print "End Coords = ",endCoords
 
-      xdiff = endCoords[0] - startCoords[0]
-      ydiff = endCoords[1] - startCoords[1]
-      zdiff = endCoords[2] - startCoords[2]
-      diffTotal = xdiff + ydiff + zdiff
+    xdiff = endCoords[0] - startCoords[0]
+    ydiff = endCoords[1] - startCoords[1]
+    zdiff = endCoords[2] - startCoords[2]
+    diffTotal = xdiff + ydiff + zdiff
 
-      print "Difference between coordinates after loaded the aim file and value from before stored the aim file: ", xdiff, ydiff, zdiff,". Total difference = ",diffTotal
+    print "Difference between coordinates after loaded the aim file and value from before stored the aim file: ", xdiff, ydiff, zdiff,". Total difference = ",diffTotal
 
-      self.assertLess(diffTotal, 0.1)
+    self.assertLess(diffTotal, 0.1)
 
