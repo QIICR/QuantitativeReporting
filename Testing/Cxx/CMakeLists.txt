@@ -21,7 +21,9 @@ list(APPEND Tests ${KIT_TEST_SRCS})
 add_executable(${KIT}CxxTests ${Tests})
 target_link_libraries(${KIT}CxxTests ${KIT})
 
-#-----------------------------------------------------------------------------
+add_executable(${EXTENSION_NAME}CxxTests ${Tests})
+target_link_libraries(${EXTENSION_NAME}CxxTests ${lib_name})
+
 foreach(testname ${KIT_TEST_NAMES})
   SIMPLE_TEST( ${testname} )
 endforeach()

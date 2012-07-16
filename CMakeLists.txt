@@ -82,6 +82,8 @@ if(BUILD_TESTING)
   add_subdirectory(Testing)
 endif()
 
+add_subdirectory(Prototype)
+
 #-----------------------------------------------------------------------------
 if(NOT Slicer_SOURCE_DIR)
   include(${Slicer_EXTENSION_CPACK})

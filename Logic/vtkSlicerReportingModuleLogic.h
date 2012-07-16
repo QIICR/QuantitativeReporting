@@ -45,6 +45,9 @@ class QStringList;
 
 class ctkDICOMDatabase;
 
+class DcmDataset;
+class DcmTag;
+
 /// \ingroup Slicer_QtModules_ExtensionTemplate
 class VTK_SLICER_REPORTING_MODULE_LOGIC_EXPORT vtkSlicerReportingModuleLogic :
   public vtkSlicerModuleLogic
@@ -85,7 +88,7 @@ public:
   void HideAnnotationsForOtherReports(vtkMRMLReportingReportNode *node);
 
   /// Save report to AIM file, returns 1 on success, 0 on failure
-  int SaveReportToAIM(vtkMRMLReportingReportNode *reportNode, const char *filename);
+  int SaveReportToAIM(vtkMRMLReportingReportNode *reportNode);
 
   bool InitializeDICOMDatabase();
 
@@ -104,10 +107,17 @@ public:
   
   /// utility methods to call from python
   void SetActiveMarkupHierarchyIDToNull();
+  
+  bool IsDicomSeg(const std::string fname);
+  // TODO: consider taking report as as a parameter here?
+  std::string DicomSegWrite(vtkCollection* labelNodes, const std::string dirname);
+  bool DicomSegRead(vtkCollection*, const std::string fname);
 
   /// set/get the error string
   vtkGetStringMacro(ErrorMessage);
   vtkSetStringMacro(ErrorMessage);
+  
+  std::string GetFileNameFromUID(std::string uid);
 
 protected:
   vtkSlicerReportingModuleLogic();
@@ -136,6 +146,12 @@ private:
   vtkSlicerReportingModuleLogic(const vtkSlicerReportingModuleLogic&); // Not implemented
   void operator=(const vtkSlicerReportingModuleLogic&);               // Not implemented
 
+  // copy the content of Dcm tag from one dataset to another, or set to ""
+  //  if not available
+  void copyDcmElement(const DcmTag&, DcmDataset*, DcmDataset*);
+  // get string representation of a Dcm tag, return "" if not available
+  std::string getDcmElementAsString(const DcmTag& tag, DcmDataset* dcmIn);
+
   QStringList GetMarkupPointCoordinatesStr(vtkMRMLAnnotationNode *ann);
   vtkMRMLScalarVolumeNode* GetMarkupVolumeNode(vtkMRMLAnnotationNode *ann);
 
@@ -149,7 +165,17 @@ private:
   /// label volumes if they're associated with the current volume being
   /// annotated
   int GUIHidden;
-  
+
+/*
+  struct VocabularyItem 
+    {
+    unsigned LabelValue;
+    std::string CodeValue;
+    std::string CodeMeaning;
+    std::string CodingSchemeDesignator;
+    }
+*/
+
   ctkDICOMDatabase *DICOMDatabase;
 
   /// save an error string to pass to the gui, reset when test passes
