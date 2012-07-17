@@ -1003,7 +1003,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     }
 
   root.setAttribute("name", colorNode->GetColorName(reportNode->GetFindingLabel()));
-  root.setAttribute("uniqueIdentifier","n.a");
+  root.setAttribute("uniqueIdentifier","n.a"); // TODO: initialize this one using DCMTK
   root.setAttribute("xmlns:xsi","http://www.w3.org/2001/XMLSchema-instance");
   root.setAttribute("xsi:schemaLocation","gme://caCORE.caCORE/3.2/edu.northwestern.radiology.AIM AIM_v3_rv11_XML.xsd");
   
@@ -1013,7 +1013,21 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   // objects based on the content of the annotation node
   //
   // Deprecated
-  
+  //
+  // create anatomicEntityCollection that will describe what is being
+  // annotated
+  QDomElement aec = doc.createElement("anatomicEntityCollection");
+  root.appendChild(aec);
+
+  QDomElement ae = doc.createElement("AnatomicEntity");
+  ae.setAttribute("annotatorConfidence", "0.0"); // TODO? add an option?
+  ae.setAttribute("cagridId", "0");
+  ae.setAttribute("codeMeaning", colorNode->GetColorName(reportNode->GetFindingLabel()));
+  ae.setAttribute("codeValue", "n.a"); // TODO: init this when connected with Radlex
+  ae.setAttribute("codeSchemeDesignator", "n.a");
+  ae.setAttribute("label", colorNode->GetColorName(reportNode->GetFindingLabel()));
+  aec.appendChild(ae);
+
   // (Step 3) Initialize user/equipment/person (these have no meaning for now
   // here)
 
