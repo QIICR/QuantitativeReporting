@@ -981,9 +981,9 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   root.setAttribute("aimVersion","3.0");
   root.setAttribute("cagridId","0");
 
-  root.setAttribute("codeMeaning","Response Assessment in Neuro-Oncology");
-  root.setAttribute("codeValue", "RANO");
-  root.setAttribute("codeSchemeDesignator", "RANO");
+  root.setAttribute("codeMeaning","3DSlicer Report");
+  root.setAttribute("codeValue", "3DSlicer Report");
+  root.setAttribute("codeSchemeDesignator", "3DSlicer");
   root.setAttribute("dateTime",timeStr);
 
   vtkMRMLColorNode *colorNode = NULL;
