@@ -71,8 +71,10 @@ qSlicerReportingModule::~qSlicerReportingModule()
 //-----------------------------------------------------------------------------
 QString qSlicerReportingModule::helpText()const
 {
-  return "Reporting module provides support for structured markup and annotation, and "
-    "some support of AIM import/export. This is work in progress, see details "
+  return "The Reporting module provides support for structured markup and annotation, and "
+    "some support of AIM import/export.<br>"
+    "Select a markup and right click to jump slice viewers to that location.<br>"
+    "This is a work in progress, for more details see: "
     "<a href=\"http://wiki.na-mic.org/Wiki/index.php/Projects:QIN:3D_Slicer_Annotation_Image_Markup\">"
     "QIN:3D Slicer Annotation Image Markup</a>.";
 }
