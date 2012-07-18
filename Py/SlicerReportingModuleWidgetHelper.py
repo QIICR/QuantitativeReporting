@@ -362,7 +362,8 @@ class SlicerReportingModuleWidgetHelper( object ):
       uid = node.getAttribute('sopInstanceUID')
 
       res = False
-      res = slicer.modules.reporting.logic().DicomSegRead(labelNodes, uid)  
+      colorNode = slicer.mrmlScene.GetNodeByID(newReport.GetColorNodeID())
+      res = slicer.modules.reporting.logic().DicomSegRead(labelNodes, uid, colorNode)
       SlicerReportingModuleWidgetHelper.Debug('Read this many labels from the seg object:'+str(labelNodes.GetNumberOfItems()))
 
       # read the reference node

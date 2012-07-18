@@ -1023,8 +1023,10 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   ae.setAttribute("annotatorConfidence", "0.0"); // TODO? add an option?
   ae.setAttribute("cagridId", "0");
   ae.setAttribute("codeMeaning", colorNode->GetColorName(reportNode->GetFindingLabel()));
-  ae.setAttribute("codeValue", "n.a"); // TODO: init this when connected with Radlex
-  ae.setAttribute("codeSchemeDesignator", "n.a");
+  std::ostringstream labelValueStr;
+  labelValueStr << reportNode->GetFindingLabel();
+  ae.setAttribute("codeValue", labelValueStr.str().c_str());
+  ae.setAttribute("codeSchemeDesignator", "3DSlicer"); // TODO use RadLex instead of Slicer
   ae.setAttribute("label", colorNode->GetColorName(reportNode->GetFindingLabel()));
   aec.appendChild(ae);
 
@@ -1304,7 +1306,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
             this->getDcmElementAsString(DCM_SOPClassUID, segDcm).c_str());
           segDom.setAttribute("referencedSopInstanceUID",
             this->getDcmElementAsString(DCM_ReferencedSOPInstanceUID, segDcm).c_str());
-          segDom.setAttribute("segmentNumber","0");
+          segDom.setAttribute("segmentNumber","1");
           root.appendChild(segDom);
           }
         }
@@ -1690,6 +1692,8 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
   std::vector<std::string> refDcmSeriesUIDs;
   std::vector<vtkImageData*> labelImages;
   std::string referenceNodeID;
+  vtkMRMLColorNode *colorNode = NULL;
+
   for(unsigned i=0;i<numLabels;i++)
   {
     vtkSmartPointer<vtkMRMLScalarVolumeNode> labelNode = vtkMRMLScalarVolumeNode::SafeDownCast(labelNodes->GetItemAsObject(i));
@@ -1702,6 +1706,8 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
 
     if(i==0)
     {
+        colorNode = labelNode->GetDisplayNode()->GetColorNode();
+
         referenceNodeID = labelNode->GetAttribute("AssociatedNodeID");
 
         vtkMRMLScalarVolumeNode* referenceNode =
@@ -1717,7 +1723,6 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
         {
           std::istringstream iss(uids);
           std::string word;
-//          const char sep = ' ';
           std::cout << "Reference dicom UIDs: ";
           while(std::getline(iss, word, ' ')) {
             refDcmSeriesUIDs.push_back(word);
@@ -1733,6 +1738,37 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
             return "";
     }
   }
+
+  // pixel data
+  //
+  char buf[16] = {0};
+  int extent[6];
+  labelImages[0]->GetExtent(extent);
+  std::cout << "Preparing pixel data" << std::endl;
+  int nbytes = (int) (float((extent[1]+1)*(extent[3]+1)*(extent[5]+1))/8.);
+  int total = 0;
+  int labelValue = 0;
+
+  unsigned char *pixelArray = new unsigned char[nbytes];
+  for(int i=0;i<nbytes;i++)
+    pixelArray[i] = 0;
+
+  for(int k=0;k<extent[5]+1;k++)
+    {
+    for(int j=0;j<extent[3]+1;j++)
+      {
+      for(int i=0;i<extent[1]+1;i++)
+        {
+        int byte = total / 8, bit = total % 8;
+        int imageValue = labelImages[0]->GetScalarComponentAsFloat(i,j,k,0);
+        if(imageValue)
+          labelValue = imageValue;
+        total++;
+        pixelArray[byte] |= (imageValue ? 1 : 0) << bit;
+        }
+      }
+    }
+
 
   // load the dcm datasets for the reference volume slices
   std::vector<DcmDataset*> dcmDatasetVector;
@@ -1755,6 +1791,11 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
       return "";
       }
     }
+
+  std::stringstream labelValueStr;
+  labelValueStr << int(labelValue);
+  
+
 
   // create a DICOM dataset (see
   // http://support.dcmtk.org/docs/mod_dcmdata.html#Examples)
@@ -1827,9 +1868,6 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
   dataset->putAndInsertString(DCM_SamplesPerPixel,"1");
   dataset->putAndInsertString(DCM_PhotometricInterpretation,"MONOCHROME2");
 
-  char buf[16] = {0};
-  int extent[6];
-  labelImages[0]->GetExtent(extent);
   sprintf(buf,"%d", extent[1]+1);
   dataset->putAndInsertString(DCM_Columns,buf);
   sprintf(buf,"%d", extent[3]+1);
@@ -1855,29 +1893,29 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
   dataset->putAndInsertString(DCM_ContentCreatorName, "3DSlicer");
 
   // segment sequence [0062,0002]
-  DcmItem *Item = NULL, *subItem = NULL, *subItem2 = NULL, *subItem3 = NULL;
-  dataset->findOrCreateSequenceItem(DCM_SegmentSequence, Item);
+  DcmItem *Item = NULL, *subItem = NULL, *subItem2 = NULL, *subItem3 = NULL, *SegmentSequenceItem = NULL;
+  dataset->findOrCreateSequenceItem(DCM_SegmentSequence, SegmentSequenceItem);
 
   // AF TODO: go over all labels and insert separate item for each one
-  Item->putAndInsertString(DCM_SegmentNumber, "1");
-  Item->putAndInsertString(DCM_SegmentLabel, "Segmentation"); // AF TODO: this should be initialized based on the label value!
-  Item->putAndInsertString(DCM_SegmentAlgorithmType, "SEMIAUTOMATIC");
-  Item->putAndInsertString(DCM_SegmentAlgorithmName, "Editor");
+  SegmentSequenceItem->putAndInsertString(DCM_SegmentNumber, "1");
+  SegmentSequenceItem->putAndInsertString(DCM_SegmentLabel, "Segmentation"); // AF TODO: this should be initialized based on the label value!
+  SegmentSequenceItem->putAndInsertString(DCM_SegmentAlgorithmType, "SEMIAUTOMATIC");
+  SegmentSequenceItem->putAndInsertString(DCM_SegmentAlgorithmName, "Editor");
 
   // general anatomy mandatory macro
-  Item->findOrCreateSequenceItem(DCM_AnatomicRegionSequence, subItem);
-  subItem->putAndInsertString(DCM_CodeValue, "T-D0050");
-  subItem->putAndInsertString(DCM_CodingSchemeDesignator,"SRT");
-  subItem->putAndInsertString(DCM_CodeMeaning,"Tissue");
+  SegmentSequenceItem->findOrCreateSequenceItem(DCM_AnatomicRegionSequence, subItem);
+  subItem->putAndInsertString(DCM_CodeValue, labelValueStr.str().c_str());
+  subItem->putAndInsertString(DCM_CodingSchemeDesignator,"3DSlicer");
+  subItem->putAndInsertString(DCM_CodeMeaning, colorNode->GetColorName(labelValue));
 
   //segmentation properties - category
-  Item->findOrCreateSequenceItem(DCM_SegmentedPropertyCategoryCodeSequence, subItem);
+  SegmentSequenceItem->findOrCreateSequenceItem(DCM_SegmentedPropertyCategoryCodeSequence, subItem);
   subItem->putAndInsertString(DCM_CodeValue,"T-D0050");
   subItem->putAndInsertString(DCM_CodingSchemeDesignator,"SRT");
   subItem->putAndInsertString(DCM_CodeMeaning,"Tissue");
 
   //segmentation properties - type
-  Item->findOrCreateSequenceItem(DCM_SegmentedPropertyTypeCodeSequence, subItem);
+  SegmentSequenceItem->findOrCreateSequenceItem(DCM_SegmentedPropertyTypeCodeSequence, subItem);
   subItem->putAndInsertString(DCM_CodeValue,"M-03010");
   subItem->putAndInsertString(DCM_CodingSchemeDesignator,"SRT");
   subItem->putAndInsertString(DCM_CodeMeaning,"Nodule");
@@ -2004,29 +2042,6 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
     }
 
 
-  // pixel data
-  //
-  std::cout << "Preparing pixel data" << std::endl;
-  int nbytes = (int) (float((extent[1]+1)*(extent[3]+1)*(extent[5]+1))/8.);
-  int total = 0;
-  unsigned char *pixelArray = new unsigned char[nbytes];
-  for(int i=0;i<nbytes;i++)
-    pixelArray[i] = 0;
-
-  for(int k=0;k<extent[5]+1;k++)
-    {
-    for(int j=0;j<extent[3]+1;j++)
-      {
-      for(int i=0;i<extent[1]+1;i++)
-        {
-        int byte = total / 8, bit = total % 8;
-        total++;
-        pixelArray[byte] |= ((unsigned char) labelImages[0]->GetScalarComponentAsFloat(i,j,k,0)) << bit;
-        }
-      }
-    }
-
-
   dataset->putAndInsertUint8Array(DCM_PixelData, pixelArray, nbytes);//write pixels
 
   std::cout << "DICOM SEG created" << std::endl;
@@ -2052,7 +2067,7 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
 
   Relies on the functionality that allows to reconstruct the volume geometry from the list of filenames.
 */
-bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, const std::string instanceUID)
+bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, const std::string instanceUID, vtkMRMLColorNode *colorNode)
 {
     // query the filename for the seg object from the database
     // get the list of reference UIDs
@@ -2160,6 +2175,26 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
 
       }
 
+    // get the label value from SegmentSequence/AnatotmicRegionSequence
+    DcmItem *Item = NULL, *subItem = NULL;
+    char tagValue[128];
+    const char* tagValuePtr = &tagValue[0]; 
+    segDataset->findAndGetSequenceItem(DCM_SegmentSequence, Item);
+    Item->findAndGetSequenceItem(DCM_AnatomicRegionSequence, subItem);
+    subItem->findAndGetString(DCM_CodeValue, tagValuePtr);
+
+    unsigned char labelValue = atoi(tagValuePtr);
+    subItem->findAndGetString(DCM_CodingSchemeDesignator, tagValuePtr);
+    if(strcmp(tagValue, "3DSlicer"))
+      {
+      std::cerr << "WARNING: Coding scheme designator is not recognized!" << std::endl;
+      }
+    subItem->findAndGetString(DCM_CodeMeaning, tagValuePtr);
+    if(strcmp(tagValue, colorNode->GetColorName(atoi(tagValuePtr))))
+      {
+      std::cerr << "WARNING: Code meaning does not match the expected value!" << std::endl;
+      }
+
     vtkImageData *imageData = vNode->GetImageData();
     int extent[6];
     imageData->GetExtent(extent);
@@ -2173,6 +2208,7 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
           {
           int byte = total/8, bit = total % 8;
           int value = (pixelArray[byte] >> bit) & 1;
+          value *= labelValue;
           imageData->SetScalarComponentFromFloat(i,j,k,0,value);
           total++;
           }

@@ -35,6 +35,7 @@
 #include "vtkSlicerReportingModuleLogicExport.h"
 
 class vtkMRMLAnnotationNode;
+class vtkMRMLColorNode;
 class vtkMRMLVolumeNode;
 class vtkMRMLReportingReportNode;
 class vtkMRMLScalarVolumeNode;
@@ -111,7 +112,7 @@ public:
   bool IsDicomSeg(const std::string fname);
   // TODO: consider taking report as as a parameter here?
   std::string DicomSegWrite(vtkCollection* labelNodes, const std::string dirname);
-  bool DicomSegRead(vtkCollection*, const std::string fname);
+  bool DicomSegRead(vtkCollection*, const std::string fname, vtkMRMLColorNode*);
 
   /// set/get the error string
   vtkGetStringMacro(ErrorMessage);

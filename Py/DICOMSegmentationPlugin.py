@@ -103,7 +103,9 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
       return False
 
     res = False
-    res = reportingLogic.DicomSegRead(labelNodes, uid)
+    # BUG TODO: initialize the color node here
+    colorNode = None
+    res = reportingLogic.DicomSegRead(labelNodes, uid, colorNode)
     print 'Read this many labels:',labelNodes.GetNumberOfItems()
 
     for i in range(labelNodes.GetNumberOfItems()):
