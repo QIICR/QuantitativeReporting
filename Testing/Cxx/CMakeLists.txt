@@ -11,6 +11,7 @@ set(CMAKE_TESTDRIVER_BEFORE_TESTMAIN "DEBUG_LEAKS_ENABLE_EXIT_ERROR();" )
 create_test_sourcelist(Tests ${KIT}CxxTests.cxx
   ${KIT_TEST_NAMES_CXX}
   # Add source of your tests after this line.
+  vtkMRMLReportingReportNodeTest1.cxx
   vtkSlicerReportingModuleLogicTest1.cxx
   EXTRA_INCLUDE vtkMRMLDebugLeaksMacro.h
   )
@@ -28,3 +29,5 @@ foreach(testname ${KIT_TEST_NAMES})
   SIMPLE_TEST( ${testname} )
 endforeach()
 
+SIMPLE_TEST( vtkMRMLReportingReportNodeTest1 )
+SIMPLE_TEST( vtkSlicerReportingModuleLogicTest1 )

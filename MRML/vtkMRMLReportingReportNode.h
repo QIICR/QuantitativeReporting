@@ -73,16 +73,29 @@ class VTK_SLICER_REPORTING_MODULE_MRML_EXPORT vtkMRMLReportingReportNode : publi
   std::string GetAIMFileName();
   void SetAIMFileName(std::string);
 
+  vtkBooleanMacro(AllowOutOfPlaneMarkups, int);
+  vtkGetMacro(AllowOutOfPlaneMarkups, int);
+  vtkSetMacro(AllowOutOfPlaneMarkups, int);
+  
 protected:
   vtkMRMLReportingReportNode();
   ~vtkMRMLReportingReportNode();
   vtkMRMLReportingReportNode(const vtkMRMLReportingReportNode&);
   void operator=(const vtkMRMLReportingReportNode&);
 
-  std::string VolumeNodeID;   // volume being annotated
-  int   FindingLabel;   // label assigned to the structure being annotated
-  std::string ColorNodeID;    // color node used to associate the label with the terminology
-  std::string AIMFileName; // XML file that will be used for serialization in AIM format
+  /// volume being annotated
+  std::string VolumeNodeID;
+  /// label assigned to the structure being annotated
+  int   FindingLabel;
+  /// color node used to associate the label with the terminology
+  std::string ColorNodeID;
+  /// XML file that will be used for serialization in AIM format
+  std::string AIMFileName; 
+
+  /// Default 0, don't allow users to place annotations out of or spanning
+  /// scan acquisition planes. If 1, warn the user, if 0, delete the
+  /// annotation when error is detected
+  int AllowOutOfPlaneMarkups;
 };
 
 #endif

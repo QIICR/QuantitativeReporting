@@ -33,6 +33,7 @@ vtkMRMLReportingReportNode::vtkMRMLReportingReportNode()
   this->ColorNodeID = "";
   this->FindingLabel = 1;
   this->AIMFileName = "";
+  this->AllowOutOfPlaneMarkups = 0;
 }
 
 //----------------------------------------------------------------------------
@@ -57,21 +58,32 @@ void vtkMRMLReportingReportNode::ReadXMLAttributes(const char** atts)
     attName = *(atts++);
     attValue = *(atts++);
 
-    if(strcmp(attName, "VolumeNodeID"))
+    if(!strcmp(attName, "VolumeNodeID"))
       {
       this->SetVolumeNodeID(attValue);
       }
-    if(strcmp(attName, "FindingLabel"))
+    else if(!strcmp(attName, "FindingLabel"))
       {      
       this->SetFindingLabel(atoi(attValue));
       }
-    if(strcmp(attName, "ColorNodeID"))
+    else if(!strcmp(attName, "ColorNodeID"))
       {
       this->SetColorNodeID(attValue);
       }
-    if(strcmp(attName, "AIMFileName"))
+    else if(!strcmp(attName, "AIMFileName"))
       {
       this->SetAIMFileName(attValue);
+      }
+    else if (!strcmp(attName, "AllowOutOfPlaneMarkups"))
+      {
+      if (!strcmp(attValue,"true"))
+        {
+        this->AllowOutOfPlaneMarkups = 1;
+        }
+      else
+        {
+        this->AllowOutOfPlaneMarkups = 0;
+        }
       }
     }
 
@@ -88,6 +100,7 @@ void vtkMRMLReportingReportNode::WriteXML(ostream& of, int nIndent)
   of << indent << " FindingLabel=\"" << this->FindingLabel << "\"";
   of << indent << " ColorNodeID=\"" << this->ColorNodeID << "\"";
   of << indent << " AIMFileName=\"" << this->AIMFileName << "\"";
+  of << indent << " AllowOutOfPlaneMarkups=\"" << (this->AllowOutOfPlaneMarkups ? "true" : "false") << "\"";
 }
 
 //----------------------------------------------------------------------------
@@ -95,7 +108,21 @@ void vtkMRMLReportingReportNode::WriteXML(ostream& of, int nIndent)
 // Does NOT copy: ID, FilePrefix, Name, SliceID
 void vtkMRMLReportingReportNode::Copy(vtkMRMLNode *anode)
 {
+  int disabledModify = this->StartModify();
+  
   Superclass::Copy(anode);
+
+  vtkMRMLReportingReportNode *node = vtkMRMLReportingReportNode::SafeDownCast(anode);
+  if (node)
+    {
+    this->SetVolumeNodeID(node->GetVolumeNodeID());
+    this->SetFindingLabel(node->GetFindingLabel());
+    this->SetColorNodeID(node->GetColorNodeID());
+    this->SetAIMFileName(node->GetAIMFileName());
+    this->SetAllowOutOfPlaneMarkups(node->GetAllowOutOfPlaneMarkups());
+    }
+  
+  this->EndModify(disabledModify);
 }
 
 //----------------------------------------------------------------------------
@@ -107,6 +134,7 @@ void vtkMRMLReportingReportNode::PrintSelf(ostream& os, vtkIndent indent)
   os << indent << "FindingLabel: " << this->FindingLabel << "\n";
   os << indent << "ColorNodeID: " << this->ColorNodeID << "\n";
   os << indent << "AIMFileName: " << this->AIMFileName << "\n";
+  os << indent << "AllowOutOfPlaneMarkups: " << this->AllowOutOfPlaneMarkups << "\n";
 }
 
 //----------------------------------------------------------------------------
