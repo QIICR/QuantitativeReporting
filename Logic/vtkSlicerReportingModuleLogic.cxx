@@ -1256,7 +1256,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
           this->AddSpatialCoordinateCollectionElement(doc, gs, coordStr, sliceUIDList);
           gsc.appendChild(gs);
         }
-      if(labelNode)
+      else if(labelNode)
         {
           labelNodeCollection->AddItem(labelNode);
         }
@@ -2194,16 +2194,17 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
     // recognized and the color name matches
     unsigned char labelValue = 1; 
     subItem->findAndGetString(DCM_CodingSchemeDesignator, tagValuePtr);    
-    if(strcmp(tagValue, "3DSlicer"))
+    if(strcmp(tagValuePtr, "3DSlicer") != 0)
       {
-      std::cerr << "WARNING: Coding scheme designator is not recognized!" << std::endl;
+      std::cerr << "WARNING: Coding scheme designator " << tagValuePtr << " is not recognized!" << std::endl;
       }
     else
       {
       subItem->findAndGetString(DCM_CodeMeaning, tagValuePtr);
-      if(strcmp(tagValue, colorNode->GetColorName(tmpLabelValue)))
+      if(strcmp(tagValuePtr, colorNode->GetColorName(tmpLabelValue)) != 0)
         {
-        std::cerr << "WARNING: Code meaning does not match the expected value!" << std::endl;
+        std::cerr << "WARNING: Code meaning " << tagValuePtr << " does not match the expected value for label " <<
+          tmpLabelValue << std::endl;
         }
       else
         {
