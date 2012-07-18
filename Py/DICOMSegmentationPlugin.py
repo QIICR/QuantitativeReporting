@@ -107,8 +107,20 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     res = reportingLogic.DicomSegRead(labelNodes, uid)
     print 'Read this many labels:',labelNodes.GetNumberOfItems()
 
+    defaultColorNode = reportingLogic.GetDefaultColorNode()
     for i in range(labelNodes.GetNumberOfItems()):
-      slicer.mrmlScene.AddNode(labelNodes.GetItemAsObject(i))
+      # create and initialize the display node to use default color node
+      displayNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScalarVolumeDisplayNode')
+      displayNode.SetReferenceCount(displayNode.GetReferenceCount()-1)
+      displayNode.SetAndObserveColorNodeID(defaultColorNode.GetID())
+      slicer.mrmlScene.AddNode(displayNode)
+
+      # assign it to the label node
+      # this is done here as opposed to Reporting logic to minimize the
+      # dependencies of the DICOM SEG functionality in the Slicer internals
+      labelNode = labelNodes.GetItemAsObject(i)
+      labelNode.SetAndObserveDisplayNodeID(displayNode.GetID())
+      slicer.mrmlScene.AddNode(labelNode)
 
     return True
 
