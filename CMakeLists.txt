@@ -13,7 +13,7 @@ if(NOT Slicer_SOURCE_DIR)
   set(EXTENSION_CATEGORY "Informatics")
   set(EXTENSION_CONTRIBUTORS "Andrey Fedorov (SPL), Nicole Aucoin (SPL), Steve Pieper (SPL)")
   set(EXTENSION_DESCRIPTION "")
-  set(EXTENSION_ICONURL "https://github.com/fedorov/Reporting/blob/master/Resources/Icons/ReportingModule.png")
+  set(EXTENSION_ICONURL "https://github.com/fedorov/Reporting/raw/master/Resources/Icons/ReportingModule.png")
 
   find_package(Slicer REQUIRED)
   include(${Slicer_USE_FILE})
