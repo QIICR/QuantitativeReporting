@@ -85,7 +85,7 @@ vtkSlicerReportingModuleLogic::vtkSlicerReportingModuleLogic()
   this->ActiveMarkupHierarchyID = NULL;
   this->ErrorMessage = NULL;
   this->DICOMDatabase = NULL;
-  this->GUIHidden = 0;
+  this->GUIHidden = 1;
 
   this->InitializeDICOMDatabase();
 
