@@ -112,13 +112,15 @@ public:
   bool IsDicomSeg(const std::string fname);
   // TODO: consider taking report as as a parameter here?
   std::string DicomSegWrite(vtkCollection* labelNodes, const std::string dirname);
-  bool DicomSegRead(vtkCollection*, const std::string fname, vtkMRMLColorNode*);
+  bool DicomSegRead(vtkCollection*, const std::string fname, vtkMRMLColorNode* colorNode = NULL);
 
   /// set/get the error string
   vtkGetStringMacro(ErrorMessage);
   vtkSetStringMacro(ErrorMessage);
   
   std::string GetFileNameFromUID(std::string uid);
+
+  vtkMRMLColorNode* GetDefaultColorNode();
 
 protected:
   vtkSlicerReportingModuleLogic();

@@ -2075,6 +2075,10 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
     // initialize the volume pixel array
     // create new volume for each segment?
     std::string segFileName = this->GetFileNameFromUID(instanceUID);
+
+    if(!colorNode)
+      colorNode = this->GetDefaultColorNode();
+
     if(segFileName == "")
       {
       std::cout << "Failed to get the filename from DB for " << instanceUID << std::endl;
@@ -2181,18 +2185,32 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
     const char* tagValuePtr = &tagValue[0]; 
     segDataset->findAndGetSequenceItem(DCM_SegmentSequence, Item);
     Item->findAndGetSequenceItem(DCM_AnatomicRegionSequence, subItem);
-    subItem->findAndGetString(DCM_CodeValue, tagValuePtr);
 
-    unsigned char labelValue = atoi(tagValuePtr);
-    subItem->findAndGetString(DCM_CodingSchemeDesignator, tagValuePtr);
+    subItem->findAndGetString(DCM_CodeValue, tagValuePtr);
+    int tmpLabelValue = atoi(tagValuePtr);
+
+
+    // label value is accepted only if the coding scheme designator is
+    // recognized and the color name matches
+    unsigned char labelValue = 1; 
+    subItem->findAndGetString(DCM_CodingSchemeDesignator, tagValuePtr);    
     if(strcmp(tagValue, "3DSlicer"))
       {
       std::cerr << "WARNING: Coding scheme designator is not recognized!" << std::endl;
       }
-    subItem->findAndGetString(DCM_CodeMeaning, tagValuePtr);
-    if(strcmp(tagValue, colorNode->GetColorName(atoi(tagValuePtr))))
+    else
       {
-      std::cerr << "WARNING: Code meaning does not match the expected value!" << std::endl;
+      subItem->findAndGetString(DCM_CodeMeaning, tagValuePtr);
+      if(strcmp(tagValue, colorNode->GetColorName(tmpLabelValue)))
+        {
+        std::cerr << "WARNING: Code meaning does not match the expected value!" << std::endl;
+        }
+      else
+        {
+        // use the tag value only if the coding scheme designator and color
+        // name match!        
+        labelValue = tmpLabelValue;
+        }
       }
 
     vtkImageData *imageData = vNode->GetImageData();
@@ -2229,4 +2247,20 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
     labelNodes->AddItem(vNode);
 
     return true;
+}
+
+vtkMRMLColorNode* vtkSlicerReportingModuleLogic::GetDefaultColorNode()
+{
+  vtkCollection *allColorNodes = this->GetMRMLScene()->GetNodesByClass("vtkMRMLColorNode");
+  vtkMRMLColorNode* defaultColorNode = NULL;
+  for(int i=0;i<allColorNodes->GetNumberOfItems();i++)
+    {
+    vtkMRMLColorNode *colorNode = vtkMRMLColorNode::SafeDownCast(allColorNodes->GetItemAsObject(i));
+    if(!strcmp(colorNode->GetName(), "GenericAnatomyColors"))
+      {
+      defaultColorNode = colorNode;
+      break;
+      }
+    }
+  return defaultColorNode;
 }
