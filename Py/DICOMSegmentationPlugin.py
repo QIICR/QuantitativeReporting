@@ -40,32 +40,22 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     # just read the modality type; need to go to reporting logic, since DCMTK
     #   is not wrapped ...
 
+    SOPInstanceUIDTag = "0008,0018"
+    SeriesDescription = "0008,103e"
+    SeriesNumber = "0020,0011"
+
     for file in files:
 
       print 'DICOM SEG plugin is parsing file ', file
-      slicer.dicomDatabase.loadFileHeader(file)
-      uid = slicer.dicomDatabase.headerValue("0008,0018") # SOPInstanceUID
+      uid = slicer.dicomDatabase.fileValue(file, SOPInstanceIUD)
       print 'Unparsed uid:', uid
-      try:
-        uid = uid[uid.index('[')+1:uid.index(']')]
-      except ValueError:
-        return []
 
       print 'DICOM SEG UID = ', uid
-
-      d = slicer.dicomDatabase.headerValue("0008,103e") # SeriesDescription
-
-      try:
-        name = d[d.index('[')+1:d.index(']')]
-      except ValueError:
+      name = slicer.dicomDatabase.fileValue(file, SeriesDescription)
+      if name == "":
         name = "Unknown"
 
-      d = slicer.dicomDatabase.headerValue("0020,0011")
-      try:
-        num = d[d.index('[')+1:d.index(']')]
-        name = num + ": " + name
-      except ValueError:
-        return []
+      number = slicer.dicomDatabase.fileValue(file, SeriesNumber)
 
       reportingLogic = None
       try:
