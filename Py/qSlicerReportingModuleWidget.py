@@ -110,16 +110,7 @@ class qSlicerReportingModuleWidget:
     
     self.layout.addWidget(self.__annotationsFrame)
 
-    self.__defaultColorNode = None
-
-    colorNodes = slicer.mrmlScene.GetNodesByClass('vtkMRMLColorNode')
-    colorNodes.SetReferenceCount(colorNodes.GetReferenceCount()-1)
-    
-    for i in range(colorNodes.GetNumberOfItems()):
-      cn = colorNodes.GetItemAsObject(i)
-      cnName = cn.GetName()
-      if cnName == 'GenericAnatomyColors':
-        self.__defaultColorNode = cn
+    self.__defaultColorNode = self.__logic.GetDefaultColorNode()
 
     self.__toolsColor = EditColor(self.__annotationsFrame,colorNode=self.__defaultColorNode)
 

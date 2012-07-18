@@ -224,10 +224,28 @@ class SlicerReportingModuleWidgetHelper( object ):
     # get the annotation element and retrieve its name
     annotations = dom.getElementsByTagName('ImageAnnotation')
     if len(annotations) == 0:
-      SlicerReportingModuleWidgetHelper.Info('AIM file does not contain any annotations!')
+      SlicerReportingModuleWidgetHelper.ErrorPopup('AIM file does not contain any annotations!')
       return
     ann = annotations[0]
     desc = ann.getAttribute('name')
+
+    # get the anatomic entity element and initialize the report node based on
+    # it
+    anatomics = dom.getElementsByTagName('AnatomicEntity')
+    if len(anatomics) != 1:
+      SlicerReportingModuleWidgetHelper.ErrorPopup('AIM file does not contain any anatomic entities or contains more than one! This is not supported.')
+      return
+    anatomy = anatomics[0]
+
+    labelValue = anatomy.getAttribute('codeValue')
+    labelName = anatomy.getAttribute('codeMeaning')
+    codeSchemeDesignator = anatomy.getAttribute('codeSchemeDesignator')
+    if codeSchemeDesignator != '3DSlicer':
+      SlicerReportingModuleWidgetHelper.WarningPopup('Code scheme designator '+codeSchemeDesignator+' is not supported. Default will be used instead.')
+      labelValue = "1"
+
+    newReport.SetFindingLabel(int(labelValue))
+
 
     # pull all the volumes that are referenced into the scene
     for node in dom.getElementsByTagName('ImageSeries'):
@@ -362,7 +380,8 @@ class SlicerReportingModuleWidgetHelper( object ):
       uid = node.getAttribute('sopInstanceUID')
 
       res = False
-      res = slicer.modules.reporting.logic().DicomSegRead(labelNodes, uid)  
+      colorNode = slicer.mrmlScene.GetNodeByID(newReport.GetColorNodeID())
+      res = slicer.modules.reporting.logic().DicomSegRead(labelNodes, uid, colorNode)
       SlicerReportingModuleWidgetHelper.Debug('Read this many labels from the seg object:'+str(labelNodes.GetNumberOfItems()))
 
       # read the reference node
@@ -372,7 +391,7 @@ class SlicerReportingModuleWidgetHelper( object ):
       SlicerReportingModuleWidgetHelper.Debug('Seg object reference uids: '+referenceUIDs)
 
       for i in range(labelNodes.GetNumberOfItems()):
-        displayNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScalarVolumeDisplayNode')
+        displayNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLLabelMapVolumeDisplayNode')
         displayNode.SetReferenceCount(displayNode.GetReferenceCount()-1)
         displayNode.SetAndObserveColorNodeID(newReport.GetColorNodeID())
         slicer.mrmlScene.AddNode(displayNode)
