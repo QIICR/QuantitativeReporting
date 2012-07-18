@@ -373,7 +373,7 @@ class SlicerReportingModuleWidgetHelper( object ):
       SlicerReportingModuleWidgetHelper.Debug('Seg object reference uids: '+referenceUIDs)
 
       for i in range(labelNodes.GetNumberOfItems()):
-        displayNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScalarVolumeDisplayNode')
+        displayNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLLabelMapVolumeDisplayNode')
         displayNode.SetReferenceCount(displayNode.GetReferenceCount()-1)
         displayNode.SetAndObserveColorNodeID(newReport.GetColorNodeID())
         slicer.mrmlScene.AddNode(displayNode)

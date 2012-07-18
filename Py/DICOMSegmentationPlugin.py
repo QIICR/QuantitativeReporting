@@ -110,7 +110,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     defaultColorNode = reportingLogic.GetDefaultColorNode()
     for i in range(labelNodes.GetNumberOfItems()):
       # create and initialize the display node to use default color node
-      displayNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScalarVolumeDisplayNode')
+      displayNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLLabelMapVolumeDisplayNode')
       displayNode.SetReferenceCount(displayNode.GetReferenceCount()-1)
       displayNode.SetAndObserveColorNodeID(defaultColorNode.GetID())
       slicer.mrmlScene.AddNode(displayNode)
