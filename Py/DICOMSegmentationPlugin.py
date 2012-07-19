@@ -40,7 +40,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     # just read the modality type; need to go to reporting logic, since DCMTK
     #   is not wrapped ...
 
-    SOPInstanceUIDTag = "0008,0018"
+    SOPInstanceUID = "0008,0018"
     SeriesDescription = "0008,103e"
     SeriesNumber = "0020,0011"
 
