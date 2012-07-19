@@ -252,14 +252,15 @@ class SlicerReportingModuleWidgetHelper( object ):
       instanceUID = node.getAttribute('instanceUID')
       filelist = ddb.filesForSeries(instanceUID)
 
-      volName = 'AIM volume '+str(volId)
-
       scalarVolumePlugin = slicer.modules.dicomPlugins['DICOMScalarVolumePlugin']()
       scalarVolumeLoadables = scalarVolumePlugin.examine([filelist])
       if len(scalarVolumeLoadables) == 0:
         SlicerReportingModuleWidgetHelper.ErrorPopup(self.parent, 'Error loading AIM', 'Failed to load the volume node reference in the file')
 
-      loader = DICOMLib.DICOMLoader(scalarVolumeLoadables[0].files, volName)
+      volumeName = scalarVolumeLoadables[0].name
+      newReport.SetName('Report for Volume '+volumeName)
+
+      loader = DICOMLib.DICOMLoader(scalarVolumeLoadables[0].files, volumeName)
       volume = loader.volumeNode
 
       if volume == None:

@@ -226,150 +226,151 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     {
     reportNode = vtkMRMLReportingReportNode::SafeDownCast(activeHierarchyNode->GetAssociatedNode());
     }
-  
-  // check for what kind of markup was added
-  if (node->IsA("vtkMRMLAnnotationFiducialNode"))
-    {
-    annotationType = "Fiducial";
-    }
-  else if (node->IsA("vtkMRMLAnnotationRulerNode"))
-    {
-    annotationType = "Ruler";
-    }
-  else if (node->IsA("vtkMRMLScalarVolumeNode"))
-    {
-    // is it a label map that's been made from a reporting volume?
-    vtkMRMLScalarVolumeNode *labelVolumeNode = vtkMRMLScalarVolumeNode::SafeDownCast(node);
-    if (labelVolumeNode->GetLabelMap())
-      {
-      const char *associatedNodeID = node->GetAttribute("AssociatedNodeID");
-      if (associatedNodeID)
-        {
-        vtkDebugMacro("OnMRMLSceneNodeAdded: have a label map volume with associated id of " << associatedNodeID);
-        // is that volume under the active report?
-        char *volumeID = NULL;
-        if (reportNode)
-          {
-          volumeID = this->GetVolumeIDForReportNode(reportNode);
-          }
-        if (volumeID)
-          {
-          if (strcmp(volumeID, associatedNodeID) == 0)
-            {
-            // the new label map is associated with the volume in this report,
-            // so add it into the mark up hierarchy
 
-            // is there an active hierarchy id?
-            char *activeMarkupHierarchyID = this->GetActiveMarkupHierarchyID();
-            if (!activeMarkupHierarchyID)
-              {
-              // add one? error for now
-              vtkErrorMacro("OnMRMLSceneNodeAdded: No active markup hierarchy id, failed to set up hierarchy for volume " << volumeID);
-              }
-            else
-              {
-              vtkDebugMacro("OnMRMLSceneNodeAdded: Found active markup for volume " << volumeID << ", it's: " << activeMarkupHierarchyID);
-              // add a 1:1 hierarchy node for the label map
-              vtkMRMLDisplayableHierarchyLogic *hierarchyLogic = vtkMRMLDisplayableHierarchyLogic::New();
-              if (hierarchyLogic)
-                {
-                char *newHierarchyID = hierarchyLogic->AddDisplayableHierarchyNodeForNode(labelVolumeNode);
-                if (newHierarchyID)
-                  {
-                  // get the hierarchy node
-                  vtkMRMLDisplayableHierarchyNode *newHierarchyNode = vtkMRMLDisplayableHierarchyNode::SafeDownCast(this->GetMRMLScene()->GetNodeByID(newHierarchyID));
-                  // set it's parent to the active markup
-                  newHierarchyNode->SetParentNodeID(activeMarkupHierarchyID);
-                  }
-                hierarchyLogic->Delete();
-                }
-              }
-            }
-          else
-            {
-            vtkDebugMacro("OnMRMLSceneNodeAdded: associated volume " << associatedNodeID << " is not the volume for this report: " << volumeID);
-            }
-          }
-        else
+  // exit if there is no report
+  if(!reportNode)
+    {
+    vtkDebugMacro("Report node does not exist. Exiting.");
+    return;
+    }
+  //  or if there is no volume associated with the report
+  if(!this->GetVolumeIDForReportNode(reportNode))
+    {
+    vtkDebugMacro("Volume is not assigned for the report. Exiting.");
+    return;
+    }
+  if(!this->GetActiveMarkupHierarchyID())
+    {
+     vtkErrorMacro("OnMRMLSceneNodeAdded: No active markup hierarchy id, failed to set up hierarchy for volume. Exiting");
+     return;
+    }
+
+  // cast to the supported node types
+  vtkMRMLAnnotationFiducialNode *fiducialNode = vtkMRMLAnnotationFiducialNode::SafeDownCast(node);
+  vtkMRMLAnnotationRulerNode *rulerNode = vtkMRMLAnnotationRulerNode::SafeDownCast(node);
+  vtkMRMLScalarVolumeNode *labelVolumeNode = vtkMRMLScalarVolumeNode::SafeDownCast(node);
+
+  if(!fiducialNode && !rulerNode && !labelVolumeNode)
+    {
+    // the node added should be ignored
+    return;
+    }
+  
+
+  // handle new fiducials and rulers
+  if(fiducialNode || rulerNode)
+    {
+    // only want to grab annotation nodes if the gui is visible
+    if (this->GetGUIHidden())
+      {
+      vtkDebugMacro("GUI is hidden, returning");
+      return;
+      }
+    vtkDebugMacro("OnMRMLSceneNodeAdded: gui is not hidden, got an annotation node added with id " << node->GetID());
+
+    /// check that the annotation was placed on the current acquisition plane
+    /// according to the parameter node
+    vtkMRMLScriptedModuleNode *parameterNode = NULL;
+    vtkMRMLNode *mrmlNode = this->GetMRMLScene()->GetNodeByID(this->GetActiveParameterNodeID());
+    std::string acquisitionSliceViewer;
+    if (mrmlNode)
+      {
+      parameterNode = vtkMRMLScriptedModuleNode::SafeDownCast(mrmlNode);
+      if (parameterNode)
+        {
+        acquisitionSliceViewer = parameterNode->GetParameter("acquisitionSliceViewer");
+        if (acquisitionSliceViewer.compare("") != 0)
           {
-          vtkDebugMacro("OnMRMLSceneNodeAdded: associated volume is not in active report " << (activeReportID ? activeReportID : "null") << ", volume ID is null");
+          std::cout << "Parameter node has acquisition plane = '" << acquisitionSliceViewer.c_str() << "'" << std::endl;
           }
+        }
+      }
+
+    /// check that the annotation has a valid UID
+    std::string UID = this->GetSliceUIDFromMarkUp(vtkMRMLAnnotationNode::SafeDownCast(node));
+    if(UID.compare("NONE") == 0)
+      { 
+      std::string errorMessage;
+      errorMessage = std::string("Newly added markup '");
+      errorMessage += std::string( node->GetName());
+      errorMessage += std::string("' isn't associated with a single UID from a volume. ");
+      std::string userMessage = std::string("Newly added markup was not placed on a single scan plane. ");
+      if (reportNode && reportNode->GetAllowOutOfPlaneMarkups())
+        {
+        errorMessage += std::string("Not using it for this report.");
+        userMessage += std::string("Not using it for this report.");
         }
       else
         {
-        vtkDebugMacro("OnMRMLSceneNodeAdded: no associated node id on scalar volume");
+        errorMessage += std::string("It has been removed.");
+        userMessage += std::string("It has been removed.");
+        this->GetMRMLScene()->RemoveNode(node);
         }
-      }
-    return;
-    }
-  else
-    {
-    return;
-    }
-  // only want to grab annotation nodes if the gui is visible
-  if (this->GetGUIHidden())
-    {
-    vtkDebugMacro("GUI is hidden, returning");
-    return;
-    }
-  vtkDebugMacro("OnMRMLSceneNodeAdded: gui is not hidden, got an annotation node added with id " << node->GetID());
-
-  /// check that the annotation was placed on the current acquisition plane
-  /// according to the parameter node
-  vtkMRMLScriptedModuleNode *parameterNode = NULL;
-  vtkMRMLNode *mrmlNode = this->GetMRMLScene()->GetNodeByID(this->GetActiveParameterNodeID());
-  std::string acquisitionSliceViewer;
-  if (mrmlNode)
-    {
-    parameterNode = vtkMRMLScriptedModuleNode::SafeDownCast(mrmlNode);
-    if (parameterNode)
-      {
-      acquisitionSliceViewer = parameterNode->GetParameter("acquisitionSliceViewer");
-      if (acquisitionSliceViewer.compare("") != 0)
-        {
-        std::cout << "Parameter node has acquisition plane = '" << acquisitionSliceViewer.c_str() << "'" << std::endl;
-        }
-      }
-    }
-
-  vtkMRMLAnnotationNode *annotationNode = vtkMRMLAnnotationNode::SafeDownCast(node);
-
-  /// check that the annotation was placed on the acquisition plane
-  
-  /// check that the annotation has a valid UID
-  std::string UID = this->GetSliceUIDFromMarkUp(annotationNode);
-  if (UID.compare("NONE") == 0)
-    {
-    std::string errorMessage;
-    errorMessage = std::string("Newly added markup '");
-    errorMessage += std::string( annotationNode->GetName());
-    errorMessage += std::string("' isn't associated with a single UID from a volume. ");
-    std::string userMessage = std::string("Newly added markup was not placed on a single scan plane. ");
-    if (reportNode && reportNode->GetAllowOutOfPlaneMarkups())
-      {
-      errorMessage += std::string("Not using it for this report.");
-      userMessage += std::string("Not using it for this report.");
+      vtkDebugMacro(<< errorMessage.c_str());
+      // let the GUI know by invoking an event
+      this->SetErrorMessage(userMessage.c_str());
+      vtkDebugMacro("Logic: Invoking ErrorEvent");
+      this->InvokeEvent(vtkCommand::ErrorEvent, (void *)(userMessage.c_str()));
+      return;
       }
     else
       {
-      errorMessage += std::string("It has been removed.");
-      userMessage += std::string("It has been removed.");
-      this->GetMRMLScene()->RemoveNode(annotationNode);
+      this->SetErrorMessage("");
       }
-    vtkDebugMacro(<< errorMessage.c_str());
-    // let the GUI know by invoking an event
-    this->SetErrorMessage(userMessage.c_str());
-    vtkDebugMacro("Logic: Invoking ErrorEvent");
-    this->InvokeEvent(vtkCommand::ErrorEvent, (void *)(userMessage.c_str()));
-    return;
+    
+    if (fiducialNode)
+      {
+      annotationType = "Fiducial";
+      }
+    if(rulerNode)
+      {
+      annotationType = "Ruler";
+      }
     }
-  else
+
+  // handle new label node
+  if(labelVolumeNode && labelVolumeNode->GetLabelMap())
     {
-    this->SetErrorMessage("");
+    annotationType = "Segmentation";
+
+    const char *associatedNodeID = node->GetAttribute("AssociatedNodeID");
+    if (associatedNodeID)
+      {
+      vtkDebugMacro("OnMRMLSceneNodeAdded: have a label map volume with associated id of " << associatedNodeID);
+      // is that volume under the active report?
+      char *volumeID = NULL;
+      volumeID = this->GetVolumeIDForReportNode(reportNode);
+
+      if (strcmp(volumeID, associatedNodeID) == 0)
+        {
+        // the new label map is associated with the volume in this report,
+        // so add it into the mark up hierarchy
+
+        char *activeMarkupHierarchyID = this->GetActiveMarkupHierarchyID();
+        vtkDebugMacro("OnMRMLSceneNodeAdded: Found active markup for volume " << volumeID << ", it's: " << activeMarkupHierarchyID);
+        // add a 1:1 hierarchy node for the label map
+        vtkMRMLDisplayableHierarchyLogic *hierarchyLogic = vtkMRMLDisplayableHierarchyLogic::New();
+        char *newHierarchyID = hierarchyLogic->AddDisplayableHierarchyNodeForNode(labelVolumeNode);
+        // get the hierarchy node
+        vtkMRMLDisplayableHierarchyNode *newHierarchyNode = vtkMRMLDisplayableHierarchyNode::SafeDownCast(this->GetMRMLScene()->GetNodeByID(newHierarchyID));
+        // set it's parent to the active markup
+        newHierarchyNode->SetParentNodeID(activeMarkupHierarchyID);
+        hierarchyLogic->Delete();
+        }
+      else
+        {
+        vtkDebugMacro("OnMRMLSceneNodeAdded: associated volume " << associatedNodeID << " is not the volume for this report: " << volumeID);
+        }
+      }
+    else
+      {
+      vtkDebugMacro("OnMRMLSceneNodeAdded: no associated node id on scalar volume");
+      }
     }
-  
+
+ 
   /// make a new hierarchy node to create a parallel tree?
-  /// for now, just reasign it
+  /// for now, just reassign it
   vtkMRMLHierarchyNode *hnode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(node->GetScene(), node->GetID());
   if (hnode)
     {
@@ -377,27 +378,24 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     }
 
   // rename it from the reporting node
-  if (annotationNode && reportNode)
+  vtkMRMLColorNode *colorNode = vtkMRMLColorNode::SafeDownCast(this->GetMRMLScene()->GetNodeByID(reportNode->GetColorNodeID()));
+  if(!colorNode)
     {
-    vtkMRMLColorNode *colorNode = vtkMRMLColorNode::SafeDownCast(this->GetMRMLScene()->GetNodeByID(reportNode->GetColorNodeID()));
-    if(!colorNode)
-      {
-      std::cerr << "Failed to get label decription" << std::endl;
-      return;
-      }
-
-    const char *desc = colorNode->GetColorName(reportNode->GetFindingLabel());
-    std::string annotationName;
-    if (desc)
-      {
-      annotationName = std::string(desc)+"_"+annotationType;
-      }
-    else
-      {
-      annotationName = std::string("Report_") + annotationType;
-      }
-    annotationNode->SetName(annotationNode->GetScene()->GetUniqueNameByString(annotationName.c_str()));
+    std::cerr << "Failed to get label decription" << std::endl;
+    return;
     }
+
+  const char *desc = colorNode->GetColorName(reportNode->GetFindingLabel());
+  std::string annotationName;
+  if (desc)
+    {
+    annotationName = std::string(desc)+"_"+annotationType;
+    }
+  else
+    {
+    annotationName = std::string("Report_") + annotationType;
+    }
+  node->SetName(node->GetScene()->GetUniqueNameByString(annotationName.c_str()));
   
   // TODO: sanity check to make sure that the annotation's AssociatedNodeID
   // attribute points to the current volume
@@ -511,6 +509,7 @@ std::string vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotati
     else
       {
       // check if UIDi does not match UID
+      // AF: wouldn't it be better to return the list of UIDs?
       if (UIDi.compare(UID) != 0)
         {
         vtkWarningMacro("GetSliceUIDFromMarkUp: annotation " << cpNode->GetName() << " point " << i << " has a UID of:\n" << UIDi.c_str() << "\nthat doesn't match previous UIDs of:\n" << UID.c_str() << "\n\tReturning UID of NONE");

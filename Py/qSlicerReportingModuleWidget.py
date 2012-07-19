@@ -181,7 +181,7 @@ class qSlicerReportingModuleWidget:
   def exit(self):
     self.updateParametersFromWidget()
 
-    # print "Reporting Exit. Letting logic know that module has been exited"
+    Helper.Debug("Reporting Exit. Letting logic know that module has been exited")
     # let the module logic know that the GUI is hidden, so that fiducials can go elsewehre
     self.__logic.GUIHiddenOn()
     # disconnect observation
@@ -190,9 +190,11 @@ class qSlicerReportingModuleWidget:
   # respond to error events from the logic
   def respondToErrorMessage(self, caller, event):
     errorMessage = self.__logic.GetErrorMessage()
-    Helper.Debug('respondToErrorMessage, event = '+str(event)+', message =\n\t'+errorMessage)
-    errorDialog = qt.QErrorMessage(self.parent)
-    errorDialog.showMessage(errorMessage)
+    Helper.Debug('respondToErrorMessage, event = '+str(event)+', message =\n\t'+str(errorMessage))
+    # popup only if the message is not empty
+    if errorMessage != None:
+      errorDialog = qt.QErrorMessage(self.parent)
+      errorDialog.showMessage(errorMessage)
     
   def onMRMLSceneChanged(self, mrmlScene):
     if mrmlScene != self.__logic.GetMRMLScene():
@@ -234,11 +236,12 @@ class qSlicerReportingModuleWidget:
       # update the report node
       if self.__rNode != None:
         self.__rNode.SetVolumeNodeID(self.__vNode.GetID())
+        self.__rNode.SetName('Report for Volume '+self.__vNode.GetName())
 
       # is it a DICOM volume? check for UID attribute
       uids = self.__vNode.GetAttribute('DICOM.instanceUIDs')
       if uids == "None":
-        Helper.Error("DANGER: volume",self.__vNode.GetName(),"was not loaded as a DICOM volume, will not be able to save your report in AIM XML format")
+        Helper.ErrorPopup("DANGER: volume "+self.__vNode.GetName()+" was not loaded as a DICOM volume, will not be able to save your report in AIM XML format")
 
       Helper.SetBgFgVolumes(self.__vNode.GetID(), '')
       Helper.RotateToVolumePlanes()
