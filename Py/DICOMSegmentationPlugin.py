@@ -47,7 +47,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     for file in files:
 
       print 'DICOM SEG plugin is parsing file ', file
-      uid = slicer.dicomDatabase.fileValue(file, SOPInstanceIUD)
+      uid = slicer.dicomDatabase.fileValue(file, SOPInstanceUID)
       print 'Unparsed uid:', uid
 
       print 'DICOM SEG UID = ', uid
