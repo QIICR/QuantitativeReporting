@@ -251,12 +251,18 @@ class qSlicerReportingModuleWidget:
       #   initialize label selector to show that label
       volumeNodes = slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode')
       volumeNodes.SetReferenceCount(volumeNodes.GetReferenceCount()-1)
+      associatedLabelFound = False
       for i in range(volumeNodes.GetNumberOfItems()):
         vol = volumeNodes.GetItemAsObject(i)
         associatedNodeID = vol.GetAttribute('AssociatedNodeID')
         label = vol.GetAttribute('LabelMap')
         if associatedNodeID == self.__vNode.GetID() and label == '1':
           Helper.SetLabelVolume(vol.GetID())
+          associatedLabelFound = True
+
+      # if there is no associated label node, set the selector to none
+      if associatedLabelFound == False:
+        Helper.SetLabelVolume("")
 
       orientation = Helper.GetScanOrderSliceName(self.__vNode)
       message = "Please place mark ups in the "
