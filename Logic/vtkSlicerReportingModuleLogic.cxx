@@ -1076,9 +1076,13 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   //
   QDomElement person = doc.createElement("person");
 
-  // load up the header information using the volumne's first uid
-  QString uids = volumeNode->GetAttribute("DICOM.instanceUIDs");
-  QString volumeFirstUID = uids.split(" ")[0];
+  // load up the header information using the volume's first uid
+  QString uids, volumeFirstUID;
+  if (volumeNode)
+    {
+    uids = volumeNode->GetAttribute("DICOM.instanceUIDs");
+    volumeFirstUID = uids.split(" ")[0];
+    }
   vtkDebugMacro("Loading instance header from uid " << qPrintable(volumeFirstUID));
   //this->DICOMDatabase->loadInstanceHeader(volumeFirstUID);
 
