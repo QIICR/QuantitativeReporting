@@ -449,3 +449,22 @@ class SlicerReportingModuleWidgetHelper( object ):
           labelNode.SetAttribute('AssociatedNodeID', referenceNode.GetID())
           labelNode.SetAndObserveDisplayNodeID(displayNode.GetID())
           slicer.mrmlScene.AddNode(labelNodes.GetItemAsObject(i))
+
+  '''
+  Check if the geometries of the two volumes match
+  '''
+  @staticmethod
+  def GeometriesMatch(vol1, vol2):
+    # for now, just match the extents of the image data
+    image1 = vol1.GetImageData()
+    image2 = vol2.GetImageData()
+
+    dim1 = image1.GetDimensions()
+    dim2 = image2.GetDimensions()
+
+    print dim1,' ',dim2
+
+    if dim1[0] == dim2[0] and dim1[1] == dim2[1] and dim1[2] == dim2[2]:
+      return True
+
+    return False

@@ -139,6 +139,31 @@ class qSlicerReportingModuleWidget:
         
     markupFrameLayout.addRow(self.__markupTreeView)
 
+    # Editor frame
+    self.__editorFrame = ctk.ctkCollapsibleButton()
+    self.__editorFrame.text = 'Segmentation'
+    self.__editorFrame.collapsed = 0
+    editorFrameLayout = qt.QFormLayout(self.__editorFrame)
+
+    label = qt.QLabel('Segmentation volume: ')
+    self.__segmentationSelector = slicer.qMRMLNodeComboBox()
+    self.__segmentationSelector.nodeTypes = ['vtkMRMLScalarVolumeNode']
+    self.__segmentationSelector.setMRMLScene(slicer.mrmlScene)
+    self.__segmentationSelector.addEnabled = 1
+    self.__segmentationSelector.noneEnabled = 1
+    self.__segmentationSelector.removeEnabled = 0
+    self.__segmentationSelector.showHidden = False
+    self.__segmentationSelector.showChildNodeTypes = False
+    self.__segmentationSelector.selectNodeUponCreation = False
+    self.__segmentationSelector.addAttribute('vtkMRMLScalarVolumeNode','LabelMap',1)
+
+    editorFrameLayout.addRow(label, self.__segmentationSelector)
+
+    self.layout.addWidget(self.__editorFrame)
+
+    self.__segmentationSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onSegmentationNodeChanged)
+    self.__segmentationSelector.connect('mrmlSceneChanged(vtkMRMLScene*)', self.onMRMLSceneChanged)
+
     # Buttons to save/load report using AIM XML serialization
     button = qt.QPushButton('Save Report into AIM format...')
     button.connect('clicked()', self.onReportExport)
@@ -283,6 +308,37 @@ class qSlicerReportingModuleWidget:
       # print "Calling logic to set up hierarchy"
       self.__logic.InitializeHierarchyForVolume(self.__vNode)
       self.updateTreeView()
+
+  def onSegmentationNodeChanged(self):
+    Helper.Debug('onSegmentationNodeChanged()')
+
+    if self.__vNode == None:
+      Helper.Error('Should not be possible to select segmentation unless annotated volume is initialized!')
+      return
+
+    # get the current segmentation (label) node
+    sNode = self.__segmentationSelector.currentNode()
+    if sNode == None:
+      return
+
+    # if it's a new label, it should have/will be added to the report
+    # automatically
+
+    # if it's an existing label, we need to check that the geometry matches
+    # the annotated label geometry, and if so, add it to the hierarchy
+    if Helper.GeometriesMatch(sNode, self.__vNode) == False:
+      Helper.ErrorPopup('The geometry of the segmentation label you attempted to select does not match the geometry of the volume being annotated! Please select a different label or create a new one.')
+      self.__segmentationSelector.currentNode = None
+      return
+
+    # initialize the parameter node of Editor, so that it has the selected
+    # volume and the color node
+
+    # TODO: disable adding new label node to the hierarchy if it was added
+    # outside the reporting module
+
+
+    
 
   def onReportNodeChanged(self):
     Helper.Debug("onReportNodeChanged()")
