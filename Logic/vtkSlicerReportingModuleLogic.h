@@ -122,6 +122,8 @@ public:
 
   vtkMRMLColorNode* GetDefaultColorNode();
 
+  void AddNodeToReport(vtkMRMLNode*);
+
 protected:
   vtkSlicerReportingModuleLogic();
   virtual ~vtkSlicerReportingModuleLogic();

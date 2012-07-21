@@ -468,3 +468,49 @@ class SlicerReportingModuleWidgetHelper( object ):
       return True
 
     return False
+
+  @staticmethod
+  def getEditorParameterNode():
+    """Get the Editor parameter node - a singleton in the scene"""
+    node = None
+    size =  slicer.mrmlScene.GetNumberOfNodesByClass("vtkMRMLScriptedModuleNode")
+    for i in xrange(size):
+      n  = slicer.mrmlScene.GetNthNodeByClass( i, "vtkMRMLScriptedModuleNode" )
+      if n.GetModuleName() == "Editor":
+        node = n
+
+    if not node:
+      node = slicer.vtkMRMLScriptedModuleNode()
+      node.SetSingletonTag( "Editor" )
+      node.SetModuleName( "Editor" )
+      node.SetParameter( "label", "1" )
+      slicer.mrmlScene.AddNode(node)
+    return node
+
+  @staticmethod
+  def initializeNewLabel(newLabel, sourceVolume):    
+    displayNode = slicer.mrmlScene.AddNode(slicer.vtkMRMLLabelMapVolumeDisplayNode())
+
+    threshold = vtk.vtkImageThreshold()
+    threshold.ReplaceInOn()
+    threshold.ReplaceOutOn()
+    threshold.SetInValue(0)
+    threshold.SetOutValue(0)
+    threshold.SetOutputScalarTypeToUnsignedChar()
+    threshold.SetInput(sourceVolume.GetImageData())
+    threshold.Update()
+
+    labelImage = vtk.vtkImageData()
+    labelImage.DeepCopy(threshold.GetOutput())
+    
+    newLabel.SetAndObserveStorageNodeID(None)
+    newLabel.SetLabelMap(1)
+    newLabel.CopyOrientation(sourceVolume)
+    ras2ijk = vtk.vtkMatrix4x4()
+    sourceVolume.GetRASToIJKMatrix(ras2ijk)
+    newLabel.SetRASToIJKMatrix(ras2ijk)
+
+    newLabel.SetAttribute('AssociatedNodeID', sourceVolume.GetID())
+
+    newLabel.SetAndObserveDisplayNodeID(displayNode.GetID())
+    newLabel.SetAndObserveImageData(labelImage)

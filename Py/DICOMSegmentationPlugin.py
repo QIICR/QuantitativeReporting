@@ -29,7 +29,8 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
   def examineFiles(self,files):
 
-    print("DICOMSegmentationPlugin::examine")
+    print("DICOMSegmentationPlugin::examine files: ")    
+    print files
 
     """ Returns a list of DICOMLoadable instances
     corresponding to ways of interpreting the 
@@ -46,16 +47,29 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
     for file in files:
 
-      print 'DICOM SEG plugin is parsing file ', file
-      uid = slicer.dicomDatabase.fileValue(file, SOPInstanceUID)
-      print 'Unparsed uid:', uid
+      slicer.dicomDatabase.loadFileHeader(file)
+      print('DICOM SEG plugin is parsing file '+file)
+      uid = slicer.dicomDatabase.headerValue(SOPInstanceUID)
+      print('Unparsed uid:'+uid)
+      try:
+        uid = uid[uid.index('[')+1:uid.index(']')]
+      except:
+        return []
+      print('DICOM SEG UID = '+uid)
 
-      print 'DICOM SEG UID = ', uid
-      name = slicer.dicomDatabase.fileValue(file, SeriesDescription)
-      if name == "":
+      name = slicer.dicomDatabase.headerValue(SeriesDescription)
+      try:
+        name = name[name.index('[')+1:name.index(']')]
+      except:
         name = "Unknown"
+      print('name = '+name)
 
-      number = slicer.dicomDatabase.fileValue(file, SeriesNumber)
+      number = slicer.dicomDatabase.headerValue(SeriesNumber)
+      try:
+        number = number[number.index('[')+1:number.index(']')]
+      except:
+        number = "Unknown"
+      print('number = '+number)
 
       reportingLogic = None
       try:

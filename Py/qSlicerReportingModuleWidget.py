@@ -154,7 +154,7 @@ class qSlicerReportingModuleWidget:
     self.__segmentationSelector.removeEnabled = 0
     self.__segmentationSelector.showHidden = False
     self.__segmentationSelector.showChildNodeTypes = False
-    self.__segmentationSelector.selectNodeUponCreation = False
+    self.__segmentationSelector.selectNodeUponCreation = True
     self.__segmentationSelector.addAttribute('vtkMRMLScalarVolumeNode','LabelMap',1)
 
     editorFrameLayout.addRow(label, self.__segmentationSelector)
@@ -176,6 +176,8 @@ class qSlicerReportingModuleWidget:
     self.__reportSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.updateWidgets)
     self.__volumeSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.updateWidgets)
     self.updateWidgets()
+
+    self.__editorParameterNode = Helper.getEditorParameterNode()
 
   def enter(self):
     # switch to Two-over-Two layout
@@ -323,22 +325,39 @@ class qSlicerReportingModuleWidget:
 
     # if it's a new label, it should have/will be added to the report
     # automatically
+    image = sNode.GetImageData()
+    if image == None:
+      Helper.initializeNewLabel(sNode, self.__vNode)
+    else:
+      # if it's an existing label, we need to check that the geometry matches
+      # the annotated label geometry, and if so, add it to the hierarchy
+      if Helper.GeometriesMatch(sNode, self.__vNode) == False:
+        Helper.ErrorPopup('The geometry of the segmentation label you attempted to select does not match the geometry of the volume being annotated! Please select a different label or create a new one.')
+        self.__segmentationSelector.currentNode = None
+        return
 
-    # if it's an existing label, we need to check that the geometry matches
-    # the annotated label geometry, and if so, add it to the hierarchy
-    if Helper.GeometriesMatch(sNode, self.__vNode) == False:
-      Helper.ErrorPopup('The geometry of the segmentation label you attempted to select does not match the geometry of the volume being annotated! Please select a different label or create a new one.')
-      self.__segmentationSelector.currentNode = None
-      return
+    # assign the color LUT we use
+    dNode = sNode.GetDisplayNode()
+    dNode.SetAndObserveColorNodeID(self.__defaultColorNode.GetID())
+
+    sNode.SetAttribute('AssociatedNodeID',self.__vNode.GetID())
+    self.__logic.AddNodeToReport(sNode)
+
+    # assign the volume and the selected color to the editor parameter node
+    self.__editorParameterNode.SetParameter('label',str(self.__rNode.GetFindingLabel()))
+    Helper.SetLabelVolume(sNode.GetID())
 
     # initialize the parameter node of Editor, so that it has the selected
     # volume and the color node
+    #editorWidget = slicer.modules.editor.widgetRepresentation()
+    #if editorWidget != None:
+    #  editorWidget.children()[1].children()[1].children()[1].children()[2].currentNode = sNode
+    #  # TODO: find Steve
 
     # TODO: disable adding new label node to the hierarchy if it was added
     # outside the reporting module
 
-
-    
+    self.__segmentationSelector.setCurrentNode(sNode)
 
   def onReportNodeChanged(self):
     Helper.Debug("onReportNodeChanged()")

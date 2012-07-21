@@ -64,7 +64,7 @@ class EditColor(object):
     else:
       self.colorSpin.setValue(1)
 
-    self.colorSpin.setToolTip( "Click colored patch at right to bring up color selection pop up window.  Use the 'c' key to bring up color popup menu." )
+    self.colorSpin.setToolTip( "Click colored patch at right to bring up color selection pop up window." )
     self.frame.layout().addWidget(self.colorSpin)
     self.colorSpin.enabled = 0
 

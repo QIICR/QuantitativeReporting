@@ -206,12 +206,20 @@ void vtkSlicerReportingModuleLogic::UpdateFromMRMLScene()
 }
 
 //---------------------------------------------------------------------------
+void vtkSlicerReportingModuleLogic::AddNodeToReport(vtkMRMLNode* node)
+{
+  this->OnMRMLSceneNodeAdded(node);
+}
+
+//---------------------------------------------------------------------------
 void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
 { 
   if (!node)
     {
     return;
     }
+  std::cout << "New node in Reporting logic: " << node->GetID() << std::endl;
+
   std::string annotationType;
 
   // get the active report
@@ -1084,10 +1092,10 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     volumeFirstUID = uids.split(" ")[0];
     }
   vtkDebugMacro("Loading instance header from uid " << qPrintable(volumeFirstUID));
-  //this->DICOMDatabase->loadInstanceHeader(volumeFirstUID);
+  this->DICOMDatabase->loadInstanceHeader(volumeFirstUID);
 
   // PatientBirthDate and PatientBirthTime
-  QString patientBirthDate = this->DICOMDatabase->instanceValue(volumeFirstUID, "0010,0030");
+  QString patientBirthDate = this->DICOMDatabase->headerValue("0010,0030");
   if (patientBirthDate.size() == 0 ||
       patientBirthDate.contains("(no value available)"))
     {
@@ -1095,14 +1103,16 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     }
   else
     {
+    patientBirthDate = patientBirthDate.split("]")[0].split("[")[1];
     vtkDebugMacro("patientBirthDate = " << qPrintable(patientBirthDate));
     // parse birth date out from YYYYMMDD
     QString fullBirthDate = patientBirthDate.mid(0,4) + QString("-") + patientBirthDate.mid(4,2) + QString("-") + patientBirthDate.mid(6,2);
-    QString patientBirthTime = this->DICOMDatabase->instanceValue(volumeFirstUID, "0010,0032");
+    QString patientBirthTime = this->DICOMDatabase->headerValue("0010,0032");
     QString fullBirthTime = QString("T00:00:00");
     if (patientBirthTime.size() != 0 &&
         !patientBirthTime.contains("(no value available)"))
       {      
+      patientBirthTime = patientBirthTime.split("]")[0].split("[")[1];
       vtkDebugMacro("patientBirthTime = " << qPrintable(patientBirthTime) );
       if (patientBirthTime.size() >= 6)
         {
@@ -1116,7 +1126,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   person.setAttribute("cagridId","0");
   
   // PatientID
-  QString patientID = this->DICOMDatabase->instanceValue(volumeFirstUID, "0010,0020");
+  QString patientID = this->DICOMDatabase->headerValue("0010,0020");
   if (patientID.size() == 0 ||
       patientID.contains("(no value available)"))
     {
@@ -1125,12 +1135,13 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     }
   else
     {
+    patientID = patientID.split("]")[0].split("[")[1];
     person.setAttribute("id",patientID);
     vtkDebugMacro("Patient id = " << qPrintable(patientID) );
     }
 
   // PatientName
-  QString patientName = this->DICOMDatabase->instanceValue(volumeFirstUID, "0010,0010");
+  QString patientName = this->DICOMDatabase->headerValue("0010,0010");
   if (patientName.size() == 0 ||
       patientName.contains("(no value available)"))
     {
@@ -1138,12 +1149,13 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     }
   else
     {
+    patientName = patientName.split("]")[0].split("[")[1];
     vtkDebugMacro("patientName = " << qPrintable(patientName) );
     person.setAttribute("name", patientName);
     }
 
   // PatientSex
-  QString patientSex = this->DICOMDatabase->instanceValue(volumeFirstUID, "0010,0040");
+  QString patientSex = this->DICOMDatabase->headerValue("0010,0040");
   if (patientSex.size() == 0 ||
       patientSex.contains("(no value available)"))
     {
@@ -1151,6 +1163,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     }
   else
     {
+    patientSex = patientSex.split("]")[0].split("[")[1];
     vtkDebugMacro("patientSex = " << qPrintable(patientSex) );
     person.setAttribute("sex", patientSex);
     }
@@ -1717,13 +1730,18 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
 
         vtkMRMLScalarVolumeNode* referenceNode =
                 vtkMRMLScalarVolumeNode::SafeDownCast(this->GetMRMLScene()->GetNodeByID(referenceNodeID.c_str()));
-        referenceNode->GetID();
         if(!referenceNode)
-            return "";
+        {
+          std::cerr << "Label node does not have AssociatedNodeID initialized!" << std::endl;
+          return "";
+        }
 
         const char* uids = referenceNode->GetAttribute("DICOM.instanceUIDs");
         if(!uids)
-            return "";
+        {
+          std::cerr << "Referenced node does not have DICOM.instanceUIDs initialized!" << std::endl;
+          return "";
+        }
 
         {
           std::istringstream iss(uids);
@@ -1740,7 +1758,11 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
     {
         std::string thisReferenceNodeID = labelNode->GetAttribute("AssociatedNodeID");
         if(thisReferenceNodeID != referenceNodeID)
-            return "";
+        {
+          std::cerr << "Label number " << i << " AssociatedNodeID = " << thisReferenceNodeID <<
+            ", while the first label references " << referenceNodeID << std::endl;
+          return "";
+        }
     }
   }
 
