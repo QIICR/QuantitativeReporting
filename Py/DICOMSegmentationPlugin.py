@@ -145,7 +145,7 @@ class DICOMSegmentationPlugin:
     Plugin to the DICOM Module to parse and load DICOM SEG modality.
     No module interface here, only in the DICOM module
     """
-    parent.dependencies = ['Reporting', 'DICOM', 'Colors']
+    parent.dependencies = ['DICOM', 'Colors']
     parent.acknowledgementText = """
     This DICOM Plugin was developed by 
     Andrey Fedorov, BWH.
