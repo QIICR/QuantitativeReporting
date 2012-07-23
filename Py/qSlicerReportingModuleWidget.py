@@ -137,6 +137,8 @@ class qSlicerReportingModuleWidget:
       self.__markupTreeView.sceneModelType = "Displayable"
     self.__markupTreeView.setMRMLScene(self.__logic.GetMRMLScene())
         
+    self.__markupSliceText = qt.QLabel()
+    markupFrameLayout.addRow(self.__markupSliceText)
     markupFrameLayout.addRow(self.__markupTreeView)
 
     # Editor frame
@@ -292,18 +294,14 @@ class qSlicerReportingModuleWidget:
         Helper.SetLabelVolume("")
 
       orientation = Helper.GetScanOrderSliceName(self.__vNode)
-      message = "Please place mark ups in the "
+      message = "Slice viewers to be used for markup: "
       for sliceViewer in orientation:
           message = message + sliceViewer
           if orientation.index(sliceViewer) < (len(orientation) - 1 ):
             message = message + ", "
-      message = message + " slice viewer"
-      if len(orientation) > 1:
-        message = message + "s."
-      else:
-        message = message + "."
       Helper.Debug(message)
-      Helper.InfoPopup(self.parent, "Markup placement", message)
+      self.__markupSliceText.text = message
+
       # take the first one
       self.__parameterNode.SetParameter('acquisitionSliceViewer',orientation[0])
 
