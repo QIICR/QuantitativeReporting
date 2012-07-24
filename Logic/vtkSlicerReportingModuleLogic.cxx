@@ -497,7 +497,7 @@ std::string vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotati
     double ijk[4] = {0.0, 0.0, 0.0, 1.0};
     ras2ijk->MultiplyPoint(ras, ijk);
     vtkDebugMacro("Point " << i << " ras = " << ras[0] << ", " << ras[1] << ", " << ras[2] << " converted to ijk  = " << ijk[0] << ", " << ijk[1] << ", " << ijk[2] << ", getting uid at index " << ijk[2] << " (uid vector size = " << uidVector.size() << ")");
-    unsigned int k = static_cast<unsigned int>(round(ijk[2]));
+    unsigned int k = static_cast<unsigned int>(floor(ijk[2]+0.5));
     vtkDebugMacro("\tusing ijk[2] " << ijk[2] << " as an unsigned int: " << k);
     if (uidVector.size() > k)
       {
