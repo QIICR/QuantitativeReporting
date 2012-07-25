@@ -1522,6 +1522,11 @@ vtkMRMLScalarVolumeNode* vtkSlicerReportingModuleLogic::GetMarkupVolumeNode(vtkM
 
   int numPoints = cpNode->GetNumberOfControlPoints();
   vtkDebugMacro("GetMarkupVolumeNode: have a control points node with " << numPoints << " points");
+  if(!numPoints)
+    {
+    vtkErrorMacro("GetMarkupVolumeNode: Input node has 0 control points!");
+    return 0;
+    }
 
   // get the associated node
   const char *associatedNodeID = cpNode->GetAttribute("AssociatedNodeID");
@@ -2113,12 +2118,17 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
       }
 
     DcmFileFormat fileFormat;
-    DcmDataset *segDataset;
+    DcmDataset *segDataset = NULL;
     OFCondition status = fileFormat.loadFile(segFileName.c_str());
     if(status.good())
       {
       std::cout << "Loaded dataset for " << segFileName << std::endl;
       segDataset = fileFormat.getAndRemoveDataset();
+      }
+    else
+      {
+      std::cout << "Failed to load the dataset for " << instanceUID << std::endl;
+      return false;
       }
 
     // No go if this is not a SEG modality

@@ -60,12 +60,17 @@ int main(int argc, char** argv)
       
     // Step 1: load the input DICOM, find the referenced frames in the DICOM db
     DcmFileFormat fileFormat;
-    DcmDataset *segDataset;
+    DcmDataset *segDataset = NULL;
     OFCondition status = fileFormat.loadFile(argv[1]);
     if(status.good())
       {
       std::cout << "Loaded dataset for " << argv[1] << std::endl;
       segDataset = fileFormat.getAndRemoveDataset();
+      }
+    else
+      {
+      std::cerr << "Failed to read the dataset for " << argv[1] << std::endl;
+      return -1;
       }
  
     // No go if this is not a SEG modality
