@@ -21,12 +21,11 @@
 #include <QtPlugin>
 #include <QtPlugin>
 
-// ExtensionTemplate Logic includes
+// Reporting Logic includes
 #include <vtkSlicerReportingModuleLogic.h>
 
-// ExtensionTemplate includes
+// Reporting includes
 #include "qSlicerReportingModule.h"
-#include "qSlicerReportingModuleWidget.h"
 
 // SlicerQT includes
 #include <qSlicerModuleManager.h>
@@ -38,7 +37,7 @@
 Q_EXPORT_PLUGIN2(qSlicerReportingModule, qSlicerReportingModule);
 
 //-----------------------------------------------------------------------------
-/// \ingroup Slicer_QtModules_ExtensionTemplate
+/// \ingroup Slicer_QtModules_Reporting
 class qSlicerReportingModulePrivate
 {
 public:
