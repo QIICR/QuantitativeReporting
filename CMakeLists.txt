@@ -44,18 +44,14 @@ set(MODULE_INCLUDE_DIRECTORIES
 set(MODULE_SRCS
   qSlicerReportingModule.cxx
   qSlicerReportingModule.h
-  qSlicerReportingModuleWidget.cxx
-  qSlicerReportingModuleWidget.h
   )
 
 set(MODULE_MOC_SRCS
   qSlicerReportingModule.h
-  qSlicerReportingModuleWidget.h
   )
 
 set(MODULE_UI_SRCS
-  Resources/UI/qSlicerReportingModule.ui
-)
+  )
 
 set(MODULE_TARGET_LIBRARIES
   vtkSlicerReportingModuleLogic
