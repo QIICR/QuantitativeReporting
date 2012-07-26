@@ -43,14 +43,14 @@ class qSlicerReportingModuleWidget:
     nNodes = slicer.mrmlScene.GetNumberOfNodesByClass('vtkMRMLScriptedModuleNode')
     for n in xrange(nNodes):
       compNode = slicer.mrmlScene.GetNthNodeByClass(n, 'vtkMRMLScriptedModuleNode')
+      compNode.SetReferenceCount(compNode.GetReferenceCount() - 1)
       nodeid = None
       if compNode.GetModuleName() == 'Reporting':
         self.__parameterNode = compNode
         'Found existing Reporting parameter node'
         break
     if self.__parameterNode == None:
-      self.__parameterNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScriptedModuleNode')
-      self.__parameterNode.SetReferenceCount(self.__parameterNode.GetReferenceCount()-1)
+      self.__parameterNode = slicer.vtkMRMLScriptedModuleNode()
       self.__parameterNode.SetModuleName('Reporting')
       slicer.mrmlScene.AddNode(self.__parameterNode)
 
@@ -407,8 +407,8 @@ class qSlicerReportingModuleWidget:
     Helper.Debug('onReportImport')
 
     # For now, always create a new report node
-    newReport = slicer.mrmlScene.CreateNodeByClass('vtkMRMLReportingReportNode')
-    newReport.SetReferenceCount(newReport.GetReferenceCount()-1)
+    newReport = slicer.modulemrml.vtkMRMLReportingReportNode()
+
     # always use the default color map
     newReport.SetColorNodeID(self.__defaultColorNode.GetID())
 
