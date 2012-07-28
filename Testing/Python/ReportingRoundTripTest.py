@@ -10,7 +10,7 @@ import DICOMLib # for loading a volume on AIM import
 
 from SlicerReportingModuleWidgetHelper import SlicerReportingModuleWidgetHelper as Helper
 
-class ReportingTesting(unittest.TestCase):
+class ReportingRoundTripTest(unittest.TestCase):
   def setUp(self):
     pass
 
