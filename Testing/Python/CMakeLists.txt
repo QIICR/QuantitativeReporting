@@ -20,4 +20,6 @@ configure_file(
 slicer_add_python_unittest(
   SCRIPT ReportingRoundTripTest.py
   SLICER_ARGS --disable-cli-modules
+              --additional-module-path ${CMAKE_BINARY_DIR}/${Slicer_QTLOADABLEMODULES_LIB_DIR}
   )
+
