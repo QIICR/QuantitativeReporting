@@ -134,7 +134,7 @@ bool vtkSlicerReportingModuleLogic::InitializeDICOMDatabase(std::string dbPath)
     this->DICOMDatabase = new ctkDICOMDatabase();
     }
 
-  this->DICOMDatabase->openDatabase(dbPath.c_str());
+  this->DICOMDatabase->openDatabase(dbPath.c_str(), "Reporting.Logic");
   return this->DICOMDatabase->isOpen();
 }
 
@@ -900,7 +900,7 @@ void vtkSlicerReportingModuleLogic::HideAnnotationsForOtherReports(vtkMRMLReport
 //---------------------------------------------------------------------------
 int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *reportNode)
 {
-  if(!this->DICOMDatabase)
+  if(!this->DICOMDatabase || !this->DICOMDatabase->isOpen())
     {
     vtkErrorMacro("SaveReportToAIM: DICOM database not initialized!");
     return EXIT_FAILURE;

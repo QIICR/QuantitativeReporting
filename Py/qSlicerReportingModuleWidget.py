@@ -32,10 +32,12 @@ class qSlicerReportingModuleWidget:
       Helper.ErrorPopup("DICOM Database is not accessible.")
       return
 
+    dbPath = dbPath+"/ctkDICOM.sql"
+
     if self.__logic.InitializeDICOMDatabase(dbPath):
       Helper.Info('DICOM database initialized correctly!')
     else:
-      Helper.Error('Failed to initialize DICOM database!')
+      Helper.Error('Failed to initialize DICOM database at '+dbPath)
 
     if not self.__logic.GetMRMLScene():
       # set the logic's mrml scene
