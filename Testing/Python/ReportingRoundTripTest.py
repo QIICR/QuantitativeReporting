@@ -18,7 +18,7 @@ class ReportingRoundTripTest(unittest.TestCase):
     """
     Test fiducial round trip to and from AIM XML file on disk
     """
-
+    fail
     # enter the module
     mainWindow = slicer.util.mainWindow()
     mainWindow.moduleSelector().selectModule('Reporting')

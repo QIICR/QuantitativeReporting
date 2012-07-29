@@ -1,3 +1,4 @@
+
 #
 # Install test data
 #
@@ -22,4 +23,3 @@ slicer_add_python_unittest(
   SLICER_ARGS --disable-cli-modules
               --additional-module-path ${CMAKE_BINARY_DIR}/${Slicer_QTLOADABLEMODULES_LIB_DIR}
   )
-
