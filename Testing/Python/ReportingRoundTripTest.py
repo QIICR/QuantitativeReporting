@@ -87,20 +87,18 @@ class ReportingRoundTripTest(unittest.TestCase):
       print "ERROR: sample series with id ",seriesUID," not found in database!"
       return
 
-    # get or add a parameter node
-    parameterNode = slicer.mrmlScene.GetNthNodeByClass(0,'vtkMRMLScriptedModuleNode')
-    if (parameterNode == None or parameterNode.GetModuleName() != 'Reporting'):
-      print "Error, scripted module node in scene is not a reporting node, making a new one"
-      parameterNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScriptedModuleNode')
-      parameterNode.SetModuleName('Reporting')
-      slicer.mrmlScene.AddNode(parameterNode)
+    # add a parameter node
+    parameterNode = slicer.vtkMRMLScriptedModuleNode()
+    parameterNode.SetModuleName('Reporting')
+    slicer.mrmlScene.AddNode(parameterNode)
     # set it to be the active parameter node
     l.SetActiveParameterNodeID(parameterNode.GetID())
 
     #
     # create a new report, make it the report in the parameter node, set up hierarchy
     #
-    reportNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLReportingReportNode')
+    reportNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLReportingReportNode")
+    reportNode.SetReferenceCount(reportNode.GetReferenceCount() - 1)
     slicer.mrmlScene.AddNode(reportNode)
     parameterNode.SetParameter("reportID", reportNode.GetID())
     print "Init hierarchy for report node, set parameter node to report id of ",reportNode.GetID()
@@ -189,7 +187,7 @@ class ReportingRoundTripTest(unittest.TestCase):
     #
     # load in the aim file
     #
-    newReport = slicer.mrmlScene.CreateNodeByClass('vtkMRMLReportingReportNode')
+    newReport = slicer.mrmlScene.CreateNodeByClass("vtkMRMLReportingReportNode")
     newReport.SetReferenceCount(newReport.GetReferenceCount()-1)
     # set the default color map
     newReport.SetColorNodeID(colorID)
@@ -201,6 +199,7 @@ class ReportingRoundTripTest(unittest.TestCase):
     # get the fiducial
     endCoords = [0,0,0]
     col = slicer.mrmlScene.GetNodesByClass("vtkMRMLAnnotationFiducialNode")
+    col.SetReferenceCount(col.GetReferenceCount() - 1)
     for c in range(col.GetNumberOfItems()):
       f = col.GetItemAsObject(c)
       if f.GetName() == fidName:
