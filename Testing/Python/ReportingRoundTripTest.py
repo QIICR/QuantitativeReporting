@@ -113,6 +113,7 @@ class ReportingRoundTripTest(unittest.TestCase):
 
     print "Dicom data base = ",ddb
 
+    slicer.dicomDatabase = ddb
     loader = DICOMLib.DICOMLoader(fileList, volName)
     volumeNode = loader.volumeNode
     # print "volumeNode = ",volumeNode
