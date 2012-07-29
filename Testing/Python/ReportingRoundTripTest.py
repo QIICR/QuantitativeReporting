@@ -18,7 +18,6 @@ class ReportingRoundTripTest(unittest.TestCase):
     """
     Test fiducial round trip to and from AIM XML file on disk
     """
-    fail
     # enter the module
     mainWindow = slicer.util.mainWindow()
     mainWindow.moduleSelector().selectModule('Reporting')
@@ -28,7 +27,7 @@ class ReportingRoundTripTest(unittest.TestCase):
 
     # testDataPath = os.path.normpath(os.path.join(os.path.realpath(__file__), "..", "..", "Prototype/TestData/DICOM.CT/")   
     print "Reporting round trip test, current working directory = ",os.getcwd()
-    testDataPath = os.path.join(os.getcwd(),"Testing/Temporary/DICOM.CT")
+    testDataPath = os.path.join(os.getcwd(),"../../Testing/Temporary/DICOM.CT")
     # testDataPath = "/projects/birn/nicole/Slicer4/Reporting/Prototype/TestData/DICOM.CT"
     print "test data path = ",testDataPath
  
