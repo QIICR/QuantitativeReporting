@@ -2283,16 +2283,11 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
 
 vtkMRMLColorNode* vtkSlicerReportingModuleLogic::GetDefaultColorNode()
 {
-  vtkCollection *allColorNodes = this->GetMRMLScene()->GetNodesByClass("vtkMRMLColorNode");
-  vtkMRMLColorNode* defaultColorNode = NULL;
-  for(int i=0;i<allColorNodes->GetNumberOfItems();i++)
+  vtkMRMLColorNode* colorNode = 
+    vtkMRMLColorNode::SafeDownCast(this->GetMRMLScene()->GetNodeByID("vtkMRMLColorTableNodeFileGenericAnatomyColors.txt"));
+  if(colorNode && !strcmp(colorNode->GetName(), "GenericAnatomyColors"))
     {
-    vtkMRMLColorNode *colorNode = vtkMRMLColorNode::SafeDownCast(allColorNodes->GetItemAsObject(i));
-    if(!strcmp(colorNode->GetName(), "GenericAnatomyColors"))
-      {
-      defaultColorNode = colorNode;
-      break;
-      }
+    colorNode = NULL;
     }
-  return defaultColorNode;
+  return colorNode;
 }
