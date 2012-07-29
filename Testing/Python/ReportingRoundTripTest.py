@@ -163,7 +163,7 @@ class ReportingRoundTripTest(unittest.TestCase):
     aimFileName = slicer.app.slicerHome + '/Testing/Temporary/ReportingRoundTripTest.xml'
     reportNode.SetAIMFileName(aimFileName)
     # set the color id
-    colorID = slicer.mrmlScene.GetNodesByName("GenericAnatomyColors").GetItemAsObject(0).GetID()
+    colorID = 'vtkMRMLColorTableNodeFileGenericAnatomyColors.txt'
     reportNode.SetColorNodeID(colorID)
 
     print "Saving report to file ",aimFileName
