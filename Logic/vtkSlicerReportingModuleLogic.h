@@ -91,7 +91,7 @@ public:
   /// Save report to AIM file, returns 1 on success, 0 on failure
   int SaveReportToAIM(vtkMRMLReportingReportNode *reportNode);
 
-  bool InitializeDICOMDatabase();
+  bool InitializeDICOMDatabase(std::string dbLocation);
 
   // set/get the currently active parameter node
   vtkGetStringMacro(ActiveParameterNodeID);

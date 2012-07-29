@@ -25,7 +25,14 @@ class qSlicerReportingModuleWidget:
       # create a new instance
       self.__logic = slicer.modulelogic.vtkSlicerReportingModuleLogic()
 
-    if self.__logic.InitializeDICOMDatabase():
+    # Get the location and initialize the DICOM DB
+    settings = qt.QSettings()
+    dbPath = settings.value("DatabaseDirectory","")
+    if dbPath == "":
+      Helper.ErrorPopup("DICOM Database is not accessible.")
+      return
+
+    if self.__logic.InitializeDICOMDatabase(dbPath):
       Helper.Info('DICOM database initialized correctly!')
     else:
       Helper.Error('Failed to initialize DICOM database!')

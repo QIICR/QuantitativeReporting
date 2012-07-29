@@ -87,8 +87,6 @@ vtkSlicerReportingModuleLogic::vtkSlicerReportingModuleLogic()
   this->DICOMDatabase = NULL;
   this->GUIHidden = 1;
 
-  this->InitializeDICOMDatabase();
-
   vtkDebugMacro("********* vtkSlicerReportingModuleLogic Constructor **********");
 }
 
@@ -125,32 +123,19 @@ void vtkSlicerReportingModuleLogic::PrintSelf(ostream& os, vtkIndent indent)
 }
 
 //---------------------------------------------------------------------------
-bool vtkSlicerReportingModuleLogic::InitializeDICOMDatabase()
+bool vtkSlicerReportingModuleLogic::InitializeDICOMDatabase(std::string dbPath)
 {
   if(this->DICOMDatabase)
-    return true; // database has already been initialized
-
-  QSettings settings;
-  QString dbPath = settings.value("DatabaseDirectory","").toString();
-  if (dbPath.compare("") == 0)
     {
-    dbPath = QString("/projects/igtdev/nicole/LocalDCMDB");
-    vtkWarningMacro("InitializeDICOMDatabase: no DatabaseDirectory path found, please update the settings.\nUsing " << qPrintable(dbPath));
+    this->DICOMDatabase->closeDatabase();
     }
-  vtkDebugMacro("Reporting will use database at this location: '" << dbPath.toLatin1().data() << "'");
-
-  bool success = false;
-
-  if(dbPath != "")
+  else
     {
     this->DICOMDatabase = new ctkDICOMDatabase();
-    this->DICOMDatabase->openDatabase(dbPath+"/ctkDICOM.sql","Reporting");
-    success = this->DICOMDatabase->isOpen();
-    //QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
-    //db.setDatabaseName(dbPath+"/ctkDICOM.sql");
-    //success = db.open();
     }
-  return success;
+
+  this->DICOMDatabase->openDatabase(dbPath.c_str());
+  return this->DICOMDatabase->isOpen();
 }
 
 //---------------------------------------------------------------------------

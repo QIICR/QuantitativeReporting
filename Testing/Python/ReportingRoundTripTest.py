@@ -51,6 +51,8 @@ class ReportingRoundTripTest(unittest.TestCase):
       print "ERROR: failed to init database"
       return
 
+    l.InitializeDICOMDatabase(dbpath)
+
     testFileNames = []
     for n in [487, 488, 489]:
       filename = os.path.join(testDataPath, "instance_" + str(n) + ".dcm")
@@ -87,7 +89,7 @@ class ReportingRoundTripTest(unittest.TestCase):
 
     # get or add a parameter node
     parameterNode = slicer.mrmlScene.GetNthNodeByClass(0,'vtkMRMLScriptedModuleNode')
-    if (parameterNode.GetModuleName() != 'Reporting'):
+    if (parameterNode == None or parameterNode.GetModuleName() != 'Reporting'):
       print "Error, scripted module node in scene is not a reporting node, making a new one"
       parameterNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScriptedModuleNode')
       parameterNode.SetModuleName('Reporting')
