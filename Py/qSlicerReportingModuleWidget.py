@@ -29,15 +29,14 @@ class qSlicerReportingModuleWidget:
     settings = qt.QSettings()
     dbPath = settings.value("DatabaseDirectory","")
     if dbPath == "":
-      Helper.ErrorPopup("DICOM Database is not accessible.")
-      return
-
-    dbPath = dbPath+"/ctkDICOM.sql"
-
-    if self.__logic.InitializeDICOMDatabase(dbPath):
-      Helper.Info('DICOM database initialized correctly!')
+      Helper.Warning("DICOM Database is not accessible.")
     else:
-      Helper.Error('Failed to initialize DICOM database at '+dbPath)
+      dbPath = dbPath+"/ctkDICOM.sql"
+
+      if self.__logic.InitializeDICOMDatabase(dbPath):
+        Helper.Info('DICOM database initialized correctly!')
+      else:
+        Helper.Error('Failed to initialize DICOM database at '+dbPath)
 
     if not self.__logic.GetMRMLScene():
       # set the logic's mrml scene
