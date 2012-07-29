@@ -22,9 +22,9 @@ class SlicerReportingModuleWidgetHelper( object ):
     sys.stdout.flush()
 
   @staticmethod
-  def InfoPopup(parent, title, message):
+  def InfoPopup(message):
     messageBox = qt.QMessageBox()
-    messageBox.information(parent, title, message)
+    messageBox.information(None, '', message)
 
   @staticmethod
   def Warning( message ):
@@ -32,9 +32,9 @@ class SlicerReportingModuleWidgetHelper( object ):
     sys.stdout.flush()
   
   @staticmethod
-  def WarningPopup(parent, title, message):
+  def WarningPopup(message):
     messageBox = qt.QMessageBox()
-    messageBox.warning(parent, title, message)
+    messageBox.warning(None, '', message)
 
   @staticmethod
   def Error( message ):
@@ -42,9 +42,9 @@ class SlicerReportingModuleWidgetHelper( object ):
     sys.stdout.flush()
   
   @staticmethod
-  def ErrorPopup(parent, title, message):
+  def ErrorPopup(message):
     messageBox = qt.QMessageBox()
-    messageBox.critical(parent, title, message)
+    messageBox.critical(None, '', message)
 
   @staticmethod
   def Debug( message ):
@@ -255,7 +255,7 @@ class SlicerReportingModuleWidgetHelper( object ):
       scalarVolumePlugin = slicer.modules.dicomPlugins['DICOMScalarVolumePlugin']()
       scalarVolumeLoadables = scalarVolumePlugin.examine([filelist])
       if len(scalarVolumeLoadables) == 0:
-        SlicerReportingModuleWidgetHelper.ErrorPopup(self.parent, 'Error loading AIM', 'Failed to load the volume node reference in the file')
+        SlicerReportingModuleWidgetHelper.ErrorPopup('Error loading AIM: Failed to load the volume node reference in the file')
 
       volumeName = scalarVolumeLoadables[0].name
       newReport.SetName('Report for Volume '+volumeName)
@@ -268,7 +268,7 @@ class SlicerReportingModuleWidgetHelper( object ):
         return
 
       if len(volumeList) != 0:
-        SlicerReportingModuleWidgetHelper.ErrorPopup(self.parent, 'Error importing AIM report', 'Report references more than one volume, which is not allowed!')
+        SlicerReportingModuleWidgetHelper.ErrorPopup('Error importing AIM report: Report references more than one volume, which is not allowed!')
         return
 
       volumeList.append(volume)
