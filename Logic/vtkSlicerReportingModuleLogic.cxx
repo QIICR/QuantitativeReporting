@@ -1965,9 +1965,10 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
   dataset->findOrCreateSequenceItem(DCM_SharedFunctionalGroupsSequence, Item);
   Item->findOrCreateSequenceItem(DCM_DerivationImageSequence, subItem);
   const unsigned long itemNum = extent[5];
-  if(itemNum != dcmDatasetVector.size())
+  if(itemNum+1 != dcmDatasetVector.size())
     {
-    std::cerr << "Number of slices does not match the number of DcmDatasets!" << std::endl;
+    std::cerr << "Number of slices " << extent[5] << " does not match the number of DcmDatasets " 
+      << dcmDatasetVector.size() << "!" << std::endl;
     return "";
     }
 
