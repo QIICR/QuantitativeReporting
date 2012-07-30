@@ -31,7 +31,7 @@ class qSlicerReportingModuleWidget:
     if self.__dbFileName == "":
       Helper.Warning("DICOM Database is not accessible.")
     else:
-      self.__dbFileName = dbFileName+"/ctkDICOM.sql"
+      self.__dbFileName = self.__dbFileName+"/ctkDICOM.sql"
 
       if self.__logic.InitializeDICOMDatabase(self.__dbFileName):
         Helper.Info('DICOM database initialized correctly!')
