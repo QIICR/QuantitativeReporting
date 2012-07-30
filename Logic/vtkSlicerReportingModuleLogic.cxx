@@ -1665,15 +1665,15 @@ const char *vtkSlicerReportingModuleLogic::GetActiveReportHierarchyID()
     return NULL;
     }
 
-  const char *reportID = parameterNode->GetParameter("reportID").c_str();
-  if (!reportID)
+  std::string reportID = parameterNode->GetParameter("reportID");
+  if (reportID == "")
     {
     vtkErrorMacro("GetActiveReportHierarchyID: no parameter reportID on node with id " << parameterNode->GetID());
     return NULL;
     }
 
   // get the hierarchy associated with this report
-  vtkMRMLHierarchyNode *hnode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(parameterNode->GetScene(), reportID);
+  vtkMRMLHierarchyNode *hnode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(parameterNode->GetScene(), reportID.c_str());
   if (hnode)
     {
     vtkDebugMacro("Returning hierarchy node for report, with id " << hnode->GetID());
