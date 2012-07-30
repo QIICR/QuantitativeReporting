@@ -2001,7 +2001,7 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
   subItem2->putAndInsertString(DCM_CodingSchemeDesignator, "DCM");
   subItem2->putAndInsertString(DCM_CodeMeaning, "Segmentation");
 
-  char pixelSpacingStr[16], sliceThicknessStr[16];
+  char pixelSpacingStr[16*2+1], sliceThicknessStr[16];
   {
     char *str;
     DcmElement *element;
