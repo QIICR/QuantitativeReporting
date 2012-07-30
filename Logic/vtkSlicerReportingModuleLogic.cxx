@@ -243,8 +243,6 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
   vtkMRMLAnnotationRulerNode *rulerNode = vtkMRMLAnnotationRulerNode::SafeDownCast(node);
   vtkMRMLScalarVolumeNode *labelVolumeNode = vtkMRMLScalarVolumeNode::SafeDownCast(node);
 
-  std::cerr << "Before checking type" << std::endl;
-
   if(!fiducialNode && !rulerNode && !labelVolumeNode)
     {
     // the node added should be ignored
@@ -327,7 +325,6 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
   // handle new label node
   if(labelVolumeNode && labelVolumeNode->GetLabelMap())
     {
-    std::cerr << "It's a segmentation" << std::endl;
     annotationType = "Segmentation";
 
     const char *associatedNodeID = node->GetAttribute("AssociatedNodeID");
@@ -368,7 +365,6 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
  
   /// make a new hierarchy node to create a parallel tree?
   /// for now, just reassign it
-  std::cerr << "Assigning hierarchy node" << std::endl;
   vtkMRMLHierarchyNode *hnode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(node->GetScene(), node->GetID());
   if (hnode)
     {
@@ -394,7 +390,6 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     annotationName = std::string("Report_") + annotationType;
     }
   node->SetName(node->GetScene()->GetUniqueNameByString(annotationName.c_str()));
-  std::cerr << "OnNewMRMLNode -- normal exit" << std::endl;
   // TODO: sanity check to make sure that the annotation's AssociatedNodeID
   // attribute points to the current volume
 }
@@ -1266,7 +1261,6 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
         }
       else if(labelNode)
         {
-          std::cerr << "Label node in hieararchy" << std::endl;
           labelNodeCollection->AddItem(labelNode);
         }
       else
