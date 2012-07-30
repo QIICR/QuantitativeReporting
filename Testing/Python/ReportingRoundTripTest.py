@@ -10,6 +10,8 @@ import DICOMLib # for loading a volume on AIM import
 
 from SlicerReportingModuleWidgetHelper import SlicerReportingModuleWidgetHelper as Helper
 
+initializedSegmentationVoxels = [10, 23, 44, 123]
+
 class ReportingRoundTripTest(unittest.TestCase):
   def setUp(self):
     pass
@@ -24,6 +26,7 @@ class ReportingRoundTripTest(unittest.TestCase):
 
     # l = slicer.modulelogic.vtkSlicerReportingModuleLogic()
     l = slicer.modules.reporting.logic() 
+    l.GUIHiddenOff()
 
     # testDataPath = os.path.normpath(os.path.join(os.path.realpath(__file__), "..", "..", "Prototype/TestData/DICOM.CT/")   
     print "Reporting round trip test, current working directory = ",os.getcwd()
@@ -99,6 +102,12 @@ class ReportingRoundTripTest(unittest.TestCase):
     #
     reportNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLReportingReportNode")
     reportNode.SetReferenceCount(reportNode.GetReferenceCount() - 1)
+    
+    # set the color id
+    colorID = 'vtkMRMLColorTableNodeFileGenericAnatomyColors.txt'
+    reportNode.SetColorNodeID(colorID)
+    reportNode.SetDICOMDatabaseFileName(dbpath)
+
     slicer.mrmlScene.AddNode(reportNode)
     parameterNode.SetParameter("reportID", reportNode.GetID())
     print "Init hierarchy for report node, set parameter node to report id of ",reportNode.GetID()
@@ -153,6 +162,29 @@ class ReportingRoundTripTest(unittest.TestCase):
     uid = l.GetSliceUIDFromMarkUp(fidNode)
     print "fidNode uid = ",uid
 
+    #
+    # create a label volume
+    #
+    volumesLogic = slicer.modules.volumes.logic()
+    labelNode = volumesLogic.CreateLabelVolume(slicer.mrmlScene, volumeNode, "Segmentation")
+    labelDisplayNode = labelNode.GetDisplayNode()
+    labelDisplayNode.SetAndObserveColorNodeID('vtkMRMLColorTableNodeFileGenericAnatomyColors.txt')
+    l.AddNodeToReport(labelNode)
+
+    # initialize image content
+    labelImage = labelNode.GetImageData()
+    extent = labelImage.GetExtent()
+    pixelCounter = 0
+    for k in range(extent[5]):
+      for j in range(extent[3]):
+        for i in range(extent[1]):
+          if pixelCounter in initializedSegmentationVoxels:
+            labelImage.SetScalarComponentFromFloat(i,j,k,0,1)
+          else:
+            labelImage.SetScalarComponentFromFloat(i,j,k,0,0)
+          pixelCounter = pixelCounter + 1
+
+
     # test save to mrml
     # slicer.mrmlScene.SetURL('/spl/tmp/nicole/Testing/aim/RoundTripTest.mrml')
     # slicer.mrmlScene.Commit()
@@ -162,9 +194,6 @@ class ReportingRoundTripTest(unittest.TestCase):
     #
     aimFileName = slicer.app.slicerHome + '/Testing/Temporary/ReportingRoundTripTest.xml'
     reportNode.SetAIMFileName(aimFileName)
-    # set the color id
-    colorID = 'vtkMRMLColorTableNodeFileGenericAnatomyColors.txt'
-    reportNode.SetColorNodeID(colorID)
 
     print "Saving report to file ",aimFileName
     retval = l.SaveReportToAIM(reportNode)
@@ -191,20 +220,26 @@ class ReportingRoundTripTest(unittest.TestCase):
     newReport.SetReferenceCount(newReport.GetReferenceCount()-1)
     # set the default color map
     newReport.SetColorNodeID(colorID)
+    newReport.SetDICOMDatabaseFileName(dbpath)
     slicer.mrmlScene.AddNode(newReport)
     parameterNode.SetParameter("reportID", newReport.GetID())
 
     Helper.LoadAIMFile(newReport,aimFileName)
 
-    # get the fiducial
+    # check the fiducial
     endCoords = [0,0,0]
     col = slicer.mrmlScene.GetNodesByClass("vtkMRMLAnnotationFiducialNode")
     col.SetReferenceCount(col.GetReferenceCount() - 1)
-    for c in range(col.GetNumberOfItems()):
-      f = col.GetItemAsObject(c)
-      if f.GetName() == fidName:
-        print "Found original fiducial with name", f.GetName()
-        f.GetFiducialCoordinates(endCoords)
+
+    # if the scene is not cleared, we should have 2 fiducials
+    nFiducials = col.GetNumberOfItems()
+
+    if nFiducials != 2:
+      print "Failed to read fiducial form the saved report!"
+      self.assertTrue(False)
+    
+    f = col.GetItemAsObject(1)
+    f.GetFiducialCoordinates(endCoords)
 
     print "Start Coords = ",startCoords[0],startCoords[1],startCoords[2]
     print "End Coords = ",endCoords
@@ -216,8 +251,41 @@ class ReportingRoundTripTest(unittest.TestCase):
 
     print "Difference between coordinates after loaded the aim file and value from before stored the aim file: ", xdiff, ydiff, zdiff,". Total difference = ",diffTotal
 
-    if diffTotal < 0.1:
-      pass
-    else:
-      fail
+    if diffTotal > 0.1:
+      print "Fiducial coordinates error exceeds the allowed bounds"
+      self.assertTrue(False)
+
+
+    # check the label node
+    sceneVolumes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
+    sceneVolumes.SetReferenceCount(sceneVolumes.GetReferenceCount() - 1)
+
+    sceneLabels = []
+
+    for i in range(sceneVolumes.GetNumberOfItems()):
+      vol = sceneVolumes.GetItemAsObject(i)
+      if vol.GetLabelMap():
+        sceneLabels.append(vol)
+
+    if len(sceneLabels) != 2:
+      print "Scene does not have two label nodes after reloading from AIM!"
+      self.assertTrue(False)
+
+    newLabelNode = sceneLabels[1]
+    newLabelImage = newLabelNode.GetImageData()
+    extent = newLabelImage.GetExtent()
+    pixelCounter = 0
+    for k in range(extent[5]):
+      for j in range(extent[3]):
+        for i in range(extent[1]):
+          pixel = newLabelImage.GetScalarComponentAsFloat(i,j,k,0)
+          if ((pixelCounter in initializedSegmentationVoxels) and pixel != 1) or (not(pixelCounter in initializedSegmentationVoxels) and pixel != 0):
+            print "Segmentation content not recovered correctly!"
+            print "Pixel counter ",pixelCounter," is set to ",pixel
+            self.assertTrue(False)
+          pixelCounter = pixelCounter + 1
+
+    self.assertTrue(True)
+
+
 

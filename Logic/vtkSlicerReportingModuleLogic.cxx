@@ -234,7 +234,7 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     }
   if(!this->GetActiveMarkupHierarchyID())
     {
-     vtkErrorMacro("OnMRMLSceneNodeAdded: No active markup hierarchy id, failed to set up hierarchy for volume. Exiting");
+     vtkDebugMacro("OnMRMLSceneNodeAdded: No active markup hierarchy id, failed to set up hierarchy for volume. Exiting");
      return;
     }
 
@@ -243,9 +243,12 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
   vtkMRMLAnnotationRulerNode *rulerNode = vtkMRMLAnnotationRulerNode::SafeDownCast(node);
   vtkMRMLScalarVolumeNode *labelVolumeNode = vtkMRMLScalarVolumeNode::SafeDownCast(node);
 
+  std::cerr << "Before checking type" << std::endl;
+
   if(!fiducialNode && !rulerNode && !labelVolumeNode)
     {
     // the node added should be ignored
+    std::cout << "The node will be ignored, unsupported type" << std::endl;
     return;
     }
   
@@ -256,7 +259,7 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     // only want to grab annotation nodes if the gui is visible
     if (this->GetGUIHidden())
       {
-      vtkDebugMacro("GUI is hidden, returning");
+      std::cerr << "GUI is hidden, returning" << std::endl;
       return;
       }
     vtkDebugMacro("OnMRMLSceneNodeAdded: gui is not hidden, got an annotation node added with id " << node->GetID());
@@ -324,6 +327,7 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
   // handle new label node
   if(labelVolumeNode && labelVolumeNode->GetLabelMap())
     {
+    std::cerr << "It's a segmentation" << std::endl;
     annotationType = "Segmentation";
 
     const char *associatedNodeID = node->GetAttribute("AssociatedNodeID");
@@ -364,6 +368,7 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
  
   /// make a new hierarchy node to create a parallel tree?
   /// for now, just reassign it
+  std::cerr << "Assigning hierarchy node" << std::endl;
   vtkMRMLHierarchyNode *hnode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(node->GetScene(), node->GetID());
   if (hnode)
     {
@@ -389,7 +394,7 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     annotationName = std::string("Report_") + annotationType;
     }
   node->SetName(node->GetScene()->GetUniqueNameByString(annotationName.c_str()));
-  
+  std::cerr << "OnNewMRMLNode -- normal exit" << std::endl;
   // TODO: sanity check to make sure that the annotation's AssociatedNodeID
   // attribute points to the current volume
 }
@@ -1261,6 +1266,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
         }
       else if(labelNode)
         {
+          std::cerr << "Label node in hieararchy" << std::endl;
           labelNodeCollection->AddItem(labelNode);
         }
       else
@@ -1276,10 +1282,11 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     // save the SEG object, add it to the database, get the UIDs
     //   and initialize the corresponding element in AIM
     QSettings settings;
-    std::string dbPath = settings.value("DatabaseDirectory","").toString().toLatin1().data();
-    if(dbPath != "")
+    std::string dbFileName = reportNode->GetDICOMDatabaseFileName();
+    
+    if(dbFileName != "")
       {
-      std::string dicomIncomingDir = dbPath+"/incoming";
+      std::string dicomIncomingDir = dbFileName.substr(0, dbFileName.rfind('/'))+"/incoming";
       
       // the incoming directory may not exist
       if(!QDir(dicomIncomingDir.c_str()).exists())
@@ -1321,7 +1328,19 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
           segDom.setAttribute("segmentNumber","1");
           root.appendChild(segDom);
           }
+        else
+          {
+          std::cout << "Failed to load the created SEG object" << std::endl;
+          }
         }
+      else
+        {
+        std::cout << "DicomSegWrite() did not return a valid file name for the SEG object" << std::endl;
+        }
+      }
+    else
+      {
+      std::cout << "DICOM DB path is not initialized, cannot create SEG object" << std::endl;
       }
     }
 

@@ -34,6 +34,7 @@ vtkMRMLReportingReportNode::vtkMRMLReportingReportNode()
   this->FindingLabel = 1;
   this->AIMFileName = "";
   this->AllowOutOfPlaneMarkups = 0;
+  this->DICOMDatabaseFileName = "";
 }
 
 //----------------------------------------------------------------------------
@@ -74,6 +75,10 @@ void vtkMRMLReportingReportNode::ReadXMLAttributes(const char** atts)
       {
       this->SetAIMFileName(attValue);
       }
+    else if(!strcmp(attName, "DICOMDatabaseFileName"))
+      {
+      this->SetDICOMDatabaseFileName(attValue);
+      }
     else if (!strcmp(attName, "AllowOutOfPlaneMarkups"))
       {
       if (!strcmp(attValue,"true"))
@@ -101,6 +106,7 @@ void vtkMRMLReportingReportNode::WriteXML(ostream& of, int nIndent)
   of << indent << " ColorNodeID=\"" << this->ColorNodeID << "\"";
   of << indent << " AIMFileName=\"" << this->AIMFileName << "\"";
   of << indent << " AllowOutOfPlaneMarkups=\"" << (this->AllowOutOfPlaneMarkups ? "true" : "false") << "\"";
+  of << indent << " DICOMDatabaseFileName=\"" << this->DICOMDatabaseFileName << std::endl;
 }
 
 //----------------------------------------------------------------------------
@@ -120,6 +126,7 @@ void vtkMRMLReportingReportNode::Copy(vtkMRMLNode *anode)
     this->SetColorNodeID(node->GetColorNodeID());
     this->SetAIMFileName(node->GetAIMFileName());
     this->SetAllowOutOfPlaneMarkups(node->GetAllowOutOfPlaneMarkups());
+    this->SetDICOMDatabaseFileName(node->GetDICOMDatabaseFileName());
     }
   
   this->EndModify(disabledModify);
@@ -135,6 +142,7 @@ void vtkMRMLReportingReportNode::PrintSelf(ostream& os, vtkIndent indent)
   os << indent << "ColorNodeID: " << this->ColorNodeID << "\n";
   os << indent << "AIMFileName: " << this->AIMFileName << "\n";
   os << indent << "AllowOutOfPlaneMarkups: " << this->AllowOutOfPlaneMarkups << "\n";
+  os << indent << "DICOMDatabaseFileName: " << this->DICOMDatabaseFileName << "\n";
 }
 
 //----------------------------------------------------------------------------
@@ -171,4 +179,16 @@ void vtkMRMLReportingReportNode::SetAIMFileName(std::string fname)
 std::string vtkMRMLReportingReportNode::GetAIMFileName()
 {
   return this->AIMFileName;
+}
+
+//----------------------------------------------------------------------------
+void vtkMRMLReportingReportNode::SetDICOMDatabaseFileName(std::string fname)
+{
+  this->DICOMDatabaseFileName = fname;
+}
+
+//----------------------------------------------------------------------------
+std::string vtkMRMLReportingReportNode::GetDICOMDatabaseFileName()
+{
+  return this->DICOMDatabaseFileName;
 }

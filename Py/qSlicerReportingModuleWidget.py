@@ -27,16 +27,16 @@ class qSlicerReportingModuleWidget:
 
     # Get the location and initialize the DICOM DB
     settings = qt.QSettings()
-    dbPath = settings.value("DatabaseDirectory","")
-    if dbPath == "":
+    self.__dbFileName = settings.value("DatabaseDirectory","")
+    if dbFileName == "":
       Helper.Warning("DICOM Database is not accessible.")
     else:
-      dbPath = dbPath+"/ctkDICOM.sql"
+      self.__dbFileName = dbFileName+"/ctkDICOM.sql"
 
-      if self.__logic.InitializeDICOMDatabase(dbPath):
+      if self.__logic.InitializeDICOMDatabase(self.__dbFileName):
         Helper.Info('DICOM database initialized correctly!')
       else:
-        Helper.Error('Failed to initialize DICOM database at '+dbPath)
+        Helper.Error('Failed to initialize DICOM database at '+self.__dbFileName)
 
     if not self.__logic.GetMRMLScene():
       # set the logic's mrml scene
@@ -377,6 +377,9 @@ class qSlicerReportingModuleWidget:
     self.__vNode = None
     self.__volumeSelector.setCurrentNode(None)
     if self.__rNode != None:
+
+      if self.__rNode.GetDICOMDatabaseFileName() == "":
+        self.__rNode.SetDICOMDatabaseFileName(self.__dbFileName)
 
       self.__parameterNode.SetParameter('reportID', self.__rNode.GetID())
 

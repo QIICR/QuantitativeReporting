@@ -73,6 +73,9 @@ class VTK_SLICER_REPORTING_MODULE_MRML_EXPORT vtkMRMLReportingReportNode : publi
   std::string GetAIMFileName();
   void SetAIMFileName(std::string);
 
+  std::string GetDICOMDatabaseFileName();
+  void SetDICOMDatabaseFileName(std::string);
+
   vtkBooleanMacro(AllowOutOfPlaneMarkups, int);
   vtkGetMacro(AllowOutOfPlaneMarkups, int);
   vtkSetMacro(AllowOutOfPlaneMarkups, int);
@@ -91,6 +94,8 @@ protected:
   std::string ColorNodeID;
   /// XML file that will be used for serialization in AIM format
   std::string AIMFileName; 
+
+  std::string DICOMDatabaseFileName;
 
   /// Default 0, don't allow users to place annotations out of or spanning
   /// scan acquisition planes. If 1, warn the user, if 0, delete the
