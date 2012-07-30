@@ -2285,7 +2285,7 @@ vtkMRMLColorNode* vtkSlicerReportingModuleLogic::GetDefaultColorNode()
 {
   vtkMRMLColorNode* colorNode = 
     vtkMRMLColorNode::SafeDownCast(this->GetMRMLScene()->GetNodeByID("vtkMRMLColorTableNodeFileGenericAnatomyColors.txt"));
-  if(colorNode && !strcmp(colorNode->GetName(), "GenericAnatomyColors"))
+  if(colorNode && strcmp(colorNode->GetName(), "GenericAnatomyColors"))
     {
     colorNode = NULL;
     }
