@@ -28,7 +28,7 @@ class qSlicerReportingModuleWidget:
     # Get the location and initialize the DICOM DB
     settings = qt.QSettings()
     self.__dbFileName = settings.value("DatabaseDirectory","")
-    if dbFileName == "":
+    if self.__dbFileName == "":
       Helper.Warning("DICOM Database is not accessible.")
     else:
       self.__dbFileName = dbFileName+"/ctkDICOM.sql"
