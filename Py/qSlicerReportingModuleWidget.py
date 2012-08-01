@@ -2,6 +2,7 @@ from __main__ import vtk, qt, ctk, slicer
 
 from SlicerReportingModuleWidgetHelper import SlicerReportingModuleWidgetHelper as Helper
 from EditColor import *
+from Editor import EditorWidget
 
 EXIT_SUCCESS=0
 
@@ -168,6 +169,9 @@ class qSlicerReportingModuleWidget:
     self.__segmentationSelector.addAttribute('vtkMRMLScalarVolumeNode','LabelMap',1)
 
     editorFrameLayout.addRow(label, self.__segmentationSelector)
+
+    editorWidget = EditorWidget(parent=editorFrameLayout)
+    editorFrameLayout.addRow(editorWidget)
 
     self.layout.addWidget(self.__editorFrame)
 
