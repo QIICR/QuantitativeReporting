@@ -1965,6 +1965,13 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
   dataset->findOrCreateSequenceItem(DCM_SharedFunctionalGroupsSequence, Item);
   Item->findOrCreateSequenceItem(DCM_DerivationImageSequence, subItem);
   const unsigned long itemNum = extent[5];
+  if(itemNum+1 != dcmDatasetVector.size())
+    {
+    std::cerr << "Number of slices " << extent[5] << " does not match the number of DcmDatasets " 
+      << dcmDatasetVector.size() << "!" << std::endl;
+    return "";
+    }
+
   for(unsigned i=0;i<itemNum+1;i++)
     {
 
@@ -1987,12 +1994,14 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
 
     }
 
+
+  std::cout << "Before initializing DerivationCodeSequence" << std::endl;
   subItem->findOrCreateSequenceItem(DCM_DerivationCodeSequence, subItem2);
   subItem2->putAndInsertString(DCM_CodeValue, "113076");
   subItem2->putAndInsertString(DCM_CodingSchemeDesignator, "DCM");
   subItem2->putAndInsertString(DCM_CodeMeaning, "Segmentation");
 
-  char pixelSpacingStr[16], sliceThicknessStr[16];
+  char pixelSpacingStr[16*2+1], sliceThicknessStr[16];
   {
     char *str;
     DcmElement *element;
@@ -2017,6 +2026,7 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
     subItem->putAndInsertString(DCM_PixelSpacing, pixelSpacingStr);
     }
 
+  std::cout << "Before initializing PerFrameGroupsSequence" << std::endl;
   //Derivation Image functional group
   for(unsigned i=0;i<itemNum+1;i++)
     {
@@ -2045,6 +2055,7 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
 
   // Multi-frame Dimension module
     {
+    std::cout << "Before initializing DimensionOrganizationSequence" << std::endl;
     dataset->findOrCreateSequenceItem(DCM_DimensionOrganizationSequence, Item);
     char dimensionuid[128];
     char *dimensionUIDStr = dcmGenerateUniqueIdentifier(dimensionuid, SITE_SERIES_UID_ROOT);
@@ -2081,6 +2092,7 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
     }
 
 
+  std::cout << "Inserting PixelData" << std::endl;
   dataset->putAndInsertUint8Array(DCM_PixelData, pixelArray, nbytes);//write pixels
 
   std::cout << "DICOM SEG created" << std::endl;
