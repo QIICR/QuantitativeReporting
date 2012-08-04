@@ -3,6 +3,8 @@ from __main__ import vtk, qt, ctk, slicer
 from SlicerReportingModuleWidgetHelper import SlicerReportingModuleWidgetHelper as Helper
 from EditColor import *
 from Editor import EditorWidget
+import Editor
+from EditorLib import EditUtil
 
 EXIT_SUCCESS=0
 
@@ -72,6 +74,15 @@ class qSlicerReportingModuleWidget:
       self.__logic.SetActiveParameterNodeID(paramID)
     else:
       Helper.Error('Unable to set logic active parameter node')
+    
+    # TODO: figure out why module/class hierarchy is different
+    # between developer builds ans packages
+    try:
+      # for developer build...
+      self.editUtil = EditorLib.EditUtil.EditUtil()
+    except AttributeError:
+      # for release package...
+      self.editUtil = EditorLib.EditUtil()
 
   def setup( self ):
     #
@@ -170,8 +181,12 @@ class qSlicerReportingModuleWidget:
 
     editorFrameLayout.addRow(label, self.__segmentationSelector)
 
-    editorWidget = EditorWidget(parent=editorFrameLayout)
-    editorFrameLayout.addRow(editorWidget)
+    editorWidgetParent = slicer.qMRMLWidget()
+    editorWidgetParent.setLayout(qt.QVBoxLayout())
+    editorWidgetParent.setMRMLScene(slicer.mrmlScene)
+    self.__editorWidget = EditorWidget(parent=editorWidgetParent,showVolumesFrame=False)
+    self.__editorWidget.setup()
+    editorFrameLayout.addRow(editorWidgetParent)
 
     self.layout.addWidget(self.__editorFrame)
 
@@ -191,7 +206,7 @@ class qSlicerReportingModuleWidget:
     self.__volumeSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.updateWidgets)
     self.updateWidgets()
 
-    self.__editorParameterNode = Helper.getEditorParameterNode()
+    self.__editorParameterNode = self.editUtil.getParameterNode()
 
   def enter(self):
     # switch to Two-over-Two layout
@@ -368,6 +383,9 @@ class qSlicerReportingModuleWidget:
     # outside the reporting module
 
     self.__segmentationSelector.setCurrentNode(sNode)
+
+    self.__editorWidget.setMasterNode(self.__vNode)
+    self.__editorWidget.setMergeNode(sNode)
 
   def onReportNodeChanged(self):
     Helper.Debug("onReportNodeChanged()")

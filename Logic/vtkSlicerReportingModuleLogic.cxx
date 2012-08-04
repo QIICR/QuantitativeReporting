@@ -203,7 +203,6 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     {
     return;
     }
-  std::cout << "New node in Reporting logic: " << node->GetID() << std::endl;
 
   std::string annotationType;
 
@@ -246,7 +245,6 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
   if(!fiducialNode && !rulerNode && !labelVolumeNode)
     {
     // the node added should be ignored
-    std::cout << "The node will be ignored, unsupported type" << std::endl;
     return;
     }
   
@@ -257,7 +255,6 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     // only want to grab annotation nodes if the gui is visible
     if (this->GetGUIHidden())
       {
-      std::cerr << "GUI is hidden, returning" << std::endl;
       return;
       }
     vtkDebugMacro("OnMRMLSceneNodeAdded: gui is not hidden, got an annotation node added with id " << node->GetID());
