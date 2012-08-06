@@ -247,12 +247,12 @@ class qSlicerReportingModuleWidget:
   # respond to error events from the logic
   def respondToErrorMessage(self, caller, event):
     errorMessage = self.__logic.GetErrorMessage()
-    Helper.Debug('respondToErrorMessage, event = '+str(event)+', message =\n\t'+str(errorMessage))
-    # popup only if the message is not empty
+    # inform user only if the message is not empty since vtkErrorMacro invokes this event as well
     if errorMessage != None:
+      Helper.Debug('respondToErrorMessage, event = '+str(event)+', message =\n\t'+str(errorMessage))
       errorDialog = qt.QErrorMessage(self.parent)
       errorDialog.showMessage(errorMessage)
-    
+
   def onMRMLSceneChanged(self, mrmlScene):
     if mrmlScene != self.__logic.GetMRMLScene():
       self.__logic.SetMRMLScene(mrmlScene)
