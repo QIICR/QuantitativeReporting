@@ -5,6 +5,7 @@ from EditColor import *
 from Editor import EditorWidget
 import Editor
 from EditorLib import EditUtil
+from EditorLib import EditorLib
 
 EXIT_SUCCESS=0
 
