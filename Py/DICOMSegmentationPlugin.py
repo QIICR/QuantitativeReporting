@@ -4,6 +4,15 @@ from __main__ import vtk, qt, ctk, slicer
 from DICOMLib import DICOMPlugin
 from DICOMLib import DICOMLoadable
 
+# WORKAROUND: make sure logic is imported before first use so that
+# logic instance will have the correct subclass (not generic vtkSlicerModuleLogic)
+import sys,os
+pluginPath = slicer.app.extensionsInstallPath + '/Reporting/lib/Slicer-4.1/qt-loadable-modules/Python'
+if not sys.path.__contains__(pluginPath):
+  sys.path.append(pluginPath)
+import vtkSlicerReportingModuleLogic
+#slicer.modules.reporting.logic = vtkSlicerReportingModuleLogic.vtkSlicerReportingModuleLogic
+
 #
 # This is the plugin to handle translation of DICOM objects
 # that can be represented as multivolume objects
@@ -73,7 +82,8 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
       reportingLogic = None
       try:
-        reportingLogic = slicer.modules.reporting.logic()
+        #reportingLogic = slicer.modules.reporting.logic()
+        reportingLogic = vtkSlicerReportingModuleLogic.vtkSlicerReportingModuleLogic()
       except AttributeError:
         return []
 
@@ -100,7 +110,8 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     uid = None
 
     try:
-      reportingLogic = slicer.modules.reporting.logic()
+      #reportingLogic = slicer.modules.reporting.logic()
+      reportingLogic = vtkSlicerReportingModuleLogic.vtkSlicerReportingModuleLogic()
       uid = loadable.uid
       print 'in load(): uid = ', uid
     except AttributeError:

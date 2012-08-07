@@ -1,5 +1,22 @@
 from __main__ import vtk, qt, ctk, slicer
 
+# WORKAROUND: until launcher correctly sets paths for module python files
+import sys,os
+reporting = os.path.dirname(slicer.modules.reporting.path)
+reportingPython = reporting + "/Python"
+for newpath in (reporting, reportingPython):
+  if not sys.path.__contains__(newpath):
+    sys.path.append(newpath)
+
+# WORKAROUND: make sure logic is imported before first use so that
+# logic instance will have the correct subclass (not generic vtkSlicerModuleLogic)
+import vtkSlicerReportingModuleLogic
+import vtkSlicerReportingModuleMRML
+import qSlicerReportingModuleWidgetsPythonQt
+
+slicer.modulewidget.qMRMLReportingTreeView = qSlicerReportingModuleWidgetsPythonQt.qMRMLReportingTreeView
+slicer.modulemrml.vtkMRMLReportingReportNode = vtkSlicerReportingModuleMRML.vtkMRMLReportingReportNode
+
 from SlicerReportingModuleWidgetHelper import SlicerReportingModuleWidgetHelper as Helper
 from EditColor import *
 
@@ -23,7 +40,8 @@ class qSlicerReportingModuleWidget:
     self.__logic  = slicer.modules.reporting.logic()
     if not self.__logic:
       # create a new instance
-      self.__logic = slicer.modulelogic.vtkSlicerReportingModuleLogic()
+      #self.__logic = slicer.modulelogic.vtkSlicerReportingModuleLogic()
+      self.__logic = vtkSlicerReportingModuleLogic.vtkSlicerReportingModuleLogic()
 
     # Get the location and initialize the DICOM DB
     settings = qt.QSettings()
