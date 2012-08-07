@@ -81,7 +81,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
       if isDicomSeg:
         loadable = DICOMLib.DICOMLoadable()
-        loadable.files = file
+        loadable.files = [file]
         loadable.name = name + ' - as a DICOM SEG object'
         loadable.tooltip = loadable.name
         loadable.selected = True
