@@ -277,8 +277,12 @@ class SlicerReportingModuleWidgetHelper( object ):
       slicer.modules.reporting.logic().InitializeHierarchyForVolume(volume)
       newReport.SetVolumeNodeID(volume.GetID())
 
-    if len(volumeList) != 1:
-      SlicerReportingModuleWidgetHelper.Error('AIM does not allow to have more than one volume per file!')
+    if len(volumeList) > 1:
+      SlicerReportingModuleWidgetHelper.ErrorPopup('AIM does not allow to have more than one volume per file!')
+      return
+
+    if len(volumeList) == 0:
+      SlicerReportingModuleWidgetHelper.ErrorPopup('AIM file you requested to load does not reference any volumes, cannot process it!')
       return
 
     #if volume != None:
