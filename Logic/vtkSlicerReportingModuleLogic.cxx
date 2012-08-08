@@ -2122,6 +2122,7 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
     // read the volume geometry
     // initialize the volume pixel array
     // create new volume for each segment?
+    std::cout << "DicomSegRead will attempt to read for instance UID " << instanceUID << std::endl;
     std::string segFileName = this->GetFileNameFromUID(instanceUID);
 
     if(!colorNode)

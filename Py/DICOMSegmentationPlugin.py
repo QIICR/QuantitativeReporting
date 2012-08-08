@@ -14,8 +14,22 @@ from DICOMLib import DICOMLoadable
 class DICOMSegmentationPluginClass(DICOMPlugin):
 
   def __init__(self,epsilon=0.01):
+    # Get the location and initialize the DICOM DB used by Reporting logic
+    reportingLogic = slicer.modules.reporting.logic()
+    settings = qt.QSettings()
+    dbFileName = settings.value("DatabaseDirectory","")
+    if dbFileName == "":
+      print("DICOMSegmentationPlugin failed to initialize DICOM db location from settings")
+    else:
+      dbFileName = dbFileName+"/ctkDICOM.sql"
+      if reportingLogic.InitializeDICOMDatabase(dbFileName):
+        print("DICOMSegmentationPlugin initialized DICOM db OK")
+      else:
+        print('Failed to initialize DICOM database at '+dbFileName)
+    
     super(DICOMSegmentationPluginClass,self).__init__()
     self.loadType = "DICOMSegmentation"
+    
 
   def examine(self,fileLists):
     """ Returns a list of DICOMLoadable instances
