@@ -109,6 +109,8 @@ class qSlicerReportingModuleWidget:
     self.__reportSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onReportNodeChanged)
  
     # Volume being annotated (only one is allowed for the report)
+    label = qt.QLabel('NOTE: Only volumes loaded from DICOM can be annotated!')
+    inputFrameLayout.addRow(label)
     label = qt.QLabel('Annotated volume: ')
     self.__volumeSelector = slicer.qMRMLNodeComboBox()
     self.__volumeSelector.nodeTypes = ['vtkMRMLScalarVolumeNode']
