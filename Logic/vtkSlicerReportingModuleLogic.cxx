@@ -1858,8 +1858,7 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
   // Study IE
   //  General Study module
   copyDcmElement(DCM_StudyInstanceUID, dcm0, dataset);
-  copyDcmElement(DCM_StudyDate, dcm0, dataset);
-  copyDcmElement(DCM_StudyTime, dcm0, dataset);
+
   copyDcmElement(DCM_ReferringPhysicianName, dcm0, dataset);
   copyDcmElement(DCM_StudyID, dcm0, dataset);
   dataset->putAndInsertString(DCM_StudyID, "1"); // David Clunie: should be initialized (not required, but good idea)
@@ -1870,6 +1869,12 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
   DcmTime::getCurrentTime(contentTime);
   dataset->putAndInsertString(DCM_ContentDate, contentDate.c_str());
   dataset->putAndInsertString(DCM_ContentTime, contentTime.c_str());
+  dataset->putAndInsertString(DCM_SeriesDate, contentDate.c_str());
+  dataset->putAndInsertString(DCM_SeriesTime, contentTime.c_str());
+  dataset->putAndInsertString(DCM_StudyDate, contentDate.c_str());
+  dataset->putAndInsertString(DCM_StudyTime, contentTime.c_str());
+  dataset->putAndInsertString(DCM_AcquisitionDate, contentDate.c_str());
+  dataset->putAndInsertString(DCM_AcquisitionTime, contentTime.c_str());
 
   // Series IE
   //  General Series module
@@ -1934,6 +1939,7 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
   dataset->putAndInsertString(DCM_SegmentationType, "BINARY");
   dataset->putAndInsertString(DCM_ContentLabel, "ROI"); // CS
   dataset->putAndInsertString(DCM_ContentDescription, "3D Slicer segmentation result");
+  dataset->putAndInsertString(DCM_SeriesDescription, "3D Slicer segmentation result");
   dataset->putAndInsertString(DCM_ContentCreatorName, "3DSlicer");
 
   // segment sequence [0062,0002]
