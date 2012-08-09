@@ -279,14 +279,18 @@ class qSlicerReportingModuleWidget:
     # set the root to be the current report hierarchy root 
     if self.__rNode == None:
       Helper.Error("updateTreeView: report node is not initialized!")
+      self.__markupTreeView.setRootNode(None)
       return
     else:
       # the tree root node has to be a hierarchy node, so get the associated hierarchy node for the active report node
       rootNode = slicer.vtkMRMLHierarchyNode().GetAssociatedHierarchyNode(self.__rNode.GetScene(), self.__rNode.GetID())
       if rootNode:
         self.__markupTreeView.setRootNode(rootNode)
-        # print " setting tree view root to be ",rootNode.GetID()
+        Helper.Debug("Setting tree view root to be " + rootNode.GetID())
         self.__markupTreeView.expandAll()
+      else:
+        Helper.Debug("Setting tree view root to be None")
+        self.__markupTreeView.setRootNode(None)
 
   def onAnnotatedVolumeNodeChanged(self):
     Helper.Debug("onAnnotatedVolumeNodeChanged()")
@@ -407,10 +411,8 @@ class qSlicerReportingModuleWidget:
     #  content
     self.__rNode = self.__reportSelector.currentNode()
 
-    # print 'Selected report has changed to ',self.__rNode
-    # set the volume to be none
-    self.__vNode = None
-    self.__volumeSelector.setCurrentNode(None)
+    Helper.Debug("Selected report has changed to " + self.__rNode.GetID())
+    
     if self.__rNode != None:
 
       if self.__rNode.GetDICOMDatabaseFileName() == "":
@@ -429,8 +431,14 @@ class qSlicerReportingModuleWidget:
       self.updateTreeView()
       vID = self.__rNode.GetVolumeNodeID()
       if vID:
+        Helper.Debug('Have a volume node id in the report ' + vID + ', setting current volume node selector')
         self.__vNode = slicer.mrmlScene.GetNodeByID(vID)      
         self.__volumeSelector.setCurrentNode(self.__vNode)
+      else:
+        Helper.Debug('Do not have a volume id in the report, setting current volume node selector to none')
+        # set the volume to be none
+        self.__vNode = None
+        self.__volumeSelector.setCurrentNode(None)
 
       # hide the markups that go with other report nodes
       self.__logic.HideAnnotationsForOtherReports(self.__rNode)

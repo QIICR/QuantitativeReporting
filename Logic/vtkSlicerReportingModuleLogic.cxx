@@ -372,6 +372,7 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
   vtkMRMLHierarchyNode *hnode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(node->GetScene(), node->GetID());
   if (hnode)
     {
+    vtkDebugMacro("Reassigning node " << node->GetID() << "'s hierarchy parent to active markup hierarchy id: " << this->GetActiveMarkupHierarchyID());
     hnode->SetParentNodeID(this->GetActiveMarkupHierarchyID());
     }
 
@@ -654,7 +655,7 @@ void vtkSlicerReportingModuleLogic::InitializeHierarchyForVolume(vtkMRMLVolumeNo
       }
     else
       {
-      vtkDebugMacro("Set volume hierarchy parent to active report id " << activeReportID);
+      vtkDebugMacro("Set volume " << node->GetID() << " hierarchy parent to active report id " << activeReportID);
       }
     volumeHierarchyNode->SetParentNodeID(activeReportID);
     
