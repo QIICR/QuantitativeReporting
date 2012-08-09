@@ -290,54 +290,69 @@ class qSlicerReportingModuleWidget:
     Helper.Debug("onAnnotatedVolumeNodeChanged()")
 
     # get the current volume node
-    self.__vNode = self.__volumeSelector.currentNode()
-    if self.__vNode != None:
-      # update the report node
-      if self.__rNode != None:
-        self.__rNode.SetVolumeNodeID(self.__vNode.GetID())
-        self.__rNode.SetName('Report for Volume '+self.__vNode.GetName())
+    selectedVolume = self.__volumeSelector.currentNode()
 
-      # is it a DICOM volume? check for UID attribute
-      uids = self.__vNode.GetAttribute('DICOM.instanceUIDs')
-      if uids == "None":
-        Helper.ErrorPopup("DANGER: volume "+self.__vNode.GetName()+" was not loaded as a DICOM volume, will not be able to save your report in AIM XML format")
+    # do the error checks
+    if selectedVolume == None or self.__rNode == None:
+      self.__volumeSelector.currentNode = None
+      return
 
-      Helper.SetBgFgVolumes(self.__vNode.GetID(), '')
-      Helper.RotateToVolumePlanes()
+    uids = selectedVolume.GetAttribute('DICOM.instanceUIDs')
+    if uids == None:
+      Helper.ErrorPopup("Volume "+self.__vNode.GetName()+" was not loaded from DICOM. Only volumes loaded from DICOM data can be used by this module.")
+      self.__volumeSelector.currentNode = None
+      return
 
-      # go over all label nodes in the scene
-      # if there is a label that has the selected volume as associated node, 
-      #   initialize label selector to show that label
-      volumeNodes = slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode')
-      volumeNodes.SetReferenceCount(volumeNodes.GetReferenceCount()-1)
-      associatedLabelFound = False
-      for i in range(volumeNodes.GetNumberOfItems()):
-        vol = volumeNodes.GetItemAsObject(i)
-        associatedNodeID = vol.GetAttribute('AssociatedNodeID')
-        label = vol.GetAttribute('LabelMap')
-        if associatedNodeID == self.__vNode.GetID() and label == '1':
-          Helper.SetLabelVolume(vol.GetID())
-          associatedLabelFound = True
+    nSlices = selectedVolume.GetImageData().GetExtent()[-1]+1
+    if nSlices != len(string.split(uids)):
+      Helper.ErrorPopup("Volume "+self.__vNode.GetName()+" was loaded from multi-frame DICOM. Multi-frame DICOM is not currently supported by this module")
+      self.__volumeSelector.currentNode = None
+      return
 
-      # if there is no associated label node, set the selector to none
-      if associatedLabelFound == False:
-        Helper.SetLabelVolume("")
+    # volume node is valid!
+    self.__vNode = selectedVolume
 
-      orientation = Helper.GetScanOrderSliceName(self.__vNode)
-      message = "Slice viewers to be used for markup: "
-      for sliceViewer in orientation:
-          message = message + sliceViewer
-          if orientation.index(sliceViewer) < (len(orientation) - 1 ):
-            message = message + ", "
-      Helper.Debug(message)
-      self.__markupSliceText.text = message
+    # update the report node
+    if self.__rNode != None:
+      self.__rNode.SetVolumeNodeID(self.__vNode.GetID())
+      self.__rNode.SetName('Report for Volume '+self.__vNode.GetName())
 
-      # take the first one
-      self.__parameterNode.SetParameter('acquisitionSliceViewer',orientation[0])
+    Helper.SetBgFgVolumes(self.__vNode.GetID(), '')
+    Helper.RotateToVolumePlanes()
 
-      # print "Calling logic to set up hierarchy"
-      self.__logic.InitializeHierarchyForVolume(self.__vNode)
-      self.updateTreeView()
+    # go over all label nodes in the scene
+    # if there is a label that has the selected volume as associated node, 
+    #   initialize label selector to show that label
+    volumeNodes = slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode')
+    volumeNodes.SetReferenceCount(volumeNodes.GetReferenceCount()-1)
+    associatedLabelFound = False
+    for i in range(volumeNodes.GetNumberOfItems()):
+      vol = volumeNodes.GetItemAsObject(i)
+      associatedNodeID = vol.GetAttribute('AssociatedNodeID')
+      label = vol.GetAttribute('LabelMap')
+      if associatedNodeID == self.__vNode.GetID() and label == '1':
+        Helper.SetLabelVolume(vol.GetID())
+        associatedLabelFound = True
+
+    # if there is no associated label node, set the selector to none
+    if associatedLabelFound == False:
+      Helper.SetLabelVolume("")
+
+    orientation = Helper.GetScanOrderSliceName(self.__vNode)
+    message = "Slice viewers to be used for markup: "
+    for sliceViewer in orientation:
+      message = message + sliceViewer
+      if orientation.index(sliceViewer) < (len(orientation) - 1 ):
+        message = message + ", "
+    Helper.Debug(message)
+    self.__markupSliceText.text = message
+
+    # take the first one
+    self.__parameterNode.SetParameter('acquisitionSliceViewer',orientation[0])
+
+    # print "Calling logic to set up hierarchy"
+    self.__logic.InitializeHierarchyForVolume(self.__vNode)
+    self.updateTreeView()
 
   def onSegmentationNodeChanged(self):
     Helper.Debug('onSegmentationNodeChanged()')
