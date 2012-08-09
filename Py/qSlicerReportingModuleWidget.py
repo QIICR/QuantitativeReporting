@@ -301,13 +301,13 @@ class qSlicerReportingModuleWidget:
 
     uids = selectedVolume.GetAttribute('DICOM.instanceUIDs')
     if uids == None:
-      Helper.ErrorPopup("Volume "+self.__vNode.GetName()+" was not loaded from DICOM. Only volumes loaded from DICOM data can be used by this module.")
+      Helper.ErrorPopup("Volume \""+selectedVolume.GetName()+"\" was not loaded from DICOM. Only volumes loaded from DICOM data can be annotated in the Reporting module.")
       self.__volumeSelector.setCurrentNode(None)
       return
 
     nSlices = selectedVolume.GetImageData().GetExtent()[-1]+1
     if nSlices != len(string.split(uids)):
-      Helper.ErrorPopup("Volume "+self.__vNode.GetName()+" was loaded from multi-frame DICOM. Multi-frame DICOM is not currently supported by this module")
+      Helper.ErrorPopup("Volume \""+selectedVolume.GetName()+"\" was loaded from multi-frame DICOM. Multi-frame DICOM is currently not supported by the Reporting module")
       self.__volumeSelector.setCurrentNode(None)
       return
 
