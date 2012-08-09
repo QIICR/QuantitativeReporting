@@ -294,19 +294,19 @@ class qSlicerReportingModuleWidget:
 
     # do the error checks
     if selectedVolume == None or self.__rNode == None:
-      self.__volumeSelector.currentNode = None
+      self.__volumeSelector.setCurrentNode(None)
       return
 
     uids = selectedVolume.GetAttribute('DICOM.instanceUIDs')
     if uids == None:
       Helper.ErrorPopup("Volume "+self.__vNode.GetName()+" was not loaded from DICOM. Only volumes loaded from DICOM data can be used by this module.")
-      self.__volumeSelector.currentNode = None
+      self.__volumeSelector.setCurrentNode(None)
       return
 
     nSlices = selectedVolume.GetImageData().GetExtent()[-1]+1
     if nSlices != len(string.split(uids)):
       Helper.ErrorPopup("Volume "+self.__vNode.GetName()+" was loaded from multi-frame DICOM. Multi-frame DICOM is not currently supported by this module")
-      self.__volumeSelector.currentNode = None
+      self.__volumeSelector.setCurrentNode(None)
       return
 
     # volume node is valid!
@@ -376,7 +376,7 @@ class qSlicerReportingModuleWidget:
       # the annotated label geometry, and if so, add it to the hierarchy
       if Helper.GeometriesMatch(sNode, self.__vNode) == False:
         Helper.ErrorPopup('The geometry of the segmentation label you attempted to select does not match the geometry of the volume being annotated! Please select a different label or create a new one.')
-        self.__segmentationSelector.currentNode = None
+        self.__segmentationSelector.setCurrentNode(None)
         return
 
     # assign the color LUT we use
@@ -389,13 +389,6 @@ class qSlicerReportingModuleWidget:
     # assign the volume and the selected color to the editor parameter node
     self.__editorParameterNode.SetParameter('label',str(self.__rNode.GetFindingLabel()))
     Helper.SetLabelVolume(sNode.GetID())
-
-    # initialize the parameter node of Editor, so that it has the selected
-    # volume and the color node
-    #editorWidget = slicer.modules.editor.widgetRepresentation()
-    #if editorWidget != None:
-    #  editorWidget.children()[1].children()[1].children()[1].children()[2].currentNode = sNode
-    #  # TODO: find Steve
 
     # TODO: disable adding new label node to the hierarchy if it was added
     # outside the reporting module
