@@ -114,6 +114,8 @@ class qSlicerReportingModuleWidget:
     label = qt.QLabel('Annotated volume: ')
     self.__volumeSelector = slicer.qMRMLNodeComboBox()
     self.__volumeSelector.nodeTypes = ['vtkMRMLScalarVolumeNode']
+    # only allow volumes with the attribute DICOM.instanceUIDs
+    self.__volumeSelector.addAttribute('vtkMRMLScalarVolumeNode','DICOM.instanceUIDs')
     self.__volumeSelector.setMRMLScene(slicer.mrmlScene)
     self.__volumeSelector.addEnabled = 0
     

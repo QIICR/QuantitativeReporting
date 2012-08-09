@@ -278,7 +278,8 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
       }
 
     /// check that the annotation has a valid UID
-    std::string UID = this->GetSliceUIDFromMarkUp(vtkMRMLAnnotationNode::SafeDownCast(node));
+    vtkMRMLAnnotationNode *annotationNode = vtkMRMLAnnotationNode::SafeDownCast(node);
+    std::string UID = this->GetSliceUIDFromMarkUp(annotationNode);
     if(UID.compare("NONE") == 0)
       { 
       std::string errorMessage;
@@ -293,9 +294,15 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
         }
       else
         {
-        errorMessage += std::string("It has been removed.");
-        userMessage += std::string("It has been removed.");
-        this->GetMRMLScene()->RemoveNode(node);
+        errorMessage += std::string("It has been hidden.");
+        userMessage += std::string("It has been hidden.");
+        // removing the node can cause a crash due to the string of events,
+        // just hide it
+        // this->GetMRMLScene()->RemoveNode(node);
+        if (annotationNode)
+          {
+          annotationNode->SetVisible(0);
+          }
         }
       vtkDebugMacro(<< errorMessage.c_str());
       // let the GUI know by invoking an event
