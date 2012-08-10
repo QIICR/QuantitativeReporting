@@ -534,6 +534,7 @@ char *vtkSlicerReportingModuleLogic::GetTopLevelHierarchyNodeID()
     vtkMRMLDisplayableHierarchyNode *reportingHierarchy = vtkMRMLDisplayableHierarchyNode::New();
     reportingHierarchy->HideFromEditorsOff();
     reportingHierarchy->SetName(topLevelName);
+    reportingHierarchy->SetScene(this->GetMRMLScene());
     this->GetMRMLScene()->AddNode(reportingHierarchy);
     reportingHierarchy->Delete();
     }
@@ -573,6 +574,7 @@ void vtkSlicerReportingModuleLogic::InitializeHierarchyForReport(vtkMRMLReportin
   reportHierarchyNode->HideFromEditorsOn();
   std::string hnodeName = std::string(node->GetName()) + std::string(" Hierarchy");
   reportHierarchyNode->SetName(this->GetMRMLScene()->GetUniqueNameByString(hnodeName.c_str()));
+  reportHierarchyNode->SetScene(this->GetMRMLScene());
   this->GetMRMLScene()->AddNode(reportHierarchyNode);
 
   
@@ -644,6 +646,7 @@ void vtkSlicerReportingModuleLogic::InitializeHierarchyForVolume(vtkMRMLVolumeNo
     volumeHierarchyNode->HideFromEditorsOn();
     std::string hnodeName = std::string(node->GetName()) + std::string(" Hierarchy ");
     volumeHierarchyNode->SetName(this->GetMRMLScene()->GetUniqueNameByString(hnodeName.c_str()));
+    volumeHierarchyNode->SetScene(this->GetMRMLScene());
     this->GetMRMLScene()->AddNode(volumeHierarchyNode);
     volumeHierarchyNodeID = volumeHierarchyNode->GetID();
     
@@ -676,6 +679,7 @@ void vtkSlicerReportingModuleLogic::InitializeHierarchyForVolume(vtkMRMLVolumeNo
     vtkMRMLAnnotationHierarchyNode *ahnode = vtkMRMLAnnotationHierarchyNode::New();
     ahnode->HideFromEditorsOff();
     ahnode->SetName(ahnodeName.c_str());
+    ahnode->SetScene(this->GetMRMLScene());
     this->GetMRMLScene()->AddNode(ahnode);
     ahnodeID = ahnode->GetID();
     // make it a child of the volume

@@ -411,9 +411,9 @@ class qSlicerReportingModuleWidget:
     #  content
     self.__rNode = self.__reportSelector.currentNode()
 
-    Helper.Debug("Selected report has changed to " + self.__rNode.GetID())
-    
     if self.__rNode != None:
+    
+      Helper.Debug("Selected report has changed to " + self.__rNode.GetID())
 
       if self.__rNode.GetDICOMDatabaseFileName() == "":
         self.__rNode.SetDICOMDatabaseFileName(self.__dbFileName)
