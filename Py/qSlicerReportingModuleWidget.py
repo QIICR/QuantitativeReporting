@@ -410,6 +410,8 @@ class qSlicerReportingModuleWidget:
     #  -- initialize annotations and markup frames based on the report node
     #  content
     self.__rNode = self.__reportSelector.currentNode()
+      
+    self.__segmentationSelector.setCurrentNode(None)
 
     if self.__rNode != None:
     
@@ -447,6 +449,7 @@ class qSlicerReportingModuleWidget:
       self.__toolsColor.setReportNode(self.__rNode)
 
       self.updateWidgets()
+
 
 
   '''
