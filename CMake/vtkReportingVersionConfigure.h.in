@@ -1,0 +1,18 @@
+/*=auto=========================================================================
+
+ Portions (c) Copyright 2005 Brigham and Women's Hospital (BWH)
+ All Rights Reserved.
+
+ See COPYRIGHT.txt
+ or http://www.slicer.org/copyright/copyright.txt for details.
+
+ Program:   3D Reporting
+
+=========================================================================auto=*/
+
+#ifndef __vtkReportingVersionConfigure_h
+#define __vtkReportingVersionConfigure_h
+
+#define Reporting_WC_REVISION "@Reporting_WC_REVISION@"
+
+#endif // __vtkReportingVersionConfigure_h

@@ -26,6 +26,7 @@
 
 // Reporting includes
 #include "qSlicerReportingModule.h"
+#include "vtkReportingVersionConfigure.h"
 
 // SlicerQT includes
 #include <qSlicerModuleManager.h>
@@ -73,8 +74,8 @@ QString qSlicerReportingModule::helpText()const
   return "The Reporting module provides support for structured markup and annotation, and "
     "some support of AIM import/export.<br>"
     "Select a markup and right click to jump slice viewers to that location.<br>"
-    "This is a work in progress. "
-    "<a href=\"http://wiki.slicer.org/slicerWiki/index.php/Documentation/4.1/Extensions/Reporting\">"
+    "This is a work in progress (revision " + QString(Reporting_WC_REVISION)+
+    "). <a href=\"http://wiki.slicer.org/slicerWiki/index.php/Documentation/4.1/Extensions/Reporting\">"
     "Usage instructions</a>.";
 }
 

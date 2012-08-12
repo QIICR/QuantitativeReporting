@@ -20,6 +20,16 @@ if(NOT Slicer_SOURCE_DIR)
   include(${Slicer_USE_FILE})
 endif()
 
+set(CMAKE_MODULE_PATH
+  ${CMAKE_CURRENT_SOURCE_DIR}/CMake
+  ${CMAKE_MODULE_PATH}
+)
+
+include(SlicerMacroExtractRepositoryInfo)
+
+SlicerMacroExtractRepositoryInfo(VAR_PREFIX Reporting)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/CMake/vtkReportingVersionConfigure.h.in
+  ${CMAKE_CURRENT_BINARY_DIR}/vtkReportingVersionConfigure.h)
 
 #-----------------------------------------------------------------------------
 add_subdirectory(MRML)
