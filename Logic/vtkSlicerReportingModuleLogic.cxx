@@ -74,6 +74,8 @@
 // SlicerApp includes
 #include "qSlicerApplication.h"
 
+#include "vtkReportingVersionConfigure.h"
+
 
 //----------------------------------------------------------------------------
 vtkStandardNewMacro(vtkSlicerReportingModuleLogic);
@@ -1069,8 +1071,8 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   qSlicerApplication* slicer = qSlicerApplication::application();
   QString slicerVersion = QString("Slicer ") + slicer->applicationVersion() + " r" + slicer->repositoryRevision();
   // set the Reporting module version, Id will give the git hash of the blob
-  const char *reportingVersion = " Reporting $Id$";
-  std::string softwareVersion = std::string(qPrintable(slicerVersion)) + std::string(reportingVersion);
+  std::string reportingVersion = std::string(" Reporting ") + Reporting_WC_REVISION;
+  std::string softwareVersion = std::string(qPrintable(slicerVersion)) + reportingVersion;
   equipment.setAttribute("softwareVersion",softwareVersion.c_str());
   root.appendChild(equipment);
 
