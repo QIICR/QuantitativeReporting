@@ -18,6 +18,8 @@ if(NOT Slicer_SOURCE_DIR)
   set(EXTENSION_STATUS "Work in progress")
   find_package(Slicer REQUIRED)
   include(${Slicer_USE_FILE})
+
+  set(MODULE_NAME ${EXTENSION_NAME})
 endif()
 
 set(CMAKE_MODULE_PATH
@@ -26,6 +28,11 @@ set(CMAKE_MODULE_PATH
 )
 
 include(SlicerMacroExtractRepositoryInfo)
+set(MODULE_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+set(MODULE_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
+
+message("Module source dir in main cmake is ${MODULE_SOURCE_DIR}")
+
 
 SlicerMacroExtractRepositoryInfo(VAR_PREFIX Reporting)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/CMake/vtkReportingVersionConfigure.h.in
@@ -74,7 +81,7 @@ set(MODULE_RESOURCES
 
 #-----------------------------------------------------------------------------
 slicerMacroBuildQtModule(
-  NAME ${EXTENSION_NAME}
+  NAME ${MODULE_NAME}
   EXPORT_DIRECTIVE ${MODULE_EXPORT_DIRECTIVE}
   INCLUDE_DIRECTORIES ${MODULE_INCLUDE_DIRECTORIES}
   SRCS ${MODULE_SRCS}
