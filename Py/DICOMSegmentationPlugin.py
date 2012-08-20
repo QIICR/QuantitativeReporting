@@ -29,7 +29,12 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     
     super(DICOMSegmentationPluginClass,self).__init__()
     self.loadType = "DICOMSegmentation"
-    
+        
+    self.tags['seriesInstanceUID'] = "0020,000E"
+    self.tags['seriesDescription'] = "0008,103E"
+    self.tags['seriesNumber'] = "0020,0011"
+    self.tags['modality'] = "0008,0060"
+    self.tags['instanceUID'] = "0008,0018"
 
   def examine(self,fileLists):
     """ Returns a list of DICOMLoadable instances
@@ -55,48 +60,29 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     # just read the modality type; need to go to reporting logic, since DCMTK
     #   is not wrapped ...
 
-    SOPInstanceUID = "0008,0018"
-    SeriesDescription = "0008,103e"
-    SeriesNumber = "0020,0011"
-
     for file in files:
 
-      slicer.dicomDatabase.loadFileHeader(file)
-      print('DICOM SEG plugin is parsing file '+file)
-      uid = slicer.dicomDatabase.headerValue(SOPInstanceUID)
-      print('Unparsed uid:'+uid)
-      try:
-        uid = uid[uid.index('[')+1:uid.index(']')]
-      except:
+      uid = slicer.dicomDatabase.fileValue(file, self.tags['instanceUID'])
+      if uid == '':
         return []
-      print('DICOM SEG UID = '+uid)
 
-      name = slicer.dicomDatabase.headerValue(SeriesDescription)
-      try:
-        name = name[name.index('[')+1:name.index(']')]
-      except:
+      desc = slicer.dicomDatabase.fileValue(file, self.tags['seriesDescription'])
+      if desc == "":
         name = "Unknown"
-      print('name = '+name)
 
-      number = slicer.dicomDatabase.headerValue(SeriesNumber)
-      try:
-        number = number[number.index('[')+1:number.index(']')]
-      except:
+      number = slicer.dicomDatabase.fileValue(file, self.tags['seriesNumber'])
+      if number == '':
         number = "Unknown"
-      print('number = '+number)
 
       reportingLogic = None
-      try:
-        reportingLogic = slicer.modules.reporting.logic()
-      except AttributeError:
-        return []
+      reportingLogic = slicer.modules.reporting.logic()
 
-      isDicomSeg = reportingLogic.IsDicomSeg(file)
+      isDicomSeg = (slicer.dicomDatabase.fileValue(file, self.tags['modality']) == 'SEG')
 
       if isDicomSeg:
         loadable = DICOMLib.DICOMLoadable()
         loadable.files = [file]
-        loadable.name = name + ' - as a DICOM SEG object'
+        loadable.name = desc + ' - as a DICOM SEG object'
         loadable.tooltip = loadable.name
         loadable.selected = True
         loadable.uid = uid
