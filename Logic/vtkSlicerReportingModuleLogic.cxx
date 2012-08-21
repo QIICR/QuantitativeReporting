@@ -923,6 +923,9 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     return EXIT_FAILURE;
     }
   
+  char aimUID[128];
+  dcmGenerateUniqueIdentifier(aimUID,SITE_SERIES_UID_ROOT);
+
   std::string filename = reportNode->GetAIMFileName();
   if (filename == "")
     {
@@ -1015,7 +1018,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     }
 
   root.setAttribute("name", colorNode->GetColorName(reportNode->GetFindingLabel()));
-  root.setAttribute("uniqueIdentifier","n.a"); // TODO: initialize this one using DCMTK
+  root.setAttribute("uniqueIdentifier", aimUID);
   root.setAttribute("xmlns:xsi","http://www.w3.org/2001/XMLSchema-instance");
   root.setAttribute("xsi:schemaLocation","gme://caCORE.caCORE/3.2/edu.northwestern.radiology.AIM AIM_v3_rv11_XML.xsd");
   
