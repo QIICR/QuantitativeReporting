@@ -1,8 +1,9 @@
 from __main__ import vtk, qt, ctk, slicer
 
 from SlicerReportingModuleWidgetHelper import SlicerReportingModuleWidgetHelper as Helper
-from EditColor import *
+#from EditColor import *
 from Editor import EditorWidget
+from Editor import EditColor
 import Editor
 from EditorLib import EditUtil
 from EditorLib import EditorLib
@@ -238,6 +239,8 @@ class qSlicerReportingModuleWidget:
       self.__logic.SetActiveMarkupHierarchyIDFromNode(vnode)
       self.updateTreeView()
 
+    self.__editorWidget.enter()
+
 
   def exit(self):
     self.updateParametersFromWidget()
@@ -247,6 +250,8 @@ class qSlicerReportingModuleWidget:
     self.__logic.GUIHiddenOn()
     # disconnect observation
     self.__logic.RemoveObservers(vtk.vtkCommand.ErrorEvent)
+
+    self.__editorWidget.exit()
 
   # respond to error events from the logic
   def respondToErrorMessage(self, caller, event):
