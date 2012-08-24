@@ -244,7 +244,7 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
   vtkMRMLAnnotationRulerNode *rulerNode = vtkMRMLAnnotationRulerNode::SafeDownCast(node);
   vtkMRMLScalarVolumeNode *labelVolumeNode = vtkMRMLScalarVolumeNode::SafeDownCast(node);
 
-  if(!fiducialNode && !rulerNode && !labelVolumeNode)
+  if(!fiducialNode && !rulerNode && !(labelVolumeNode && labelVolumeNode->GetLabelMap()))
     {
     // the node added should be ignored
     return;
