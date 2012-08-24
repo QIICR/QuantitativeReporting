@@ -102,7 +102,8 @@ class qSlicerReportingModuleWidget:
     self.__reportSelector = slicer.qMRMLNodeComboBox()
     self.__reportSelector.nodeTypes =  ['vtkMRMLReportingReportNode']
     self.__reportSelector.setMRMLScene(slicer.mrmlScene)
-    self.__reportSelector.addEnabled = 1
+    self.__reportSelector.addEnabled = True
+    self.__reportSelector.removeEnabled = False
     
     inputFrameLayout.addRow(label, self.__reportSelector)
 
@@ -118,7 +119,7 @@ class qSlicerReportingModuleWidget:
     # only allow volumes with the attribute DICOM.instanceUIDs
     self.__volumeSelector.addAttribute('vtkMRMLScalarVolumeNode','DICOM.instanceUIDs')
     self.__volumeSelector.setMRMLScene(slicer.mrmlScene)
-    self.__volumeSelector.addEnabled = 0
+    self.__volumeSelector.addEnabled = False
     
     inputFrameLayout.addRow(label, self.__volumeSelector)
 
