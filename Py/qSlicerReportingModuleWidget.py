@@ -3,7 +3,7 @@ from __main__ import vtk, qt, ctk, slicer
 from SlicerReportingModuleWidgetHelper import SlicerReportingModuleWidgetHelper as Helper
 #from EditColor import *
 from Editor import EditorWidget
-from Editor import EditColor
+from EditorLib import EditColor
 import Editor
 from EditorLib import EditUtil
 from EditorLib import EditorLib
@@ -214,6 +214,15 @@ class qSlicerReportingModuleWidget:
 
     self.__editorParameterNode = self.editUtil.getParameterNode()
 
+    self.__editorParameterNode.AddObserver(vtk.vtkCommand.ModifiedEvent, self.onEditorParameterNodeChanged)
+
+  def onEditorParameterNodeChanged(self,caller,event):
+    print('Editor parameter node changed')
+    label = self.__editorParameterNode.GetParameter('label')
+    if self.__rNode:
+      print("Updating report label")
+      self.__rNode.SetFindingLabel(int(label))
+
   def enter(self):
     # switch to Two-over-Two layout
     lm = slicer.app.layoutManager()
@@ -398,7 +407,6 @@ class qSlicerReportingModuleWidget:
     self.__logic.AddNodeToReport(sNode)
 
     # assign the volume and the selected color to the editor parameter node
-    self.__editorParameterNode.SetParameter('label',str(self.__rNode.GetFindingLabel()))
     Helper.SetLabelVolume(sNode.GetID())
 
     # TODO: disable adding new label node to the hierarchy if it was added
@@ -408,7 +416,7 @@ class qSlicerReportingModuleWidget:
 
     self.__editorWidget.setMasterNode(self.__vNode)
     self.__editorWidget.setMergeNode(sNode)
-
+  
   def onReportNodeChanged(self):
     Helper.Debug("onReportNodeChanged()")
     # TODO
@@ -451,11 +459,11 @@ class qSlicerReportingModuleWidget:
       self.__logic.HideAnnotationsForOtherReports(self.__rNode)
 
       # update the GUI annotation name/label/color
-      self.__toolsColor.setReportNode(self.__rNode)
-
       self.updateWidgets()
 
-
+      # initialize the label used by the EditorWidget
+      if self.__editorParameterNode:
+        self.__editorParameterNode.SetParameter('label',str(self.__rNode.GetFindingLabel()))
 
   '''
   Load report and initialize GUI based on .xml report file content
