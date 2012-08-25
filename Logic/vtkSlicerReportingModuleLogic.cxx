@@ -971,6 +971,55 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
       }
     }
 
+  // get some environment variables first
+  std::string envUser, envHost, envHostName;
+  vtksys::SystemTools::GetEnv("USER", envUser);
+  vtksys::SystemTools::GetEnv("HOST", envHost);
+  if (envHost.compare("")== 0)
+    {
+    vtksys::SystemTools::GetEnv("HOSTNAME", envHostName);
+    }
+
+  // PatientID
+  QString patientID = this->DICOMDatabase->headerValue("0010,0020");
+  if (patientID.size() == 0 ||
+      patientID.contains("(no value available)"))
+    {
+    // not found, use a dummy string
+    patientID = "NA";
+    }
+  else
+    {
+    patientID = patientID.split("]")[0].split("[")[1];
+    vtkDebugMacro("Patient id = " << qPrintable(patientID) );
+    }
+
+  // PatientName
+  QString patientName = this->DICOMDatabase->headerValue("0010,0010");
+  if (patientName.size() == 0 ||
+      patientName.contains("(no value available)"))
+    {
+    patientName = "NA";
+    }
+  else
+    {
+    patientName = patientName.split("]")[0].split("[")[1];
+    vtkDebugMacro("patientName = " << qPrintable(patientName) );
+    }
+
+  // PatientSex
+  QString patientSex = this->DICOMDatabase->headerValue("0010,0040");
+  if (patientSex.size() == 0 ||
+      patientSex.contains("(no value available)"))
+    {
+    patientSex = "M";
+    }
+  else
+    {
+    patientSex = patientSex.split("]")[0].split("[")[1];
+    vtkDebugMacro("patientSex = " << qPrintable(patientSex) );
+    }
+
   // open the file for writing
   
   // generated the document and parent elements
@@ -996,9 +1045,9 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   root.setAttribute("aimVersion","3.0");
   root.setAttribute("cagridId","0");
 
-  root.setAttribute("codeMeaning","3DSlicer Report");
-  root.setAttribute("codeValue", "3DSlicer Report");
-  root.setAttribute("codeSchemeDesignator", "3DSlicer");
+  root.setAttribute("codeMeaning","na");
+  root.setAttribute("codeValue", "na");
+  root.setAttribute("codeSchemeDesignator", "na");
   root.setAttribute("dateTime",timeStr);
 
   vtkMRMLColorNode *colorNode = NULL;
@@ -1017,7 +1066,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     return EXIT_FAILURE;
     }
 
-  root.setAttribute("name", colorNode->GetColorName(reportNode->GetFindingLabel()));
+  root.setAttribute("name", (std::string(qPrintable(patientID))+"_"+envUser+"_"+timeStr).c_str());
   root.setAttribute("uniqueIdentifier", aimUID);
   root.setAttribute("xmlns:xsi","http://www.w3.org/2001/XMLSchema-instance");
   root.setAttribute("xsi:schemaLocation","gme://caCORE.caCORE/3.2/edu.northwestern.radiology.AIM AIM_v3_rv11_XML.xsd");
@@ -1048,14 +1097,6 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   // (Step 3) Initialize user/equipment/person (these have no meaning for now
   // here)
 
-  // get some environment variables first
-  std::string envUser, envHost, envHostName;
-  vtksys::SystemTools::GetEnv("USER", envUser);
-  vtksys::SystemTools::GetEnv("HOST", envHost);
-  if (envHost.compare("")== 0)
-    {
-    vtksys::SystemTools::GetEnv("HOSTNAME", envHostName);
-    }
   
   
   QDomElement user = doc.createElement("user");
@@ -1123,51 +1164,11 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     }
 
   person.setAttribute("cagridId","0");
-  
-  // PatientID
-  QString patientID = this->DICOMDatabase->headerValue("0010,0020");
-  if (patientID.size() == 0 ||
-      patientID.contains("(no value available)"))
-    {
-    // not found, use a dummy string
-    person.setAttribute("id","123456");
-    }
-  else
-    {
-    patientID = patientID.split("]")[0].split("[")[1];
-    person.setAttribute("id",patientID);
-    vtkDebugMacro("Patient id = " << qPrintable(patientID) );
-    }
-
-  // PatientName
-  QString patientName = this->DICOMDatabase->headerValue("0010,0010");
-  if (patientName.size() == 0 ||
-      patientName.contains("(no value available)"))
-    {
-    person.setAttribute("name","Anonymous");
-    }
-  else
-    {
-    patientName = patientName.split("]")[0].split("[")[1];
-    vtkDebugMacro("patientName = " << qPrintable(patientName) );
-    person.setAttribute("name", patientName);
-    }
-
-  // PatientSex
-  QString patientSex = this->DICOMDatabase->headerValue("0010,0040");
-  if (patientSex.size() == 0 ||
-      patientSex.contains("(no value available)"))
-    {
-    person.setAttribute("sex","M");
-    }
-  else
-    {
-    patientSex = patientSex.split("]")[0].split("[")[1];
-    vtkDebugMacro("patientSex = " << qPrintable(patientSex) );
-    person.setAttribute("sex", patientSex);
-    }
+  person.setAttribute("id",patientID);
+  person.setAttribute("name", patientName);
+  person.setAttribute("sex", patientSex);
   root.appendChild(person);
-
+  
   // (Step 4) Go over the markup elements and add them to the geometric shape
   // collection. Here we might want to keep track of the volume being
   // referenced, but since one AIM file is for one volume, we don't really

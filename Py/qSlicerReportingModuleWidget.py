@@ -102,8 +102,8 @@ class qSlicerReportingModuleWidget:
     self.__reportSelector = slicer.qMRMLNodeComboBox()
     self.__reportSelector.nodeTypes =  ['vtkMRMLReportingReportNode']
     self.__reportSelector.setMRMLScene(slicer.mrmlScene)
-    self.__reportSelector.addEnabled = True
-    self.__reportSelector.removeEnabled = False
+    self.__reportSelector.addEnabled = 1
+    self.__reportSelector.removeEnabled = 0
     
     inputFrameLayout.addRow(label, self.__reportSelector)
 
@@ -181,9 +181,9 @@ class qSlicerReportingModuleWidget:
     self.__segmentationSelector.addEnabled = 1
     self.__segmentationSelector.noneEnabled = 1
     self.__segmentationSelector.removeEnabled = 0
-    self.__segmentationSelector.showHidden = False
-    self.__segmentationSelector.showChildNodeTypes = False
-    self.__segmentationSelector.selectNodeUponCreation = True
+    self.__segmentationSelector.showHidden = 0
+    self.__segmentationSelector.showChildNodeTypes = 0
+    self.__segmentationSelector.selectNodeUponCreation = 1
     self.__segmentationSelector.addAttribute('vtkMRMLScalarVolumeNode','LabelMap',1)
 
     editorFrameLayout.addRow(label, self.__segmentationSelector)
