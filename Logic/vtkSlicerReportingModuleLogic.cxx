@@ -1836,6 +1836,13 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
       std::cerr << "Failed to query the database! Exiting." << std::endl;
       return "";
       }
+      // save the referenced file into the export directory
+      std::string outputFilename = dirname+"/"+*uidIt+".dcm";
+      status = fileFormat.saveFile(outputFilename.c_str(), EXS_LittleEndianExplicit);
+      if(status.bad())
+        {
+        std::cout << "Failed to export one of the referenced files: " << *uidIt << std::endl;
+        }
     }
 
   std::stringstream labelValueStr;
