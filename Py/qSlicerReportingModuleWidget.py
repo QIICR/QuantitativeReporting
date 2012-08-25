@@ -195,23 +195,43 @@ class qSlicerReportingModuleWidget:
     self.__editorWidget.setup()
     editorFrameLayout.addRow(editorWidgetParent)
 
-    self.layout.addWidget(self.__editorFrame)
+    markupFrameLayout.addRow(self.__editorFrame)
 
     self.__segmentationSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onSegmentationNodeChanged)
     self.__segmentationSelector.connect('mrmlSceneChanged(vtkMRMLScene*)', self.onMRMLSceneChanged)
 
-    # Buttons to save/load report using AIM XML serialization
-    button = qt.QPushButton('Save Report into AIM format...')
-    button.connect('clicked()', self.onReportExport)
-    self.layout.addWidget(button)
+    # IO frame
+    self.__ioFrame = ctk.ctkCollapsibleButton()
+    self.__ioFrame.text = 'Import/Export'
+    self.__ioFrame.collapsed = 1
+    ioFrameLayout = qt.QGridLayout(self.__ioFrame)
 
-    button = qt.QPushButton('Load Report from AIM format...')
+    self.layout.addWidget(self.__ioFrame)
+
+    # Buttons to save/load report using AIM XML serialization
+    label = qt.QLabel('Export folder')
+    self.__exportFolderPicker = ctk.ctkDirectoryButton()
+    exportButton = qt.QPushButton('Export')
+    exportButton.connect('clicked()', self.onReportExport)
+    ioFrameLayout.addWidget(label,0,0)
+    ioFrameLayout.addWidget(self.__exportFolderPicker,0,1)
+    ioFrameLayout.addWidget(exportButton,0,2)
+
+    label = qt.QLabel('AIM file to import')
+    self.__aimFilePicker = qt.QPushButton('N/A')
+    self.__aimFilePicker.connect('clicked()',self.onSelectAIMFile)
+    button = qt.QPushButton('Import')
     button.connect('clicked()', self.onReportImport)
-    self.layout.addWidget(button)
+    ioFrameLayout.addWidget(label,1,0)
+    ioFrameLayout.addWidget(self.__aimFilePicker,1,1)
+    ioFrameLayout.addWidget(button,1,2)
+    self.__importAIMFile = None
 
     self.__reportSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.updateWidgets)
     self.__volumeSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.updateWidgets)
     self.updateWidgets()
+
+    self.layout.addStretch(1)
 
     self.__editorParameterNode = self.editUtil.getParameterNode()
 
@@ -470,12 +490,18 @@ class qSlicerReportingModuleWidget:
   Load report and initialize GUI based on .xml report file content
   '''
   def onReportImport(self):
+
+    print('onReportImport here!!!')
     # TODO
     #  -- popup file open dialog to choose the .xml AIM file
     #  -- warn the user if the selected report node is not empty
     #  -- populate the selected report node, initializing annotation template,
     #  content, markup hierarchy and content
-    Helper.Debug('onReportImport')
+    if not self.__importAIMFile:
+      Helper.Debug('onReportImport: import file name not specified')
+      return
+
+    Helper.Debug('onReportImport')    
 
     # For now, always create a new report node
     newReport = slicer.modulemrml.vtkMRMLReportingReportNode()
@@ -490,16 +516,29 @@ class qSlicerReportingModuleWidget:
     # initialize the report hierarchy
     #  -- assume that report node has been created and is in the selector
 
-    fileName = qt.QFileDialog.getOpenFileName(self.parent, "Open AIM report","/","XML Files (*.xml)")
-    if fileName == '':
-      return
-
-    Helper.LoadAIMFile(newReport,fileName)
+    Helper.LoadAIMFile(newReport,self.__importAIMFile)
 
     # update the GUI
     Helper.Debug('onReportImport --> calling onReportNodeChanged()')
     self.onReportNodeChanged()
     
+  def onSelectAIMFile(self):
+    #  -- popup file dialog prompting output file
+    if not self.__importAIMFile:
+      fileName = qt.QFileDialog.getOpenFileName(self.parent, "Choose AIM report","/","XML Files (*.xml)")
+    else:
+      lastDir = self.__importAIMFile[0:string.rfind(self.__importAIMFile,'/')]
+      fileName = qt.QFileDialog.getOpenFileName(self.parent, "Choose AIM report",lastDir,"XML Files (*.xml)")
+
+    if fileName == '':
+      return
+    
+    self.__importAIMFile = fileName
+    try:
+      label = string.split(fileName,'/')[-1]
+    except:
+      label = fileName
+    self.__aimFilePicker.text = label
 
   '''
   Save report to an xml file
@@ -508,16 +547,12 @@ class qSlicerReportingModuleWidget:
     if self.__rNode == None:
       return
 
-    Helper.Debug('onReportingReportExport')
+    Helper.Debug('onReportExport')
     
-    #  -- popup file dialog prompting output file
-    fileName = qt.QFileDialog.getSaveFileName(self.parent, "Save AIM report",self.__rNode.GetAIMFileName(),"XML Files (*.xml)")
-    if fileName == '':
-      return
+    exportDirectory = self.__exportFolderPicker.directory
+    self.__rNode.SetStorageDirectoryName(exportDirectory)
 
-    self.__rNode.SetAIMFileName(fileName)
-
-    Helper.Debug('Will export to '+fileName)
+    Helper.Debug('Will export to '+exportDirectory)
 
     # use the currently selected report
     self.__rNode = self.__reportSelector.currentNode()
@@ -527,9 +562,9 @@ class qSlicerReportingModuleWidget:
     #  -- traverse markup hierarchy and translate
     retval = self.__logic.SaveReportToAIM(self.__rNode)
     if retval == EXIT_FAILURE:
-      Helper.Error("Failed to save report to file '"+fileName+"'")
+      Helper.Error("Failed to save report to '"+exportDirectory+"'")
     else:
-      Helper.Debug("Saved report to file '"+fileName+"'")
+      Helper.Debug("Saved report to '"+exportDirectory+"'")
 
   def updateWidgetFromParameters(self):
     pn = self.__parameterNode

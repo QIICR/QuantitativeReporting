@@ -31,12 +31,12 @@ int vtkMRMLReportingReportNodeTest1(int , char * [] )
     return EXIT_FAILURE;
     }
 
-  std::string aimFileName = "/tmp/testFile.xml";
-  node1->SetAIMFileName(aimFileName);
-  testValue = node1->GetAIMFileName();
-  if (testValue.compare(aimFileName))
+  std::string dirName = "/tmp/";
+  node1->SetStorageDirectoryName(dirName);
+  testValue = node1->GetStorageDirectoryName();
+  if (testValue.compare(dirName))
     {
-    std::cerr << "Failed to set aim file name to " << aimFileName.c_str() << ", got: " << testValue.c_str() << std::endl;
+    std::cerr << "Failed to set aim file name to " << dirName.c_str() << ", got: " << testValue.c_str() << std::endl;
     return EXIT_FAILURE;
     }
 

@@ -70,8 +70,8 @@ class VTK_SLICER_REPORTING_MODULE_MRML_EXPORT vtkMRMLReportingReportNode : publi
   std::string GetColorNodeID();
   void SetColorNodeID(std::string);
   
-  std::string GetAIMFileName();
-  void SetAIMFileName(std::string);
+  std::string GetStorageDirectoryName();
+  void SetStorageDirectoryName(std::string);
 
   std::string GetDICOMDatabaseFileName();
   void SetDICOMDatabaseFileName(std::string);
@@ -93,7 +93,7 @@ protected:
   /// color node used to associate the label with the terminology
   std::string ColorNodeID;
   /// XML file that will be used for serialization in AIM format
-  std::string AIMFileName; 
+  std::string StorageDirectoryName; 
 
   std::string DICOMDatabaseFileName;
 
