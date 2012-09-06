@@ -126,8 +126,10 @@ class ReportingRoundTripTest(unittest.TestCase):
     print("Dicom data base = "+ddb)
 
     slicer.dicomDatabase = ddb
-    loader = DICOMLib.DICOMLoader(fileList, volName)
-    volumeNode = loader.volumeNode
+    scalarVolumePlugin = slicer.modules.dicomPlugins['DICOMScalarVolumePlugin']()
+    scalarVolumeLoadables = scalarVolumePlugin.examine([filelist])
+    volumeNode = scalarVolumePlugin.load(scalarVolumeLoadables[0])
+    volumeNode.SetName(volName)
     # print "volumeNode = ",volumeNode
 
     print("Initialize Hierarchy For Volume with id "+volumeNode.GetID())

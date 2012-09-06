@@ -257,12 +257,12 @@ class SlicerReportingModuleWidgetHelper( object ):
       scalarVolumeLoadables = scalarVolumePlugin.examine([filelist])
       if len(scalarVolumeLoadables) == 0:
         SlicerReportingModuleWidgetHelper.ErrorPopup('Error loading AIM: Failed to load the volume node reference in the file')
-
+     
       volumeName = scalarVolumeLoadables[0].name
       newReport.SetName('Report for Volume '+volumeName)
 
-      loader = DICOMLib.DICOMLoader(scalarVolumeLoadables[0].files, volumeName)
-      volume = loader.volumeNode
+      volume = scalarVolumePlugin.load(scalarVolumeLoadables[0])
+      volume.SetName(volumeName)
 
       if volume == None:
         SlicerReportingModuleWidgetHelper.Error('Failed to read series!')
