@@ -406,6 +406,7 @@ class qSlicerReportingModuleWidget:
     # get the current segmentation (label) node
     sNode = self.__segmentationSelector.currentNode()
     if sNode == None:
+      self.updateWidgets()
       return
 
     # if it's a new label, it should have/will be added to the report
@@ -419,6 +420,7 @@ class qSlicerReportingModuleWidget:
       if Helper.GeometriesMatch(sNode, self.__vNode) == False:
         Helper.ErrorPopup('The geometry of the segmentation label you attempted to select does not match the geometry of the volume being annotated! Please select a different label or create a new one.')
         self.__segmentationSelector.setCurrentNode(None)
+        self.updateWidgets()
         return
 
     # assign the color LUT we use
@@ -440,6 +442,8 @@ class qSlicerReportingModuleWidget:
     self.__editorWidget.setMergeNode(sNode)
 
     self.__editorParameterNode.Modified()
+
+    self.updateWidgets()
   
   def onReportNodeChanged(self):
     Helper.Debug("onReportNodeChanged()")

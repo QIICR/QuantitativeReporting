@@ -501,7 +501,7 @@ class SlicerReportingModuleWidgetHelper( object ):
     threshold.ReplaceOutOn()
     threshold.SetInValue(0)
     threshold.SetOutValue(0)
-    threshold.SetOutputScalarTypeToUnsignedChar()
+    threshold.SetOutputScalarTypeToUnsignedShort()
     threshold.SetInput(sourceVolume.GetImageData())
     threshold.Update()
 
