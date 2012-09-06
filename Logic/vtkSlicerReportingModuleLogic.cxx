@@ -2269,7 +2269,7 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
 
     // label value is accepted only if the coding scheme designator is
     // recognized and the color name matches
-    unsigned char labelValue = 1; 
+    unsigned short labelValue = 1; 
     subItem->findAndGetString(DCM_CodingSchemeDesignator, tagValuePtr);    
     if(strcmp(tagValuePtr, "3DSlicer") != 0)
       {
