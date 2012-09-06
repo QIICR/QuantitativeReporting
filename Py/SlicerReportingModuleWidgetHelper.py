@@ -79,6 +79,7 @@ class SlicerReportingModuleWidgetHelper( object ):
   @staticmethod
   def RotateToVolumePlanes():
     # AF TODO: check with Steve if this has any undesired consequences
+    # Volumes slicenode has a method for this, no need for tcl
     tcl('EffectSWidget::RotateToVolumePlanes')
     # snap to IJK to try and avoid rounding errors
     sliceLogics = slicer.app.layoutManager().mrmlSliceLogics()

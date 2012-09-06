@@ -437,6 +437,8 @@ class qSlicerReportingModuleWidget:
 
     self.__editorWidget.setMasterNode(self.__vNode)
     self.__editorWidget.setMergeNode(sNode)
+
+    self.__editorParameterNode.Modified()
   
   def onReportNodeChanged(self):
     Helper.Debug("onReportNodeChanged()")
