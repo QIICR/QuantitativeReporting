@@ -193,6 +193,7 @@ class qSlicerReportingModuleWidget:
     editorWidgetParent.setMRMLScene(slicer.mrmlScene)
     self.__editorWidget = EditorWidget(parent=editorWidgetParent,showVolumesFrame=False)
     self.__editorWidget.setup()
+    self.__editorWidget.toolsColor.frame.setVisible(False)
     editorFrameLayout.addRow(editorWidgetParent)
 
     markupFrameLayout.addRow(self.__editorFrame)
@@ -448,6 +449,8 @@ class qSlicerReportingModuleWidget:
     self.__rNode = self.__reportSelector.currentNode()
       
     self.__segmentationSelector.setCurrentNode(None)
+    # disable editor frame
+    self.onSegmentationNodeChanged()
 
     if self.__rNode != None:
     
@@ -589,17 +592,18 @@ class qSlicerReportingModuleWidget:
     if report != None:
       pn.SetParameter('reportID', report.GetID())
 
-
   def updateWidgets(self):
 
     Helper.Debug("updateWidgets()")
 
     report = self.__rNode
     volume = None
+    label = self.__segmentationSelector.currentNode()
 
     if report != None:
       self.__reportSelector.setCurrentNode(self.__rNode)
       volume = slicer.mrmlScene.GetNodeByID(report.GetVolumeNodeID())
+      # TODO: get the label node from volume hieararchy
 
       if volume != None:
         self.__volumeSelector.setCurrentNode(volume)
@@ -615,3 +619,10 @@ class qSlicerReportingModuleWidget:
       self.__volumeSelector.enabled = 0
       self.__markupFrame.enabled = 0
       self.__annotationsFrame.enabled = 0
+      
+    if not label:
+      self.__editorWidget.editLabelMapsFrame.collapsed = True
+      self.__editorWidget.editLabelMapsFrame.setEnabled(False)
+    else:      
+      self.__editorWidget.editLabelMapsFrame.collapsed = False
+      self.__editorWidget.editLabelMapsFrame.setEnabled(True)
