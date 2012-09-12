@@ -447,6 +447,10 @@ class qSlicerReportingModuleWidget:
   
   def onReportNodeChanged(self):
     Helper.Debug("onReportNodeChanged()")
+
+    # cancel the active effect in Editor
+    if self.__editorWidget:
+      self.__editorWidget.toolsBox.defaultEffect()
     # TODO
     #  -- initialize annotations and markup frames based on the report node
     #  content
@@ -574,6 +578,13 @@ class qSlicerReportingModuleWidget:
       Helper.Error("Failed to save report to '"+exportDirectory+"'")
     else:
       Helper.Debug("Saved report to '"+exportDirectory+"'")
+
+    # attempt to insert each of the saved items into the database
+    filesToInsert = glob.glob(exportDirectory+'/*')
+    for f in filesToInsert:
+      Helper.Debug('Inserting '+f+' into DICOM database...')
+      slicer.dicomDatabase.insert(f)
+      Helper.Debug('Done')
 
   def updateWidgetFromParameters(self):
     pn = self.__parameterNode
