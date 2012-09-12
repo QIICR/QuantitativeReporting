@@ -144,7 +144,7 @@ bool vtkSlicerReportingModuleLogic::InitializeDICOMDatabase(std::string dbPath)
 void vtkSlicerReportingModuleLogic::SetMRMLSceneInternal(vtkMRMLScene* newScene)
 {
   vtkDebugMacro("SetMRMLSceneInternal");
-  
+
   vtkNew<vtkIntArray> events;
   events->InsertNextValue(vtkMRMLScene::NodeAddedEvent);
   events->InsertNextValue(vtkMRMLScene::NodeRemovedEvent);
@@ -210,17 +210,20 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
 
   // get the active report
   const char * activeReportID = this->GetActiveReportHierarchyID();
-  vtkMRMLDisplayableHierarchyNode *activeHierarchyNode = NULL;
-  if (activeReportID)
+  if(!activeReportID)
     {
-    activeHierarchyNode = vtkMRMLDisplayableHierarchyNode::SafeDownCast(this->GetMRMLScene()->GetNodeByID(activeReportID));
+    return;
     }
-  vtkMRMLReportingReportNode *reportNode = NULL;
-  if (activeHierarchyNode)
+  
+  vtkMRMLDisplayableHierarchyNode *activeHierarchyNode = NULL;
+  activeHierarchyNode = vtkMRMLDisplayableHierarchyNode::SafeDownCast(this->GetMRMLScene()->GetNodeByID(activeReportID));
+  if(!activeHierarchyNode)
     {
-    reportNode = vtkMRMLReportingReportNode::SafeDownCast(activeHierarchyNode->GetAssociatedNode());
+    return;
     }
 
+  vtkMRMLReportingReportNode *reportNode = NULL;
+  reportNode = vtkMRMLReportingReportNode::SafeDownCast(activeHierarchyNode->GetAssociatedNode());
   // exit if there is no report
   if(!reportNode)
     {
