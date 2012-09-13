@@ -65,6 +65,7 @@ class qSlicerReportingModuleWidget:
     if self.__parameterNode == None:
       self.__parameterNode = slicer.vtkMRMLScriptedModuleNode()
       self.__parameterNode.SetModuleName('Reporting')
+      self.__parameterNode.SetSingletonTag('Reporting')
       slicer.mrmlScene.AddNode(self.__parameterNode)
 
       # keep active report and volume
@@ -579,12 +580,16 @@ class qSlicerReportingModuleWidget:
     else:
       Helper.Debug("Saved report to '"+exportDirectory+"'")
 
+    # This code is commented out because repeated insertion into the database
+    # leads to database lockout (illustrated in Testing/RepeatInsertTest.py).
+    # For now, the solution will be to import the created DICOM objects
+    # manually.
     # attempt to insert each of the saved items into the database
-    filesToInsert = glob.glob(exportDirectory+'/*')
-    for f in filesToInsert:
-      Helper.Debug('Inserting '+f+' into DICOM database...')
-      slicer.dicomDatabase.insert(f)
-      Helper.Debug('Done')
+    #filesToInsert = glob.glob(exportDirectory+'/*')
+    #for f in filesToInsert:
+    #  Helper.Debug('Inserting '+f+' into DICOM database...')
+    #  slicer.dicomDatabase.insert(f)
+    #  Helper.Debug('Done')
 
   def updateWidgetFromParameters(self):
     pn = self.__parameterNode
