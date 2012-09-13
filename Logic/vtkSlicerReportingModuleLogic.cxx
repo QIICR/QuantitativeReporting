@@ -1641,16 +1641,13 @@ void vtkSlicerReportingModuleLogic::copyDcmElement(const DcmTag& tag, DcmDataset
 
 std::string vtkSlicerReportingModuleLogic::GetFileNameFromUID(const std::string uid)
 {
-  QSqlQuery query(this->DICOMDatabase->database());
-  query.prepare("SELECT Filename FROM Images WHERE SOPInstanceUID=?");
-  query.bindValue(0, QString(uid.c_str()));
-  query.exec();
-  if(query.next())
-  {
-    QString fileName = query.value(0).toString();
-    return fileName.toLatin1().data();
-  }
-  return "";
+  std::string fileName = "";
+  if(this->DICOMDatabase)
+    {
+    QString qstr = this->DICOMDatabase->fileForInstance(uid.c_str());
+    fileName = qstr.toLatin1().data();
+    }
+  return fileName;
 }
 
 std::string vtkSlicerReportingModuleLogic::getDcmElementAsString(const DcmTag& tag, DcmDataset* dcmIn)
