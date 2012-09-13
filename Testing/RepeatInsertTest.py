@@ -26,33 +26,37 @@ def RepeatInsertTest():
 
   volumesLogic = slicer.modules.volumes.logic()
 
-  v1label = volumesLogic.CreateLabelVolume(v1,'v1label')
-  v2label = volumesLogic.CreateLabelVolume(v2,'v2label')
+  # if repeat insert happens without yielding to main app, there is no lockup,
+  # if the test is run twice, this causes the problem to show up
 
-  tmpDir = slicer.app.settings().value('Modules/TemporaryDirectory')
+  for l in range(2):
+    v1label = volumesLogic.CreateLabelVolume(v1,'v1label')
+    v2label = volumesLogic.CreateLabelVolume(v2,'v2label')
 
-  print('v1 header loading')
-  #slicer.dicomDatabase.loadInstanceHeader(v1uids[0])
-  #bd1=db.headerValue('0010,0030')
-  #bt1=db.headerValue('0010,0032')
+    tmpDir = slicer.app.settings().value('Modules/TemporaryDirectory')
 
-  coll1 = vtk.vtkCollection()
-  coll1.AddItem(v1label)
+    print('v1 header loading')
+    #slicer.dicomDatabase.loadInstanceHeader(v1uids[0])
+    #bd1=db.headerValue('0010,0030')
+    #bt1=db.headerValue('0010,0032')
 
-  ds1=reportingLogic.DicomSegWrite(coll1, tmpDir)
+    coll1 = vtk.vtkCollection()
+    coll1.AddItem(v1label)
 
-  db.insert(ds1,0)
-  print('done with v1')
+    ds1=reportingLogic.DicomSegWrite(coll1, '/Users/fedorov/Temp/Take1')
 
-  #slicer.dicomDatabase.loadInstanceHeader(v2uids[0])
-  #bd2=db.headerValue('0010,0030')
-  #bt2=db.headerValue('0010,0032')
+    db.insert(ds1,0)
+    print('done with v1')
 
-  coll2 = vtk.vtkCollection()
-  coll2.AddItem(v2label)
+    #slicer.dicomDatabase.loadInstanceHeader(v2uids[0])
+    #bd2=db.headerValue('0010,0030')
+    #bt2=db.headerValue('0010,0032')
 
-  ds2=reportingLogic.DicomSegWrite(coll1, tmpDir)
+    coll2 = vtk.vtkCollection()
+    coll2.AddItem(v2label)
 
-  db.insert(ds2,0)
+    ds2=reportingLogic.DicomSegWrite(coll1, '/Users/fedorov/Temp/Take2')
 
-  print('done with v2')
+    db.insert(ds2,0)
+
+    print('done with v2')
