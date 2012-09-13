@@ -1303,6 +1303,8 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
       std::string filename = this->DicomSegWrite(labelNodeCollection, dirname);
       if(filename != "")
         {
+//      Database insertion disabled due to unexplained lockup of the database
+//      on repeated insert.
 //        const QString qfilename = QString(filename.c_str());
 //        this->DICOMDatabase->insert(qfilename, 0);
         std::cout << "Inserted file into the database: " << filename << std::endl;
