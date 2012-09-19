@@ -210,7 +210,7 @@ class SlicerReportingModuleWidgetHelper( object ):
   Parse and load an aim file
   '''
   @staticmethod
-  def LoadAIMFile(newReport, fileName):
+  def LoadAIMFile(newReportID, fileName):
     dom = xml.dom.minidom.parse(fileName)
 
     SlicerReportingModuleWidgetHelper.Debug('Parsed AIM report:')
@@ -245,6 +245,7 @@ class SlicerReportingModuleWidgetHelper( object ):
       SlicerReportingModuleWidgetHelper.WarningPopup('Code scheme designator '+codeSchemeDesignator+' is not supported. Default will be used instead.')
       labelValue = "1"
 
+    newReport = slicer.mrmlScene.GetNodeByID(newReportID)
     newReport.SetFindingLabel(int(labelValue))
 
 

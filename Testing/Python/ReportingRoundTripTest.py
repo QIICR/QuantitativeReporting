@@ -229,7 +229,7 @@ class ReportingRoundTripTest(unittest.TestCase):
     slicer.mrmlScene.AddNode(newReport)
     parameterNode.SetParameter("reportID", newReport.GetID())
 
-    Helper.LoadAIMFile(newReport,aimFileName)
+    Helper.LoadAIMFile(newReport.GetID(),aimFileName)
 
     # check the fiducial
     endCoords = [0,0,0]

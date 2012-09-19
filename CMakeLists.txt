@@ -59,11 +59,14 @@ set(MODULE_INCLUDE_DIRECTORIES
   )
 
 set(MODULE_SRCS
+  qSlicerReportingIO.cxx
+  qSlicerReportingIO.h
   qSlicerReportingModule.cxx
   qSlicerReportingModule.h
   )
 
 set(MODULE_MOC_SRCS
+  qSlicerReportingIO.h
   qSlicerReportingModule.h
   )
 

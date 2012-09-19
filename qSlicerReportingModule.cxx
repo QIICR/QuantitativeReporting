@@ -25,11 +25,14 @@
 #include <vtkSlicerReportingModuleLogic.h>
 
 // Reporting includes
+#include "qSlicerReportingIO.h"
 #include "qSlicerReportingModule.h"
 #include "vtkReportingVersionConfigure.h"
 
 // SlicerQT includes
+#include <qSlicerIOManager.h>
 #include <qSlicerModuleManager.h>
+#include <qSlicerNodeWriter.h>
 #include <qSlicerScriptedLoadableModuleWidget.h>
 #include <qSlicerUtils.h>
 #include <vtkSlicerConfigure.h>
@@ -119,6 +122,16 @@ QStringList qSlicerReportingModule::contributors() const
 void qSlicerReportingModule::setup()
 {
   this->Superclass::setup();
+
+  /// Register IO
+  qSlicerIOManager* ioManager = qSlicerApplication::application()->ioManager();
+  ioManager->registerIO(
+    new qSlicerReportingIO(vtkSlicerReportingModuleLogic::SafeDownCast(this->logic()), this));
+
+  ioManager->registerIO(new qSlicerNodeWriter(
+                            QString("Reporting"), QString("AIMXML"),
+                            QStringList() << "vtkMRMLReportingReportNode", this));
+  std::cout << "Registered Reporting IO with the mrml report node" << std::endl;
 }
 
 //-----------------------------------------------------------------------------

@@ -530,7 +530,7 @@ class qSlicerReportingModuleWidget:
     # initialize the report hierarchy
     #  -- assume that report node has been created and is in the selector
 
-    Helper.LoadAIMFile(newReport,self.__importAIMFile)
+    Helper.LoadAIMFile(newReport.GetID(),self.__importAIMFile)
 
     # update the GUI
     Helper.Debug('onReportImport --> calling onReportNodeChanged()')
