@@ -39,6 +39,8 @@
 #include <vtkMRMLNode.h>
 #include <vtkMRMLColorNode.h>
 #include <vtkMRMLReportingReportNode.h>
+#include <vtkMRMLScriptedModuleNode.h>
+
 // VTK includes
 #include <vtkNew.h>
 #include <vtkSmartPointer.h>
@@ -135,12 +137,31 @@ bool qSlicerReportingIO::load(const IOProperties& properties)
   const char * colorNodeID =  d->ReportingLogic->GetDefaultColorNode()->GetID();
   reportNode->SetColorNodeID(colorNodeID);
   this->mrmlScene()->AddNode(reportNode);
-  
 
+  // init hierarchy for report
+  this->reportingLogic()->InitializeHierarchyForReport(reportNode);
+
+  
   qSlicerPythonManager* pythonManager = qSlicerApplication::application()->pythonManager();
-  QVariant retvar = pythonManager->executeString(QString("from SlicerReportingModuleWidgetHelper import SlicerReportingModuleWidgetHelper as ReportingHelper"));
+  // first go to the Reporting module
+  QVariant retvar = pythonManager->executeString(QString("slicer.util.mainWindow().moduleSelector().selectModule('Reporting')"));
+
+  // set the active report
+  vtkMRMLNode *scriptedModuleNode = this->mrmlScene()->GetNodeByID("vtkMRMLScriptedModuleNodeReporting");
+  if (scriptedModuleNode && vtkMRMLScriptedModuleNode::SafeDownCast(scriptedModuleNode))
+    {
+    vtkMRMLScriptedModuleNode::SafeDownCast(scriptedModuleNode)->SetParameter("reportID", reportNode->GetID());
+    qDebug() << "Set reportID parameter to " + QString(reportNode->GetID());
+    }
+  
+  // load the helper class
+  retvar = pythonManager->executeString(QString("from SlicerReportingModuleWidgetHelper import SlicerReportingModuleWidgetHelper as ReportingHelper"));
+
+  // set up the file load command
   QString loadFileString = QString("ReportingHelper().LoadAIMFile(\"") + QString(reportNode->GetID()) + QString("\",\"") + QString(fileName) + QString("\")");
   qDebug() << loadFileString;
+
+  // run the file load command
   retvar = pythonManager->executeString(loadFileString);
 
   char * nodeID = reportNode->GetID();
