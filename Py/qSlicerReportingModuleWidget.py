@@ -108,7 +108,6 @@ class qSlicerReportingModuleWidget:
     
     inputFrameLayout.addRow(label, self.__reportSelector)
 
-    self.__reportSelector.connect('mrmlSceneChanged(vtkMRMLScene*)', self.onMRMLSceneChanged)
     self.__reportSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onReportNodeChanged)
  
     # Volume being annotated (only one is allowed for the report)
@@ -125,7 +124,6 @@ class qSlicerReportingModuleWidget:
     inputFrameLayout.addRow(label, self.__volumeSelector)
 
     self.__volumeSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onAnnotatedVolumeNodeChanged)
-    self.__volumeSelector.connect('mrmlSceneChanged(vtkMRMLScene*)', self.onMRMLSceneChanged)
 
     #
     # Annotation frame -- vocabulary-based description of what is
@@ -200,7 +198,6 @@ class qSlicerReportingModuleWidget:
     markupFrameLayout.addRow(self.__editorFrame)
 
     self.__segmentationSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onSegmentationNodeChanged)
-    self.__segmentationSelector.connect('mrmlSceneChanged(vtkMRMLScene*)', self.onMRMLSceneChanged)
 
     # IO frame
     self.__ioFrame = ctk.ctkCollapsibleButton()
