@@ -246,7 +246,8 @@ class qSlicerReportingModuleWidget:
   def enter(self):
     # switch to Two-over-Two layout
     lm = slicer.app.layoutManager()
-    lm.setLayout(26) # two over two
+    if lm != None:
+      lm.setLayout(26) # two over two
 
     # update the logic to know that the module has been entered
     self.__logic.GUIHiddenOff()
