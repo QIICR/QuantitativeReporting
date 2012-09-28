@@ -103,8 +103,8 @@ class qSlicerReportingModuleWidget:
     self.__reportSelector = slicer.qMRMLNodeComboBox()
     self.__reportSelector.nodeTypes =  ['vtkMRMLReportingReportNode']
     self.__reportSelector.setMRMLScene(slicer.mrmlScene)
-    self.__reportSelector.addEnabled = 1
-    self.__reportSelector.removeEnabled = 0
+    self.__reportSelector.addEnabled = True
+    self.__reportSelector.removeEnabled = False
     
     inputFrameLayout.addRow(label, self.__reportSelector)
 
@@ -321,7 +321,7 @@ class qSlicerReportingModuleWidget:
       rootNode = slicer.vtkMRMLHierarchyNode().GetAssociatedHierarchyNode(self.__rNode.GetScene(), self.__rNode.GetID())
       if rootNode:
         self.__markupTreeView.setRootNode(rootNode)
-        Helper.Debug("Setting tree view root to be " + rootNode.GetID())
+        Helper.Debug("UpdateTreeView: Set tree view root to be " + rootNode.GetID() + " named " + rootNode.GetName())
         self.__markupTreeView.expandAll()
       else:
         Helper.Debug("Setting tree view root to be None")
@@ -455,9 +455,8 @@ class qSlicerReportingModuleWidget:
     #  content
     self.__rNode = self.__reportSelector.currentNode()
       
+    Helper.Debug("onReportNodeChanged: changing segmentation selector to None")
     self.__segmentationSelector.setCurrentNode(None)
-    # disable editor frame
-    self.onSegmentationNodeChanged()
 
     if self.__rNode != None:
     
@@ -476,7 +475,7 @@ class qSlicerReportingModuleWidget:
         Helper.Debug('Color node has already been set to '+self.__rNode.GetColorNodeID())
 
       self.__logic.InitializeHierarchyForReport(self.__rNode)
-      self.updateTreeView()
+
       vID = self.__rNode.GetVolumeNodeID()
       if vID:
         Helper.Debug('Have a volume node id in the report ' + vID + ', setting current volume node selector')
@@ -493,6 +492,9 @@ class qSlicerReportingModuleWidget:
 
       # update the GUI annotation name/label/color
       self.updateWidgets()
+
+      # update the tree
+      self.updateTreeView()
 
       # initialize the label used by the EditorWidget
       if self.__editorParameterNode:

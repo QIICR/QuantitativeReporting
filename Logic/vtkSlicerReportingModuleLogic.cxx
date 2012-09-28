@@ -638,7 +638,7 @@ void vtkSlicerReportingModuleLogic::InitializeHierarchyForVolume(vtkMRMLVolumeNo
   if (hnode)
     {
     const char * activeReportID = this->GetActiveReportHierarchyID();
-    vtkDebugMacro("InitializeHierarchyForVolume: volume " << node->GetID() << " already has a hierarchy associated with it, " << hnode->GetID() << ", making it a child of " << (activeReportID ? activeReportID : "null"));
+    vtkDebugMacro("InitializeHierarchyForVolume: volume " << node->GetID() << " already has a hierarchy associated with it, " << hnode->GetID() << ", making it a child of the active report " << (activeReportID ? activeReportID : "null"));
     volumeHierarchyNodeID = hnode->GetID();
     // make sure it's a child of the report
     hnode->SetParentNodeID(activeReportID);
@@ -688,7 +688,7 @@ void vtkSlicerReportingModuleLogic::InitializeHierarchyForVolume(vtkMRMLVolumeNo
     this->GetMRMLScene()->AddNode(ahnode);
     ahnodeID = ahnode->GetID();
     // make it a child of the volume
-    vtkDebugMacro("Setting annotation markup hierarchy's parent to volume hierarchy id " << volumeHierarchyNodeID);
+    vtkDebugMacro("Creating and setting annotation markup hierarchy's parent to volume hierarchy id " << volumeHierarchyNodeID);
     //this->GetMRMLScene()->GetNodeByID(volumeHierarchyNodeID)->SetDisableModifiedEvent(1);
     ahnode->SetDisableModifiedEvent(1);
     ahnode->SetParentNodeID(volumeHierarchyNodeID);
