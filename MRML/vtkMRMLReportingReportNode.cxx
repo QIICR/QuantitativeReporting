@@ -148,7 +148,10 @@ void vtkMRMLReportingReportNode::PrintSelf(ostream& os, vtkIndent indent)
 //----------------------------------------------------------------------------
 void vtkMRMLReportingReportNode::SetVolumeNodeID(std::string id)
 {
-  this->VolumeNodeID = id;
+  if (this->VolumeNodeID.compare(id) != 0)
+    {
+    this->VolumeNodeID = id;
+    }
 }
 
 //----------------------------------------------------------------------------
@@ -160,7 +163,10 @@ std::string vtkMRMLReportingReportNode::GetVolumeNodeID()
 //----------------------------------------------------------------------------
 void vtkMRMLReportingReportNode::SetColorNodeID(std::string id)
 {
-  this->ColorNodeID = id;
+  if (this->ColorNodeID.compare(id) != 0)
+    {
+    this->ColorNodeID = id;
+    }
 }
 
 //----------------------------------------------------------------------------
