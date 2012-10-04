@@ -123,11 +123,11 @@ class ReportingRoundTripTest(unittest.TestCase):
     volumeNode = None
     volName = 'AIM volume '+str(volId)
 
-    print("Dicom data base = "+ddb)
+    # print("Dicom data base = "+ddb)
 
     slicer.dicomDatabase = ddb
     scalarVolumePlugin = slicer.modules.dicomPlugins['DICOMScalarVolumePlugin']()
-    scalarVolumeLoadables = scalarVolumePlugin.examine([filelist])
+    scalarVolumeLoadables = scalarVolumePlugin.examine([fileList])
     volumeNode = scalarVolumePlugin.load(scalarVolumeLoadables[0])
     volumeNode.SetName(volName)
     # print "volumeNode = ",volumeNode
@@ -206,11 +206,11 @@ class ReportingRoundTripTest(unittest.TestCase):
     if (retval != 0):
       print("ERROR: unable to save report to aim file "+dirName+", retval="+retval)
     else:
-      print("Saved report to "+dirName)
+      print("Saved report to "+dirName+"in file"+reportNode.GetAIMFileName())
 
     self.assertEqual(retval, 0)
 
-    print("\n\n\nReloading aim file...")
+    print("\n\n\nReloading aim file"+reportNode.GetAIMFileName())
 
     #
     # now clear the scene so can read in
@@ -229,7 +229,7 @@ class ReportingRoundTripTest(unittest.TestCase):
     slicer.mrmlScene.AddNode(newReport)
     parameterNode.SetParameter("reportID", newReport.GetID())
 
-    Helper.LoadAIMFile(newReport.GetID(),aimFileName)
+    Helper.LoadAIMFile(newReport.GetID(),reportNode.GetAIMFileName())
 
     # check the fiducial
     endCoords = [0,0,0]

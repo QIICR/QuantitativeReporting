@@ -33,6 +33,7 @@ vtkMRMLReportingReportNode::vtkMRMLReportingReportNode()
   this->ColorNodeID = "";
   this->FindingLabel = 1;
   this->StorageDirectoryName = "";
+  this->AIMFileName = "";
   this->AllowOutOfPlaneMarkups = 0;
   this->DICOMDatabaseFileName = "";
 }
@@ -43,6 +44,7 @@ vtkMRMLReportingReportNode::~vtkMRMLReportingReportNode()
   this->VolumeNodeID = "";
   this->ColorNodeID = "";
   this->StorageDirectoryName = "";
+  this->AIMFileName = "";
 }
 
 //----------------------------------------------------------------------------
@@ -79,6 +81,10 @@ void vtkMRMLReportingReportNode::ReadXMLAttributes(const char** atts)
       {
       this->SetDICOMDatabaseFileName(attValue);
       }
+    else if (!strcmp(attName, "AIMFileName"))
+      {
+      this->SetAIMFileName(attValue);
+      }
     else if (!strcmp(attName, "AllowOutOfPlaneMarkups"))
       {
       if (!strcmp(attValue,"true"))
@@ -105,6 +111,7 @@ void vtkMRMLReportingReportNode::WriteXML(ostream& of, int nIndent)
   of << indent << " FindingLabel=\"" << this->FindingLabel << "\"";
   of << indent << " ColorNodeID=\"" << this->ColorNodeID << "\"";
   of << indent << " StorageDirectoryName=\"" << this->StorageDirectoryName << "\"";
+  of << indent << " AIMFileName=\"" << this->AIMFileName << "\"";
   of << indent << " AllowOutOfPlaneMarkups=\"" << (this->AllowOutOfPlaneMarkups ? "true" : "false") << "\"";
   of << indent << " DICOMDatabaseFileName=\"" << this->DICOMDatabaseFileName << std::endl;
 }
@@ -125,6 +132,7 @@ void vtkMRMLReportingReportNode::Copy(vtkMRMLNode *anode)
     this->SetFindingLabel(node->GetFindingLabel());
     this->SetColorNodeID(node->GetColorNodeID());
     this->SetStorageDirectoryName(node->GetStorageDirectoryName());
+    this->SetAIMFileName(node->GetAIMFileName());
     this->SetAllowOutOfPlaneMarkups(node->GetAllowOutOfPlaneMarkups());
     this->SetDICOMDatabaseFileName(node->GetDICOMDatabaseFileName());
     }
@@ -141,6 +149,7 @@ void vtkMRMLReportingReportNode::PrintSelf(ostream& os, vtkIndent indent)
   os << indent << "FindingLabel: " << this->FindingLabel << "\n";
   os << indent << "ColorNodeID: " << this->ColorNodeID << "\n";
   os << indent << "StorageDirectoryName: " << this->StorageDirectoryName << "\n";
+  os << indent << "AIMFileName: " << this->AIMFileName << "\n";
   os << indent << "AllowOutOfPlaneMarkups: " << this->AllowOutOfPlaneMarkups << "\n";
   os << indent << "DICOMDatabaseFileName: " << this->DICOMDatabaseFileName << "\n";
 }
@@ -197,4 +206,16 @@ void vtkMRMLReportingReportNode::SetDICOMDatabaseFileName(std::string fname)
 std::string vtkMRMLReportingReportNode::GetDICOMDatabaseFileName()
 {
   return this->DICOMDatabaseFileName;
+}
+
+//----------------------------------------------------------------------------
+void vtkMRMLReportingReportNode::SetAIMFileName(std::string fname)
+{
+  this->AIMFileName = fname;
+}
+
+//----------------------------------------------------------------------------
+std::string vtkMRMLReportingReportNode::GetAIMFileName()
+{
+  return this->AIMFileName;
 }

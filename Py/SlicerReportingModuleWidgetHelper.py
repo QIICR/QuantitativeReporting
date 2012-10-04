@@ -391,11 +391,14 @@ class SlicerReportingModuleWidgetHelper( object ):
       res = slicer.modules.reporting.logic().DicomSegRead(labelNodes, uid, colorNode)
       SlicerReportingModuleWidgetHelper.Debug('Read this many labels from the seg object:'+str(labelNodes.GetNumberOfItems()))
 
-      # read the reference node
-      label0 = labelNodes.GetItemAsObject(0)
+      if labelNodes.GetNumberOfItems() == 0:
+        print("Error loading segmentation object, have 0 labels")
+      else:
+        # read the reference node
+        label0 = labelNodes.GetItemAsObject(0)
 
-      referenceUIDs = label0.GetAttribute('DICOM.referenceInstanceUIDs')
-      SlicerReportingModuleWidgetHelper.Debug('Seg object reference uids: '+referenceUIDs)
+        referenceUIDs = label0.GetAttribute('DICOM.referenceInstanceUIDs')
+        SlicerReportingModuleWidgetHelper.Debug('Seg object reference uids: '+referenceUIDs)
 
       for i in range(labelNodes.GetNumberOfItems()):
         displayNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLLabelMapVolumeDisplayNode')
