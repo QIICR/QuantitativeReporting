@@ -405,8 +405,39 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
 }
 
 //---------------------------------------------------------------------------
-void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeRemoved(vtkMRMLNode* vtkNotUsed(node))
+void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeRemoved(vtkMRMLNode* node)
 {
+  if (!node)
+    {
+    return;
+    }
+  if (this->GetMRMLScene()->IsBatchProcessing())
+    {
+    return;
+    }
+  if (node->IsA("vtkMRMLReportingReportNode"))
+    {
+    vtkDebugMacro("OnMRMLSceneNodeRemoved: node id = " << node->GetID());
+    // find the hierarchy associated with it
+    std::vector<vtkMRMLNode *> hnodes;
+    int nnodes = this->GetMRMLScene()->GetNodesByClass("vtkMRMLDisplayableHierarchyNode", hnodes);
+    for (int i = 0; i < nnodes; i++)
+      {
+      vtkMRMLHierarchyNode *hnode =  vtkMRMLHierarchyNode::SafeDownCast(hnodes[i]);
+      if (hnode)
+        {
+        const char *assocNodeID = hnode->GetAssociatedNodeID();
+        vtkDebugMacro("\t\tchecking hierarchy node " << hnode->GetID() << " with name " << hnode->GetName() << " and associated node id of " << (assocNodeID ? assocNodeID : "null"));
+        if (assocNodeID &&
+            strcmp(node->GetID(), assocNodeID) == 0)
+          {
+          vtkDebugMacro("\tfound associated hierarchy node, removing " << hnode->GetID());
+          this->GetMRMLScene()->RemoveNode(hnode);
+          break;
+          }
+        }
+      }
+    }
 }
 
 //---------------------------------------------------------------------------
