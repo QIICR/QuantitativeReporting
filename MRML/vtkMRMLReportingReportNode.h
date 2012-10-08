@@ -59,7 +59,7 @@ class VTK_SLICER_REPORTING_MODULE_MRML_EXPORT vtkMRMLReportingReportNode : publi
   virtual void Copy(vtkMRMLNode *node);
 
   /// Get node XML tag name (like Volume, Model)
-  virtual const char* GetNodeTagName() {return "Report";};
+  virtual const char* GetNodeTagName() {return "ReportingReport";};
 
   std::string GetVolumeNodeID();
   void SetVolumeNodeID(std::string);

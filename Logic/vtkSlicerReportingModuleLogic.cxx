@@ -1068,20 +1068,20 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   char timeStr[27];
   time ( &rawtime );
   timeInfo = localtime (&rawtime);
-  strftime (timeStr, 27, "%Y/%m/%d-%H-%M-%S-00-%Z", timeInfo);
+  strftime (timeStr, 27, "%Y-%m-%dT%H:%M:%S", timeInfo);
   
   QDomDocument doc;
   QDomProcessingInstruction xmlDecl = doc.createProcessingInstruction("xml","version=\"1.0\"");
   doc.appendChild(xmlDecl);
 
   QDomElement root = doc.createElement("ImageAnnotation");
-  root.setAttribute("xmlns","gme://caCORE.caCORE/3.2/edu.northwestern.radiology.AIM");
+  //root.setAttribute("xmlns","gme://caCORE.caCORE/3.2/edu.northwestern.radiology.AIM");
   root.setAttribute("aimVersion","3.0");
   root.setAttribute("cagridId","0");
 
   root.setAttribute("codeMeaning","na");
   root.setAttribute("codeValue", "na");
-  root.setAttribute("codeSchemeDesignator", "na");
+  root.setAttribute("codingSchemeDesignator", "na");
   root.setAttribute("dateTime",timeStr);
 
   vtkMRMLColorNode *colorNode = NULL;
@@ -1124,7 +1124,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   std::ostringstream labelValueStr;
   labelValueStr << reportNode->GetFindingLabel();
   ae.setAttribute("codeValue", labelValueStr.str().c_str());
-  ae.setAttribute("codeSchemeDesignator", "3DSlicer"); // TODO use RadLex instead of Slicer
+  ae.setAttribute("codingSchemeDesignator", "3DSlicer"); // TODO use RadLex instead of Slicer
   ae.setAttribute("label", colorNode->GetColorName(reportNode->GetFindingLabel()));
   aec.appendChild(ae);
 
@@ -1134,29 +1134,36 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   
   
   QDomElement user = doc.createElement("user");
-  user.setAttribute("cagridId","0");
-  user.setAttribute("loginName",envUser.c_str());
-  user.setAttribute("name",envUser.c_str());
-  user.setAttribute("numberWithinRoleOfClinicalTrial","1");
-  user.setAttribute("roleInTrial","Performing");
   root.appendChild(user);
+  QDomElement User = doc.createElement("User");
+  User.setAttribute("cagridId","0");
+  User.setAttribute("loginName",envUser.c_str());
+  User.setAttribute("name",envUser.c_str());
+  User.setAttribute("numberWithinRoleOfClinicalTrial","1");
+  User.setAttribute("roleInTrial","Performing");
+  user.appendChild(User);
 
   QDomElement equipment = doc.createElement("equipment");
-  equipment.setAttribute("cagridId","0");
-  equipment.setAttribute("manufacturerModelName","3D_Slicer_4_Reporting");
-  equipment.setAttribute("manufacturerName","Brigham and Women's Hospital, Surgical Planning Lab");
+  root.appendChild(equipment);
+  QDomElement Equipment = doc.createElement("Equipment");
+  Equipment.setAttribute("cagridId","0");
+  Equipment.setAttribute("manufacturerModelName","3D_Slicer_4_Reporting");
+  Equipment.setAttribute("manufacturerName","Brigham and Women's Hospital, Surgical Planning Lab");
   // get the slicer version
   qSlicerApplication* slicer = qSlicerApplication::application();
   QString slicerVersion = QString("Slicer ") + slicer->applicationVersion() + " r" + slicer->repositoryRevision();
   // set the Reporting module version, Id will give the git hash of the blob
   std::string reportingVersion = std::string(" Reporting ") + Reporting_WC_REVISION;
   std::string softwareVersion = std::string(qPrintable(slicerVersion)) + reportingVersion;
-  equipment.setAttribute("softwareVersion",softwareVersion.c_str());
-  root.appendChild(equipment);
+  Equipment.setAttribute("softwareVersion",softwareVersion.c_str());
+  equipment.appendChild(Equipment);
 
   // Extract patient information from the referenced volume
   //
   QDomElement person = doc.createElement("person");
+  root.appendChild(person);
+
+  QDomElement Person = doc.createElement("Person");
 
   // load up the header information using the volume's first uid
   QString uids, volumeFirstUID;
@@ -1173,7 +1180,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   if (patientBirthDate.size() == 0 ||
       patientBirthDate.contains("(no value available)"))
     {
-    person.setAttribute("birthDate","1990-01-01T00:00:00");
+    Person.setAttribute("birthDate","1990-01-01T00:00:00");
     }
   else
     {
@@ -1194,14 +1201,14 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
         fullBirthTime = patientBirthTime.mid(0,2) + QString("-") + patientBirthTime.mid(2,2) + QString("-") + patientBirthTime.mid(4,2);
         }
       }
-    person.setAttribute("birthDate", fullBirthDate + fullBirthTime);
+    Person.setAttribute("birthDate", fullBirthDate + fullBirthTime);
     }
 
-  person.setAttribute("cagridId","0");
-  person.setAttribute("id",patientID);
-  person.setAttribute("name", patientName);
-  person.setAttribute("sex", patientSex);
-  root.appendChild(person);
+  Person.setAttribute("cagridId","0");
+  Person.setAttribute("id",patientID);
+  Person.setAttribute("name", patientName);
+  Person.setAttribute("sex", patientSex);
+  person.appendChild(Person);
   
   // (Step 4) Go over the markup elements and add them to the geometric shape
   // collection. Here we might want to keep track of the volume being
@@ -1489,7 +1496,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
       series.appendChild(series1);
 
       QDomElement ic = doc.createElement("imageCollection");
-      series.appendChild(ic);
+      series1.appendChild(ic);
 
       QStringList uidList = seriesToInstanceList[seriesUID];
 
@@ -1542,7 +1549,7 @@ int vtkSlicerReportingModuleLogic::AddSpatialCoordinateCollectionElement(QDomDoc
     sc.setAttribute("cagridId","0");
     sc.setAttribute("coordinateIndex","0");
     sc.setAttribute("imageReferenceUID",sliceUIDList[0]);
-    sc.setAttribute("referenceFrameNumber","1"); // TODO: maybe add handling of multiframe DICOM?
+    sc.setAttribute("referencedFrameNumber","1"); // TODO: maybe add handling of multiframe DICOM?
     sc.setAttribute("xsi:type", "TwoDimensionSpatialCoordinate");
     sc.setAttribute("x", coordList[i]);
     sc.setAttribute("y", coordList[i+1]);
