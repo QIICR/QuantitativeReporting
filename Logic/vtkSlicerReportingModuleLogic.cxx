@@ -1075,7 +1075,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   doc.appendChild(xmlDecl);
 
   QDomElement root = doc.createElement("ImageAnnotation");
-  //root.setAttribute("xmlns","gme://caCORE.caCORE/3.2/edu.northwestern.radiology.AIM");
+  root.setAttribute("xmlns","gme://caCORE.caCORE/3.2/edu.northwestern.radiology.AIM");
   root.setAttribute("aimVersion","3.0");
   root.setAttribute("cagridId","0");
 
@@ -1107,32 +1107,8 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   
   doc.appendChild(root);
 
-  // (Step 2) Create inference collection and initialize each of the inference
-  // objects based on the content of the annotation node
-  //
-  // Deprecated
-  //
-  // create anatomicEntityCollection that will describe what is being
-  // annotated
-  QDomElement aec = doc.createElement("anatomicEntityCollection");
-  root.appendChild(aec);
-
-  QDomElement ae = doc.createElement("AnatomicEntity");
-  ae.setAttribute("annotatorConfidence", "0.0"); // TODO? add an option?
-  ae.setAttribute("cagridId", "0");
-  ae.setAttribute("codeMeaning", colorNode->GetColorName(reportNode->GetFindingLabel()));
-  std::ostringstream labelValueStr;
-  labelValueStr << reportNode->GetFindingLabel();
-  ae.setAttribute("codeValue", labelValueStr.str().c_str());
-  ae.setAttribute("codingSchemeDesignator", "3DSlicer"); // TODO use RadLex instead of Slicer
-  ae.setAttribute("label", colorNode->GetColorName(reportNode->GetFindingLabel()));
-  aec.appendChild(ae);
-
   // (Step 3) Initialize user/equipment/person (these have no meaning for now
   // here)
-
-  
-  
   QDomElement user = doc.createElement("user");
   root.appendChild(user);
   QDomElement User = doc.createElement("User");
@@ -1158,68 +1134,29 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   Equipment.setAttribute("softwareVersion",softwareVersion.c_str());
   equipment.appendChild(Equipment);
 
-  // Extract patient information from the referenced volume
+
+  // (Step 2) Create inference collection and initialize each of the inference
+  // objects based on the content of the annotation node
   //
-  QDomElement person = doc.createElement("person");
-  root.appendChild(person);
+  // Deprecated
+  //
+  // create anatomicEntityCollection that will describe what is being
+  // annotated
+  QDomElement aec = doc.createElement("anatomicEntityCollection");
+  root.appendChild(aec);
 
-  QDomElement Person = doc.createElement("Person");
+  QDomElement ae = doc.createElement("AnatomicEntity");
+  ae.setAttribute("annotatorConfidence", "0.0"); // TODO? add an option?
+  ae.setAttribute("cagridId", "0");
+  ae.setAttribute("codeMeaning", colorNode->GetColorName(reportNode->GetFindingLabel()));
+  std::ostringstream labelValueStr;
+  labelValueStr << reportNode->GetFindingLabel();
+  ae.setAttribute("codeValue", labelValueStr.str().c_str());
+  ae.setAttribute("codingSchemeDesignator", "3DSlicer"); // TODO use RadLex instead of Slicer
+  ae.setAttribute("label", colorNode->GetColorName(reportNode->GetFindingLabel()));
+  aec.appendChild(ae);
 
-  // load up the header information using the volume's first uid
-  QString uids, volumeFirstUID;
-  if (volumeNode)
-    {
-    uids = volumeNode->GetAttribute("DICOM.instanceUIDs");
-    volumeFirstUID = uids.split(" ")[0];
-    }
-  vtkDebugMacro("Loading instance header from uid " << qPrintable(volumeFirstUID));
-  this->DICOMDatabase->loadInstanceHeader(volumeFirstUID);
-
-  // PatientBirthDate and PatientBirthTime
-  QString patientBirthDate = this->DICOMDatabase->headerValue("0010,0030");
-  if (patientBirthDate.size() == 0 ||
-      patientBirthDate.contains("(no value available)"))
-    {
-    Person.setAttribute("birthDate","1990-01-01T00:00:00");
-    }
-  else
-    {
-    patientBirthDate = patientBirthDate.split("]")[0].split("[")[1];
-    vtkDebugMacro("patientBirthDate = " << qPrintable(patientBirthDate));
-    // parse birth date out from YYYYMMDD
-    QString fullBirthDate = patientBirthDate.mid(0,4) + QString("-") + patientBirthDate.mid(4,2) + QString("-") + patientBirthDate.mid(6,2);
-    QString patientBirthTime = this->DICOMDatabase->headerValue("0010,0032");
-    QString fullBirthTime = QString("T00:00:00");
-    if (patientBirthTime.size() != 0 &&
-        !patientBirthTime.contains("(no value available)"))
-      {      
-      patientBirthTime = patientBirthTime.split("]")[0].split("[")[1];
-      vtkDebugMacro("patientBirthTime = " << qPrintable(patientBirthTime) );
-      if (patientBirthTime.size() >= 6)
-        {
-        // parse from HHMMSS
-        fullBirthTime = patientBirthTime.mid(0,2) + QString("-") + patientBirthTime.mid(2,2) + QString("-") + patientBirthTime.mid(4,2);
-        }
-      }
-    Person.setAttribute("birthDate", fullBirthDate + fullBirthTime);
-    }
-
-  Person.setAttribute("cagridId","0");
-  Person.setAttribute("id",patientID);
-  Person.setAttribute("name", patientName);
-  Person.setAttribute("sex", patientSex);
-  person.appendChild(Person);
-  
-  // (Step 4) Go over the markup elements and add them to the geometric shape
-  // collection. Here we might want to keep track of the volume being
-  // referenced, but since one AIM file is for one volume, we don't really
-  // need to do this.
-  QDomElement gsc = doc.createElement("geometricShapeCollection");
-  root.appendChild(gsc);
-
-  // and now print!
-  
-  // print out the report
+ 
   if (reportNode)
     {
     std::cout << "SaveReportToAIM: saving report node " << reportNode->GetName() << std::endl;
@@ -1238,6 +1175,8 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   int shapeId = 0;
   vtkSmartPointer<vtkCollection> labelNodeCollection = vtkSmartPointer<vtkCollection>::New();
 
+  // Find all label nodes in the hierarchy
+  QStringList referencedUIDList;
   if (markupHierarchyNode)
     {
     // get all the hierarchy nodes under the mark up node
@@ -1250,11 +1189,10 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
       if (mrmlAssociatedNode)
         {
         vtkMRMLAnnotationNode *annNode = vtkMRMLAnnotationNode::SafeDownCast(mrmlAssociatedNode);
-        // print out a point
         vtkMRMLAnnotationFiducialNode *fidNode = vtkMRMLAnnotationFiducialNode::SafeDownCast(mrmlAssociatedNode);          
         vtkMRMLAnnotationRulerNode *rulerNode = vtkMRMLAnnotationRulerNode::SafeDownCast(mrmlAssociatedNode);
         vtkMRMLScalarVolumeNode *labelNode = vtkMRMLScalarVolumeNode::SafeDownCast(mrmlAssociatedNode);
-
+        
         if(fidNode || rulerNode)
           {
           // TODO: need to handle the case of multiframe data .. ?
@@ -1265,68 +1203,17 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
             return EXIT_FAILURE;
             }
  
-          QStringList sliceUIDList;
-          sliceUIDList << QString(sliceUID.c_str());
+          referencedUIDList << QString(sliceUID.c_str());
           allInstanceUIDs << QString(sliceUID.c_str());
-
-
-          QStringList coordStr = this->GetMarkupPointCoordinatesStr(annNode);
-
-          QDomElement gs = doc.createElement("GeometricShape");
-
-          // GeometricShape markup-specific initialization
-
-          // Fiducial = AIM Point
-          if (fidNode)
-            {
-            vtkDebugMacro("SaveReportToAIM: saving Point from node named " << fidNode->GetName());
-
-            if(coordStr.size()!=2)
-              {
-              vtkErrorMacro("Failed to obtain fiducial points for markup point!");
-              return EXIT_FAILURE;
-              }
-
-            gs.setAttribute("xsi:type","Point");
-            gs.setAttribute("shapeIdentifier",shapeId++);
-            gs.setAttribute("includeFlag", "true");
-            gs.setAttribute("cagridId","0");
-            }
-          
-          // Ruler = AIM MultiPoint
-          if (rulerNode)
-            {
-            vtkDebugMacro("SaveReportToAIM: saving MultiPoint from node named " << rulerNode->GetName());
-
-            if(coordStr.size()!=4)
-              {
-              vtkErrorMacro("Failed to obtain fiducial points for markup point!");
-              return EXIT_FAILURE;
-              }
-
-            gs.setAttribute("xsi:type","MultiPoint");
-            gs.setAttribute("shapeIdentifier",shapeId++);
-            gs.setAttribute("includeFlag", "true");
-            gs.setAttribute("cagridId","0");
-            }
- 
-          // Procedure for saving the list of points should be the same for
-          // all markup elements
-          this->AddSpatialCoordinateCollectionElement(doc, gs, coordStr, sliceUIDList);
-          gsc.appendChild(gs);
-        }
-      else if(labelNode)
-        {
+          }
+        else if(labelNode)
+          {
           labelNodeCollection->AddItem(labelNode);
-        }
-      else
-        {
-        vtkWarningMacro("SaveReportToAIM: unsupported markup type, of class: " << mrmlAssociatedNode->GetClassName());
+          }
         }
       }
     }
-  }
-
+  
   if(labelNodeCollection->GetNumberOfItems())
     {
     // save the SEG object, add it to the database, get the UIDs
@@ -1341,17 +1228,17 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
       std::string filename = this->DicomSegWrite(labelNodeCollection, dirname);
       if(filename != "")
         {
-//      Database insertion disabled due to unexplained lockup of the database
-//      on repeated insert.
         const QString qfilename = QString(filename.c_str());
         this->DICOMDatabase->insert(qfilename, 0);
-        std::cout << "Inserted file into the database: " << filename << std::endl;
 
         DcmFileFormat segFileFormat;
         OFCondition status = segFileFormat.loadFile(filename.c_str());
         if(status.good())
           {
           DcmDataset *segDcm = segFileFormat.getAndRemoveDataset();
+          QDomElement scDom = doc.createElement("segmentationCollection");
+          root.appendChild(scDom);
+
           QDomElement segDom = doc.createElement("Segmentation");
           segDom.setAttribute("cagridId","0");
 
@@ -1370,7 +1257,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
           segDom.setAttribute("referencedSopInstanceUID",
             this->getDcmElementAsString(DCM_ReferencedSOPInstanceUID, segDcm).c_str());
           segDom.setAttribute("segmentNumber","1");
-          root.appendChild(segDom);
+          scDom.appendChild(segDom);
           }
         else
           {
@@ -1513,6 +1400,141 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
       }
     }
 
+  // (Step 4) Go over the markup elements and add them to the geometric shape
+  // collection. Here we might want to keep track of the volume being
+  // referenced, but since one AIM file is for one volume, we don't really
+  // need to do this.
+  QDomElement gsc = doc.createElement("geometricShapeCollection");
+  root.appendChild(gsc);
+
+  if (markupHierarchyNode)
+    {
+    // get all the hierarchy nodes under the mark up node
+    std::vector< vtkMRMLHierarchyNode *> allChildren;
+    markupHierarchyNode->GetAllChildrenNodes(allChildren);
+    // get the associated markups and print them
+    for (unsigned int i = 0; i < allChildren.size(); ++i)
+      {
+      vtkMRMLNode *mrmlAssociatedNode = allChildren[i]->GetAssociatedNode();
+      if (mrmlAssociatedNode)
+        {
+        vtkMRMLAnnotationNode *annNode = vtkMRMLAnnotationNode::SafeDownCast(mrmlAssociatedNode);
+        // print out a point
+        vtkMRMLAnnotationFiducialNode *fidNode = vtkMRMLAnnotationFiducialNode::SafeDownCast(mrmlAssociatedNode);          
+        vtkMRMLAnnotationRulerNode *rulerNode = vtkMRMLAnnotationRulerNode::SafeDownCast(mrmlAssociatedNode);
+        vtkMRMLScalarVolumeNode *labelNode = vtkMRMLScalarVolumeNode::SafeDownCast(mrmlAssociatedNode);
+
+        if(fidNode || rulerNode)
+          {
+          QStringList coordStr = this->GetMarkupPointCoordinatesStr(annNode);
+
+          QDomElement gs = doc.createElement("GeometricShape");
+
+          // GeometricShape markup-specific initialization
+
+          // Fiducial = AIM Point
+          if (fidNode)
+            {
+            vtkDebugMacro("SaveReportToAIM: saving Point from node named " << fidNode->GetName());
+
+            if(coordStr.size()!=2)
+              {
+              vtkErrorMacro("Failed to obtain fiducial points for markup point!");
+              return EXIT_FAILURE;
+              }
+
+            gs.setAttribute("xsi:type","Point");
+            gs.setAttribute("shapeIdentifier",shapeId++);
+            gs.setAttribute("includeFlag", "true");
+            gs.setAttribute("cagridId","0");
+            }
+          
+          // Ruler = AIM MultiPoint
+          if (rulerNode)
+            {
+            vtkDebugMacro("SaveReportToAIM: saving MultiPoint from node named " << rulerNode->GetName());
+
+            if(coordStr.size()!=4)
+              {
+              vtkErrorMacro("Failed to obtain fiducial points for markup point!");
+              return EXIT_FAILURE;
+              }
+
+            gs.setAttribute("xsi:type","MultiPoint");
+            gs.setAttribute("shapeIdentifier",shapeId++);
+            gs.setAttribute("includeFlag", "true");
+            gs.setAttribute("cagridId","0");
+            }
+ 
+          // Procedure for saving the list of points should be the same for
+          // all markup elements
+          this->AddSpatialCoordinateCollectionElement(doc, gs, coordStr, referencedUIDList);
+          gsc.appendChild(gs);
+        }
+      else if(labelNode)
+        {
+          // skip -- handled earlier
+        }
+      else
+        {
+        vtkWarningMacro("SaveReportToAIM: unsupported markup type, of class: " << mrmlAssociatedNode->GetClassName());
+        }
+      }
+    }
+  }
+
+  // Extract patient information from the referenced volume
+  //
+  QDomElement person = doc.createElement("person");
+  root.appendChild(person);
+
+  QDomElement Person = doc.createElement("Person");
+
+  // load up the header information using the volume's first uid
+  QString uids, volumeFirstUID;
+  if (volumeNode)
+    {
+    uids = volumeNode->GetAttribute("DICOM.instanceUIDs");
+    volumeFirstUID = uids.split(" ")[0];
+    }
+  vtkDebugMacro("Loading instance header from uid " << qPrintable(volumeFirstUID));
+  this->DICOMDatabase->loadInstanceHeader(volumeFirstUID);
+
+  // PatientBirthDate and PatientBirthTime
+  QString patientBirthDate = this->DICOMDatabase->headerValue("0010,0030");
+  if (patientBirthDate.size() == 0 ||
+      patientBirthDate.contains("(no value available)"))
+    {
+    Person.setAttribute("birthDate","1990-01-01T00:00:00");
+    }
+  else
+    {
+    patientBirthDate = patientBirthDate.split("]")[0].split("[")[1];
+    vtkDebugMacro("patientBirthDate = " << qPrintable(patientBirthDate));
+    // parse birth date out from YYYYMMDD
+    QString fullBirthDate = patientBirthDate.mid(0,4) + QString("-") + patientBirthDate.mid(4,2) + QString("-") + patientBirthDate.mid(6,2);
+    QString patientBirthTime = this->DICOMDatabase->headerValue("0010,0032");
+    QString fullBirthTime = QString("T00:00:00");
+    if (patientBirthTime.size() != 0 &&
+        !patientBirthTime.contains("(no value available)"))
+      {      
+      patientBirthTime = patientBirthTime.split("]")[0].split("[")[1];
+      vtkDebugMacro("patientBirthTime = " << qPrintable(patientBirthTime) );
+      if (patientBirthTime.size() >= 6)
+        {
+        // parse from HHMMSS
+        fullBirthTime = patientBirthTime.mid(0,2) + QString("-") + patientBirthTime.mid(2,2) + QString("-") + patientBirthTime.mid(4,2);
+        }
+      }
+    Person.setAttribute("birthDate", fullBirthDate + fullBirthTime);
+    }
+
+  Person.setAttribute("cagridId","0");
+  Person.setAttribute("id",patientID);
+  Person.setAttribute("name", patientName);
+  Person.setAttribute("sex", patientSex);
+  person.appendChild(Person);
+ 
   // close the file
   
   vtkDebugMacro("Here comes the AIM: ");
@@ -1866,7 +1888,10 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
     {
     std::string fileName = this->GetFileNameFromUID(*uidIt);
     if(fileName == "")
-        return "";
+      {
+      std::cout << "Failed to get filename from UID " << *uidIt << std::endl;
+      return "";
+      }
     DcmFileFormat fileFormat;
     OFCondition status = fileFormat.loadFile(fileName.c_str());
     if(status.good())
