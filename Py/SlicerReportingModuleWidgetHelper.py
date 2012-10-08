@@ -240,9 +240,9 @@ class SlicerReportingModuleWidgetHelper( object ):
 
     labelValue = anatomy.getAttribute('codeValue')
     labelName = anatomy.getAttribute('codeMeaning')
-    codeSchemeDesignator = anatomy.getAttribute('codeSchemeDesignator')
-    if codeSchemeDesignator != '3DSlicer':
-      SlicerReportingModuleWidgetHelper.WarningPopup('Code scheme designator '+codeSchemeDesignator+' is not supported. Default will be used instead.')
+    codingSchemeDesignator = anatomy.getAttribute('codingSchemeDesignator')
+    if codingSchemeDesignator != '3DSlicer':
+      SlicerReportingModuleWidgetHelper.WarningPopup('Code scheme designator '+codingSchemeDesignator+' is not supported. Default will be used instead.')
       labelValue = "1"
 
     newReport = slicer.mrmlScene.GetNodeByID(newReportID)
