@@ -124,6 +124,13 @@ public:
 
   void AddNodeToReport(vtkMRMLNode*);
 
+  /// logic events
+  enum
+    {
+      ErrorEvent = 0x0000,
+      AnnotationAdded,
+    };
+  
 protected:
   vtkSlicerReportingModuleLogic();
   virtual ~vtkSlicerReportingModuleLogic();

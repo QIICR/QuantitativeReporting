@@ -315,7 +315,7 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
       // let the GUI know by invoking an event
       this->SetErrorMessage(userMessage.c_str());
       vtkDebugMacro("Logic: Invoking ErrorEvent");
-      this->InvokeEvent(vtkCommand::ErrorEvent, (void *)(userMessage.c_str()));
+      this->InvokeEvent(vtkSlicerReportingModuleLogic::ErrorEvent, (void *)(userMessage.c_str()));
       return;
       }
     else
@@ -402,8 +402,14 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     annotationName = std::string("Report_") + annotationType;
     }
   node->SetName(node->GetScene()->GetUniqueNameByString(annotationName.c_str()));
+
   // TODO: sanity check to make sure that the annotation's AssociatedNodeID
   // attribute points to the current volume
+  
+  // let the GUI know there's a new annotation node
+  std::cout << "Reporting Logic: had an annotation added, invoking node added event for " << node->GetName() << std::endl;
+  this->InvokeEvent(vtkSlicerReportingModuleLogic::AnnotationAdded); // vtkMRMLScene::NodeAddedEvent);
+  
 }
 
 //---------------------------------------------------------------------------
