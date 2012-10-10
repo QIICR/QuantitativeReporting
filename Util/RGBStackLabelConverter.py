@@ -1,4 +1,55 @@
-# Andrey Fedorov, BWH
+#
+# This module was developed by Andrey Fedorov, BWH 
+#    with the support of Slicer Community
+#
+# This work was supported in part by NIH NCI U01CA151261 grant (Quantitative
+# Imaging Network), PI Fiona Fennessy.
+#
+# This script performs conversion of the segmentation saved as a stack of RGB
+# slices into NRRD and DICOM SEG formats.
+# 
+# == Usage ==
+#
+# This script takes on input two arguments:
+#  1) directory that contains reference DICOM series
+#  2) directory that contains segmentation slices for the reference DICOM
+#  series. This directory should contain one RGB slice per each DICOM slice,
+#  and the name of that slice should include the name for the corresponding
+#  DICOM slice. For example, if DICOM slice name is "F0-1234.dcm", the name
+#  for the corresponding RGB slice can be "F0-1234-label.bmp".
+#
+# To run the script install Slicer4 and the latest version of the Reporting
+# extension, then from command line run:
+# > Slicer --python-script RGBStackLabelConverter.py <input_dicom_dir> <input_rgb_dir>
+#
+# As a result, the following files will be created in the directory from which
+# the script was run:
+# 1) input_volume.nrrd: reconstructed DICOM series in NRRD format
+# 2) output_label.nrrd: reconstructed segmentation volume
+# 3) <UID>.dcm: DICOM SEG object containing the segmentation
+#
+# In order to load the resulting NRRD files, use Slicer "Add data" menu
+# option
+# 
+# In order to load the DICOM SEG object, use the DICOM Module "Import"
+# functionality to first import the directory containing the SEG object into
+# the DICOM database. After that (considering you have Reporting module
+# installed) you will be able to select the segmentation object from DICOM
+# module and load into Slicer.
+#
+# == Limitations ==
+#
+# Note that currently DICOM SEG support is limited to a single label! If you
+# have more than one distinctive labels in your segmentation, they will all be
+# assigned the same label ID!
+#
+# == Support ==
+#
+# fedorov@bwh.harvard.edu
+#   and 
+# http://slicer.org user list
+# 
+
 from __main__ import slicer, vtk, ctk
 import sys, glob, shutil
 # import args
