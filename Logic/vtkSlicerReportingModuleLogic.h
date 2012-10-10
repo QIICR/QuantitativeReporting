@@ -111,7 +111,7 @@ public:
   
   bool IsDicomSeg(const std::string fname);
   // TODO: consider taking report as as a parameter here?
-  std::string DicomSegWrite(vtkCollection* labelNodes, const std::string dirname);
+  std::string DicomSegWrite(vtkCollection* labelNodes, const std::string dirname, bool saveReferencedDcm = false);
   bool DicomSegRead(vtkCollection*, const std::string fname, vtkMRMLColorNode* colorNode = NULL);
 
   /// set/get the error string
