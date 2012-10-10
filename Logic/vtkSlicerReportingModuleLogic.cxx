@@ -40,6 +40,8 @@
 #include <vtkNew.h>
 #include <vtkSmartPointer.h>
 #include <vtksys/SystemTools.hxx>
+#include <vtkPointData.h>
+#include <vtkImageCast.h>
 
 // Qt includes
 #include <QDomDocument>
@@ -1861,6 +1863,23 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
   int labelValue = 0;
 
   unsigned char *pixelArray = new unsigned char[nbytes];
+  vtkImageData *labelImage = labelImages[0];
+  if(labelImage->GetScalarType() != 4)
+    {
+    vtkImageCast *cast = vtkImageCast::New();
+    cast->SetInput(labelImage);
+    cast->SetOutputScalarTypeToShort();
+    cast->Update();
+    vtkSmartPointer<vtkMRMLScalarVolumeNode> labelNode = vtkMRMLScalarVolumeNode::SafeDownCast(labelNodes->GetItemAsObject(0));
+    labelNode->SetAndObserveImageData(cast->GetOutput());
+    labelImage = cast->GetOutput();
+    cast->Delete();
+    }
+
+  short* bufferPointer = (short*) labelImage->GetPointData()->GetScalars()->GetVoidPointer(0);
+  vtkIdType inc[3];
+  labelImage->GetIncrements(inc);
+
   for(int i=0;i<nbytes;i++)
     pixelArray[i] = 0;
 
@@ -1871,7 +1890,9 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
       for(int i=0;i<extent[1]+1;i++)
         {
         int byte = total / 8, bit = total % 8;
-        int imageValue = labelImages[0]->GetScalarComponentAsFloat(i,j,k,0);
+        //int imageValue = labelImages[0]->GetScalarComponentAsFloat(i,j,k,0);
+        // Optimized access to the image buffer:
+        short imageValue = bufferPointer[k*inc[2]+j*inc[1]+i];
         if(imageValue)
           labelValue = imageValue;
         total++;
@@ -2360,8 +2381,24 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
       }
 
     vtkImageData *imageData = vNode->GetImageData();
+
+    if(imageData->GetScalarType() != 4) // check if short
+      {
+      vtkImageCast *cast = vtkImageCast::New();
+      cast->SetInput(imageData);
+      cast->SetOutputScalarTypeToShort();
+      cast->Update();
+      vNode->SetAndObserveImageData(cast->GetOutput());
+      imageData = cast->GetOutput();
+      cast->Delete();
+      }
+
     int extent[6];
     imageData->GetExtent(extent);
+
+    short* bufferPointer = (short*) imageData->GetPointData()->GetScalars()->GetVoidPointer(0);
+    vtkIdType inc[3];
+    imageData->GetIncrements(inc);
 
     int total = 0;
     for(int k=0;k<extent[5]+1;k++)
@@ -2373,7 +2410,9 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
           int byte = total/8, bit = total % 8;
           int value = (pixelArray[byte] >> bit) & 1;
           value *= labelValue;
-          imageData->SetScalarComponentFromFloat(i,j,k,0,value);
+          //imageData->SetScalarComponentFromFloat(i,j,k,0,value);
+          // Optimized access to the image buffer:
+          bufferPointer[k*inc[2]+j*inc[1]+i] = value;
           total++;
           }
         }
