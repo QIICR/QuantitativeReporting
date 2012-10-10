@@ -1810,9 +1810,20 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
 
     if(i==0)
     {
+        if(!labelNode->GetDisplayNode() || !labelNode->GetDisplayNode()->GetColorNode())
+          {
+          std::cerr << "Label cannot be saved when the display node or color node is empty!" << std::endl;
+          return "";
+          }
+
         colorNode = labelNode->GetDisplayNode()->GetColorNode();
 
         referenceNodeID = labelNode->GetAttribute("AssociatedNodeID");
+        if(referenceNodeID == "")
+          {
+          std::cerr << "Label cannot be saved when AssociatedNodeID attrubute is not initialized!" << std::endl;
+          return "";
+          }
 
         vtkMRMLScalarVolumeNode* referenceNode =
                 vtkMRMLScalarVolumeNode::SafeDownCast(this->GetMRMLScene()->GetNodeByID(referenceNodeID.c_str()));
