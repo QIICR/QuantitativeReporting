@@ -261,8 +261,7 @@ void qMRMLSceneDisplayableHierarchyModel::updateItemDataFromNode(QStandardItem* 
     if (annotationNode)
       {
       // update the icon
-      /*
-      if (annotationNode->GetVisible())
+      if (annotationNode->GetDisplayVisibility())
         {
         item->setIcon(QIcon(":Icons/VisibleOn.png"));
         }
@@ -270,7 +269,6 @@ void qMRMLSceneDisplayableHierarchyModel::updateItemDataFromNode(QStandardItem* 
         {
         item->setIcon(QIcon(":Icons/VisibleOff.png"));
         }
-      */
       }
     }
 }

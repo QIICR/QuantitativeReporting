@@ -308,7 +308,7 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
         // this->GetMRMLScene()->RemoveNode(node);
         if (annotationNode)
           {
-          //annotationNode->SetVisible(0);
+          annotationNode->SetDisplayVisibility(0);
           }
         }
       vtkDebugMacro(<< errorMessage.c_str());
@@ -927,7 +927,7 @@ void vtkSlicerReportingModuleLogic::HideAnnotationsForOtherReports(vtkMRMLReport
           vtkErrorMacro("HideAnnotationsForOtherReports: unalbe to convert associated node to an annotation node, at " << mrmlNode->GetID());
           return;
           }
-        //annotationNode->SetVisible(visibFlag);
+        annotationNode->SetDisplayVisibility(visibFlag);
         int numDisplayNodes = annotationNode->GetNumberOfDisplayNodes();
         for (int n = 0; n < numDisplayNodes; ++n)
           {
