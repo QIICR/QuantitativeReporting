@@ -65,7 +65,8 @@ def DoIt(inputDir, rgbDir):
   # 
   dcmList = []
   for dcm in os.listdir(inputDir):
-    dcmList.append(inputDir+'/'+dcm)
+    if len(dcm)-dcm.rfind('.dcm') == 4:
+      dcmList.append(inputDir+'/'+dcm)
 
   scalarVolumePlugin = slicer.modules.dicomPlugins['DICOMScalarVolumePlugin']()
 
