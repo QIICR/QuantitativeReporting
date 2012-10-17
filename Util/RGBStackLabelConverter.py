@@ -105,7 +105,8 @@ def DoIt(inputDir, rgbDir):
   #
   rgbList = []
   for rgb in os.listdir(rgbDir):
-    rgbList.append(rgb)
+    if len(rgb)-rgb.rfind('.bmp') == 4:
+      rgbList.append(rgb)
 
   tmpDir = slicer.app.settings().value('Modules/TemporaryDirectory')
   tmpDir = tmpDir+'/PNGStackLabelConverter'
