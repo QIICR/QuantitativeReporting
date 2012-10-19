@@ -22,17 +22,13 @@
 #include <vtkMRMLAnnotationNode.h>
 #include <vtkMRMLAnnotationControlPointsNode.h>
 #include <vtkMRMLAnnotationFiducialNode.h>
-#include <vtkMRMLAnnotationHierarchyNode.h>
 #include <vtkMRMLAnnotationRulerNode.h>
 #include <vtkMRMLColorNode.h>
 #include <vtkMRMLVolumeArchetypeStorageNode.h>
-#include <vtkMRMLDisplayableHierarchyNode.h>
 #include <vtkMRMLDisplayNode.h>
 #include <vtkMRMLReportingReportNode.h>
 #include <vtkMRMLScalarVolumeNode.h>
 #include <vtkMRMLScriptedModuleNode.h>
-
-#include <vtkMRMLDisplayableHierarchyLogic.h>
 
 // VTK includes
 #include <vtkImageData.h>
@@ -86,7 +82,6 @@ vtkStandardNewMacro(vtkSlicerReportingModuleLogic);
 vtkSlicerReportingModuleLogic::vtkSlicerReportingModuleLogic()
 {
   this->ActiveParameterNodeID = NULL;
-  this->ActiveMarkupHierarchyID = NULL;
   this->ErrorMessage = NULL;
   this->DICOMDatabase = NULL;
   this->GUIHidden = 1;
@@ -102,11 +97,6 @@ vtkSlicerReportingModuleLogic::~vtkSlicerReportingModuleLogic()
     delete [] this->ActiveParameterNodeID;
     this->ActiveParameterNodeID = NULL;
     }
-  if (this->ActiveMarkupHierarchyID)
-    {
-    delete [] this->ActiveMarkupHierarchyID;
-    this->ActiveMarkupHierarchyID = NULL;
-    }
   if (this->ErrorMessage)
     {
     delete [] this->ErrorMessage;
@@ -120,7 +110,6 @@ void vtkSlicerReportingModuleLogic::PrintSelf(ostream& os, vtkIndent indent)
   this->Superclass::PrintSelf(os, indent);
 
   os << indent << "Active Parameter Node ID = " << (this->ActiveParameterNodeID ? this->ActiveParameterNodeID : "null") << std::endl;
-  os << indent << "Active Markup Hierarchy ID = " << (this->GetActiveMarkupHierarchyID() ? this->GetActiveMarkupHierarchyID() : "null") << "\n";
   os << indent << "Error Message " << (this->ErrorMessage ? this->GetErrorMessage() : "none") << "\n";
   os << indent << "GUI Hidden = " << (this->GUIHidden ? "true" : "false") << "\n";
 
@@ -211,21 +200,18 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
   std::string annotationType;
 
   // get the active report
-  const char * activeReportID = this->GetActiveReportHierarchyID();
-  if(!activeReportID)
+  std::string activeReportID = this->GetActiveReportID();
+  if(!activeReportID.compare(""))
     {
     return;
     }
   
-  vtkMRMLDisplayableHierarchyNode *activeHierarchyNode = NULL;
-  activeHierarchyNode = vtkMRMLDisplayableHierarchyNode::SafeDownCast(this->GetMRMLScene()->GetNodeByID(activeReportID));
-  if(!activeHierarchyNode)
-    {
-    return;
-    }
-
   vtkMRMLReportingReportNode *reportNode = NULL;
-  reportNode = vtkMRMLReportingReportNode::SafeDownCast(activeHierarchyNode->GetAssociatedNode());
+  vtkMRMLNode *mrmlNode = this->GetMRMLScene()->GetNodeByID(activeReportID.c_str());
+  if (mrmlNode)
+    {
+    reportNode = vtkMRMLReportingReportNode::SafeDownCast(mrmlNode);
+    }
   // exit if there is no report
   if(!reportNode)
     {
@@ -237,11 +223,6 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     {
     vtkDebugMacro("Volume is not assigned for the report. Exiting.");
     return;
-    }
-  if(!this->GetActiveMarkupHierarchyID())
-    {
-     vtkDebugMacro("OnMRMLSceneNodeAdded: No active markup hierarchy id, failed to set up hierarchy for volume. Exiting");
-     return;
     }
 
   // cast to the supported node types
@@ -308,7 +289,7 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
         // this->GetMRMLScene()->RemoveNode(node);
         if (annotationNode)
           {
-          annotationNode->SetVisible(0);
+          annotationNode->SetDisplayVisibility(0);
           }
         }
       vtkDebugMacro(<< errorMessage.c_str());
@@ -331,10 +312,13 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
       {
       annotationType = "Ruler";
       }
+    // set it to be part of this report
+    node->SetAttribute("ReportingReportNodeID", activeReportID.c_str());
+    vtkDebugMacro("Annotation node added, associated node id = " << node->GetAttribute("AssociatedNodeID"));
     }
 
   // handle new label node
-  if(labelVolumeNode && labelVolumeNode->GetLabelMap())
+  else if (labelVolumeNode && labelVolumeNode->GetLabelMap())
     {
     annotationType = "Segmentation";
 
@@ -343,24 +327,14 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
       {
       vtkDebugMacro("OnMRMLSceneNodeAdded: have a label map volume with associated id of " << associatedNodeID);
       // is that volume under the active report?
-      char *volumeID = NULL;
+      const char *volumeID = NULL;
       volumeID = this->GetVolumeIDForReportNode(reportNode);
 
       if (strcmp(volumeID, associatedNodeID) == 0)
         {
         // the new label map is associated with the volume in this report,
-        // so add it into the mark up hierarchy
-
-        char *activeMarkupHierarchyID = this->GetActiveMarkupHierarchyID();
-        vtkDebugMacro("OnMRMLSceneNodeAdded: Found active markup for volume " << volumeID << ", it's: " << activeMarkupHierarchyID);
-        // add a 1:1 hierarchy node for the label map
-        vtkMRMLDisplayableHierarchyLogic *hierarchyLogic = vtkMRMLDisplayableHierarchyLogic::New();
-        char *newHierarchyID = hierarchyLogic->AddDisplayableHierarchyNodeForNode(labelVolumeNode);
-        // get the hierarchy node
-        vtkMRMLDisplayableHierarchyNode *newHierarchyNode = vtkMRMLDisplayableHierarchyNode::SafeDownCast(this->GetMRMLScene()->GetNodeByID(newHierarchyID));
-        // set it's parent to the active markup
-        newHierarchyNode->SetParentNodeID(activeMarkupHierarchyID);
-        hierarchyLogic->Delete();
+        // so set the report node attribute
+        labelVolumeNode->SetAttribute("ReportingReportNodeID", activeReportID.c_str());
         }
       else
         {
@@ -373,19 +347,9 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
       }
     }
 
- 
-  /// make a new hierarchy node to create a parallel tree?
-  /// for now, just reassign it
-  vtkMRMLHierarchyNode *hnode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(node->GetScene(), node->GetID());
-  if (hnode)
-    {
-    vtkDebugMacro("Reassigning node " << node->GetID() << "'s hierarchy parent to active markup hierarchy id: " << this->GetActiveMarkupHierarchyID());
-    hnode->SetParentNodeID(this->GetActiveMarkupHierarchyID());
-    }
-
   // rename it from the reporting node
   vtkMRMLColorNode *colorNode = vtkMRMLColorNode::SafeDownCast(this->GetMRMLScene()->GetNodeByID(reportNode->GetColorNodeID()));
-  if(!colorNode)
+  if (!colorNode)
     {
     std::cerr << "Failed to get label decription" << std::endl;
     return;
@@ -426,25 +390,7 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeRemoved(vtkMRMLNode* node)
   if (node->IsA("vtkMRMLReportingReportNode"))
     {
     vtkDebugMacro("OnMRMLSceneNodeRemoved: node id = " << node->GetID());
-    // find the hierarchy associated with it
-    std::vector<vtkMRMLNode *> hnodes;
-    int nnodes = this->GetMRMLScene()->GetNodesByClass("vtkMRMLDisplayableHierarchyNode", hnodes);
-    for (int i = 0; i < nnodes; i++)
-      {
-      vtkMRMLHierarchyNode *hnode =  vtkMRMLHierarchyNode::SafeDownCast(hnodes[i]);
-      if (hnode)
-        {
-        const char *assocNodeID = hnode->GetAssociatedNodeID();
-        vtkDebugMacro("\t\tchecking hierarchy node " << hnode->GetID() << " with name " << hnode->GetName() << " and associated node id of " << (assocNodeID ? assocNodeID : "null"));
-        if (assocNodeID &&
-            strcmp(node->GetID(), assocNodeID) == 0)
-          {
-          vtkDebugMacro("\tfound associated hierarchy node, removing " << hnode->GetID());
-          this->GetMRMLScene()->RemoveNode(hnode);
-          break;
-          }
-        }
-      }
+    // find the markups associated with it?
     }
 }
 
@@ -563,6 +509,7 @@ std::string vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotati
   return UID;
 
 }
+/*
 //---------------------------------------------------------------------------
 char *vtkSlicerReportingModuleLogic::GetTopLevelHierarchyNodeID()
 {
@@ -632,320 +579,165 @@ void vtkSlicerReportingModuleLogic::InitializeHierarchyForReport(vtkMRMLReportin
   reportHierarchyNode->SetDisplayableNodeID(node->GetID());
   node->SetDisableModifiedEvent(0);
 
-  /*
-  /// create an annotation node with hierarchy
-  vtkMRMLHierarchyNode *ranoHierarchyNode = vtkMRMLHierarchyNode::New();
-  /// it's a stealth node:
-  ranoHierarchyNode->HideFromEditorsOn();
-  std::string ranohnodeName = std::string(node->GetName()) + std::string(" RANO Hierarchy");
-  ranoHierarchyNode->SetName(this->GetMRMLScene()->GetUniqueNameByString(ranohnodeName.c_str()));
-  this->GetMRMLScene()->AddNode(ranoHierarchyNode);
-  // make it the child of the report node
-  ranoHierarchyNode->SetParentNodeID(reportHierarchyNode->GetID());
-  
-  vtkMRMLReportingAnnotationRANONode *ranoNode = vtkMRMLReportingAnnotationRANONode::New();
-  this->GetMRMLScene()->AddNode(ranoNode);
-  ranoHierarchyNode->SetAssociatedNodeID(ranoNode->GetID());
-  
-  /// clean up
-  ranoNode->Delete();
-  ranoHierarchyNode->Delete();
-  */
+ 
   reportHierarchyNode->Delete();
 }
+*/
 
 //---------------------------------------------------------------------------
-void vtkSlicerReportingModuleLogic::InitializeHierarchyForVolume(vtkMRMLVolumeNode *node)
+void vtkSlicerReportingModuleLogic::AddVolumeToReport(vtkMRMLVolumeNode *node)
 {
   if (!node)
     {
-    vtkErrorMacro("InitializeHierarchyForVolume: null input volume");
+    vtkErrorMacro("AddVolumeToReport: null input volume");
     return;
     }
 
   if (!node->GetScene() || !node->GetID())
     {
-    vtkErrorMacro("InitializeHierarchyForVolume: No MRML Scene defined on node, or else it doesn't have an id");
+    vtkErrorMacro("AddVolumeToReport: No MRML Scene defined on node, or else it doesn't have an id");
     return;
     }
 
-  vtkDebugMacro("InitializeHierarchyForVolume: setting up hierarchy for volume " << node->GetID());
+  vtkDebugMacro("AddVolumeToReport: setting up for volume " << node->GetID());
 
-  /// does the node already have a hierarchy set up for it?
-  vtkMRMLHierarchyNode *hnode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(node->GetScene(), node->GetID());
-  char * volumeHierarchyNodeID = NULL;
-  if (hnode)
+  std::string reportID = this->GetActiveReportID();
+  if (node->GetAttribute("ReportingReportNodeID") != NULL)
     {
-    const char * activeReportID = this->GetActiveReportHierarchyID();
-    vtkDebugMacro("InitializeHierarchyForVolume: volume " << node->GetID() << " already has a hierarchy associated with it, " << hnode->GetID() << ", making it a child of the active report " << (activeReportID ? activeReportID : "null"));
-    volumeHierarchyNodeID = hnode->GetID();
-    // make sure it's a child of the report
-    hnode->SetParentNodeID(activeReportID);
+    vtkWarningMacro("Volume " << node->GetName() << " was already in a report, moving it to this one");
     }
-  else
+  node->SetAttribute("ReportingReportNodeID", reportID.c_str());
+}
+
+//---------------------------------------------------------------------------
+bool vtkSlicerReportingModuleLogic::IsInReport(vtkMRMLNode *node)
+{
+  if (!node)
     {
-    /// otherwise, create a 1:1 hierarchy for this node
-    vtkMRMLDisplayableHierarchyNode *volumeHierarchyNode = vtkMRMLDisplayableHierarchyNode::New();
-    /// it's a stealth node:
-    volumeHierarchyNode->HideFromEditorsOn();
-    std::string hnodeName = std::string(node->GetName()) + std::string(" Hierarchy ");
-    volumeHierarchyNode->SetName(this->GetMRMLScene()->GetUniqueNameByString(hnodeName.c_str()));
-    volumeHierarchyNode->SetScene(this->GetMRMLScene());
-    this->GetMRMLScene()->AddNode(volumeHierarchyNode);
-    volumeHierarchyNodeID = volumeHierarchyNode->GetID();
-    
-    // make it the child of the active report node
-    const char *activeReportID = this->GetActiveReportHierarchyID();
-    if (!activeReportID)
-      {
-      vtkWarningMacro("No active report, please select one!");
-      }
-    else
-      {
-      vtkDebugMacro("Set volume " << node->GetID() << " hierarchy parent to active report id " << activeReportID);
-      }
-    volumeHierarchyNode->SetParentNodeID(activeReportID);
-    
-    // set the displayable node id to point to this volume node
-    node->SetDisableModifiedEvent(1);
-    volumeHierarchyNode->SetDisplayableNodeID(node->GetID());
-    node->SetDisableModifiedEvent(0);
-    /// clean up
-    volumeHierarchyNode->Delete();
+    return false;
     }
-  
-  /// add an annotations hierarchy if it doesn't exist
-  std::string ahnodeName = std::string("Markup ") + std::string(node->GetName());
-  vtkMRMLNode *mrmlNode = this->GetMRMLScene()->GetFirstNodeByName(ahnodeName.c_str());
-  char *ahnodeID = NULL;
+  std::string reportID = this->GetActiveReportID();
+  if (reportID.compare("") == 0)
+    {
+    // no active report
+    return false;
+    }
+  vtkMRMLReportingReportNode *reportNode = NULL;
+  vtkMRMLNode *mrmlNode = this->GetMRMLScene()->GetNodeByID(reportID.c_str());
   if (!mrmlNode)
     {
-    vtkMRMLAnnotationHierarchyNode *ahnode = vtkMRMLAnnotationHierarchyNode::New();
-    ahnode->HideFromEditorsOff();
-    ahnode->SetName(ahnodeName.c_str());
-    ahnode->SetScene(this->GetMRMLScene());
-    this->GetMRMLScene()->AddNode(ahnode);
-    ahnodeID = ahnode->GetID();
-    // make it a child of the volume
-    vtkDebugMacro("Creating and setting annotation markup hierarchy's parent to volume hierarchy id " << volumeHierarchyNodeID);
-    //this->GetMRMLScene()->GetNodeByID(volumeHierarchyNodeID)->SetDisableModifiedEvent(1);
-    ahnode->SetDisableModifiedEvent(1);
-    ahnode->SetParentNodeID(volumeHierarchyNodeID);
-    //this->GetMRMLScene()->GetNodeByID(volumeHierarchyNodeID)->SetDisableModifiedEvent(0);
-    ahnode->SetDisableModifiedEvent(0);
-    ahnode->Delete();
+    // no report node
+    return false;
     }
-  else
+  reportNode = vtkMRMLReportingReportNode::SafeDownCast(mrmlNode);
+  if (!reportNode)
     {
-    ahnodeID = mrmlNode->GetID();
+    // no valid report node
+    return false;
     }
-  /// make the annotation hierarchy active so new ones will get added to it
-  this->SetActiveMarkupHierarchyID(ahnodeID);
-  vtkDebugMacro("Set the active markup hierarchy id from node id = " << (ahnodeID ? ahnodeID : "null"));
+  const char *volumeID = this->GetVolumeIDForReportNode(reportNode);
+  if (!volumeID)
+    {
+    // no volume to be associated with
+    return false;
+    }
+  const char *reportAttribute = node->GetAttribute("ReportingReportNodeID");
+  if (!reportAttribute)
+    {
+    // not in a report
+    return false;
+    }
+  if (reportID.compare(reportAttribute) != 0)
+    {
+    // in a different report
+    return false;
+    }
+  const char *associatedVolumeNode = node->GetAttribute("AssociatedNodeID");
+  if (!associatedVolumeNode)
+    {
+    // not associated with a volume
+    return false;
+    }
+  if (strcmp(associatedVolumeNode, volumeID) != 0)
+    {
+    // associated with a different volume
+    return false;
+    }
+  // otherwise it's in this report for this volume
+  return true;
 }
 
 //---------------------------------------------------------------------------
-void vtkSlicerReportingModuleLogic::SetActiveMarkupHierarchyIDFromNode(vtkMRMLNode *node)
-{
-  if (!node || !node->GetName())
-    {
-    vtkWarningMacro("SetActiveMarkupHierarchyIDFromNode: node is " << (node? "not null" : "null") << ", name is " << (node->GetName() ? node->GetName() : "null") << ", settting active id to null");
-    this->SetActiveMarkupHierarchyID(NULL);
-    return;
-    }
-
-  // look for a markup node associated with this node
-  std::string ahnodeName = std::string("Markup ") + std::string(node->GetName());
-  vtkMRMLNode *mrmlNode = this->GetMRMLScene()->GetFirstNodeByName(ahnodeName.c_str());
-                                                                   
-  if (!mrmlNode)
-    {
-    vtkDebugMacro("SetActiveMarkupHierarchyIDFromNode: didn't find markup node by name " << ahnodeName.c_str() << ", trying to find it in the volume's hierarchy");
-    // get the hierarchy node associated with this node
-    vtkMRMLHierarchyNode *hnode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(node->GetScene(), node->GetID());
-    if (hnode)
-      {
-      // get the first level children, one should be a markup annotation
-      // hierarchy
-      std::vector< vtkMRMLHierarchyNode* > children = hnode->GetChildrenNodes();
-      for (unsigned int i = 0; i < children.size(); ++i)
-        {
-        if (children[i]->IsA("vtkMRMLAnnotationHierarchyNode") &&
-            strncmp(children[i]->GetName(), "Markup", strlen("Markup")) == 0)
-          {
-          vtkDebugMacro("Found an annotation hierarchy node with a name that starts with Markup under this volume, using active markup hierarchy id " << children[i]->GetID());
-          this->SetActiveMarkupHierarchyID(children[i]->GetID());
-          return;
-          }
-        }
-      }
-    if (!mrmlNode)
-      {
-      vtkWarningMacro("SetActiveMarkupHierarchyIDFromNode: didn't find markup node in volume hierarchy, setting active hierarchy to null");
-      this->SetActiveMarkupHierarchyID(NULL);
-      return;
-      }
-    }
-  vtkDebugMacro("SetActiveMarkupHierarchyIDFromNode: Setting active markup hierarchy to " << mrmlNode->GetID());
-  this->SetActiveMarkupHierarchyID(mrmlNode->GetID());
-}
-
-//---------------------------------------------------------------------------
-void vtkSlicerReportingModuleLogic::SetActiveMarkupHierarchyIDToNull()
-{
-  if (this->ActiveMarkupHierarchyID)
-    {
-    delete [] this->ActiveMarkupHierarchyID;
-    }
-  this->ActiveMarkupHierarchyID = NULL;
-}
-
-//---------------------------------------------------------------------------
-char *vtkSlicerReportingModuleLogic::GetVolumeIDForReportNode(vtkMRMLReportingReportNode *node)
+const char *vtkSlicerReportingModuleLogic::GetVolumeIDForReportNode(vtkMRMLReportingReportNode *node)
 {
   if (!node)
     {
     vtkErrorMacro("GetVolumeIDForReportNode: null report node");
     return NULL;
     }
-  // get the associated hierarchy node for this report
-  vtkMRMLHierarchyNode *hnode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(node->GetScene(), node->GetID());
-  if (!hnode)
+  std::string volumeID = node->GetVolumeNodeID();
+  if (volumeID.compare("") == 0)
     {
-    vtkErrorMacro("GetVolumeIDForReportNode: no associated hierarchy node for reporting node " << node->GetID());
     return NULL;
     }
-  char *volumeID = NULL;
-  // get the children and look for the first volume node
-  std::vector< vtkMRMLHierarchyNode *> allChildren;
-  hnode->GetAllChildrenNodes(allChildren);
-  for (unsigned int i = 0; i < allChildren.size(); ++i)
+  else
     {
-    vtkMRMLNode *mrmlNode = allChildren[i]->GetAssociatedNode();
-    if (mrmlNode)
-      {
-      if (mrmlNode->IsA("vtkMRMLVolumeNode"))
-        {      
-        volumeID = mrmlNode->GetID();
-        return volumeID;
-        }
-      }
+    return volumeID.c_str();
     }
-  
-  return volumeID;
 }
 
 //---------------------------------------------------------------------------
-char *vtkSlicerReportingModuleLogic::GetAnnotationIDForReportNode(vtkMRMLReportingReportNode *node)
+void vtkSlicerReportingModuleLogic::HideAnnotationsForOtherReports(vtkMRMLReportingReportNode *reportNode)
 {
-
-  vtkErrorMacro("GetAnnotationIDForReportNode: This method is deprecated! Should not be here!");
-  assert(0);
-
-
-  if (!node)
+  if (!reportNode)
     {
-    return NULL;
+    return;
     }
-  // get the associated hierarchy node for this report
-  vtkMRMLHierarchyNode *hnode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(node->GetScene(), node->GetID());
-  if (!hnode)
+  // get all the annotation nodes, check their ReportingReportNodeID attribute
+  // for this id
+
+  // first, fiducials
+  std::vector<vtkMRMLNode *> fiducialNodes;
+  int numNodes = this->GetMRMLScene()->GetNodesByClass("vtkMRMLAnnotationFiducialNode", fiducialNodes);
+  for (int i = 0; i < numNodes; i++)
     {
-    vtkErrorMacro("GetAnnotationIDForReportNode: no associated hierarchy node for reporting node " << node->GetID());
-    return NULL;
-    }
-  char *annotationID = NULL;
-  // get the children and look for the first annotation node
-  std::vector< vtkMRMLHierarchyNode *> allChildren;
-  hnode->GetAllChildrenNodes(allChildren);
-  for (unsigned int i = 0; i < allChildren.size(); ++i)
-    {
-    vtkMRMLNode *mrmlNode = allChildren[i]->GetAssociatedNode();
-    if (mrmlNode)
+    vtkMRMLDisplayableNode *fidNode = vtkMRMLDisplayableNode::SafeDownCast(fiducialNodes[i]);
+    if (fidNode)
       {
-      // TODO: check for a superclass?
-      if (mrmlNode->IsA("vtkMRMLReportingAnnotationRANONode"))
-        {      
-        annotationID = mrmlNode->GetID();
-        return annotationID;
-        }
-      }
-    }
-  
-  return annotationID;
-}
-
-//---------------------------------------------------------------------------
-void vtkSlicerReportingModuleLogic::HideAnnotationsForOtherReports(vtkMRMLReportingReportNode *node)
-{
-  if (!node)
-    {
-    return;
-    }
-  // get the top level reporting module hierarchy
-  char *topNodeID = this->GetTopLevelHierarchyNodeID();
-  if (!topNodeID)
-    {
-    return;
-    }
-  vtkMRMLNode *topNode = this->GetMRMLScene()->GetNodeByID(topNodeID);
-  if (!topNode)
-    {
-    return;
-    }
-  vtkMRMLHierarchyNode *topHierarchyNode =  vtkMRMLHierarchyNode::SafeDownCast(topNode);
-  if (!topHierarchyNode)
-    {
-    vtkErrorMacro("HideAnnotationsForOtherReports: error casting top node with id " << topNodeID << " to a mrml hierarchy node");
-    return;
-    }
-  // get the associated hierarchy node for this report
-  vtkMRMLHierarchyNode *thisReportHierarchyNode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(node->GetScene(), node->GetID());
-  if (!thisReportHierarchyNode)
-    {
-    vtkErrorMacro("HideAnnotationsForOtherReports: no  hierarchy node for report node " << node->GetID());
-    return;
-    }
-  // get the children reporting nodes immediately under the top hierarchy node
-  std::vector< vtkMRMLHierarchyNode* > children = topHierarchyNode->GetChildrenNodes();
-  for (unsigned int i = 0; i < children.size(); ++i)
-    {
-    int visibFlag = 0;
-    // if it's this report hierarchy node, need to turn on annotations
-    if (strcmp(thisReportHierarchyNode->GetID(), children[i]->GetID()) == 0)
-      {
-      // turn on annotations
-      visibFlag = 1;
-      }
-    // get all the children of this report
-    std::vector< vtkMRMLHierarchyNode *> allChildren;
-    children[i]->GetAllChildrenNodes(allChildren);
-    for (unsigned int j = 0; j < allChildren.size(); ++j)
-      {
-      vtkMRMLNode *mrmlNode = allChildren[j]->GetAssociatedNode();
-      if (mrmlNode && mrmlNode->GetID() && mrmlNode->IsA("vtkMRMLAnnotationNode"))
+      const char *reportAttribute = fidNode->GetAttribute("ReportingReportNodeID");
+      // if it doesn't have a report attribute set, or if it doesn't match
+      // this report's id, hide it
+      if (!reportAttribute ||
+          strcmp(reportAttribute, reportNode->GetID()) != 0)
         {
-        vtkDebugMacro("HideAnnotationsForOtherReports: Found an annotation node " << mrmlNode->GetID() << ", visib flag = " << visibFlag);
-        // get it's display node
-        vtkMRMLAnnotationNode *annotationNode = vtkMRMLAnnotationNode::SafeDownCast(mrmlNode);
-        if (!annotationNode)
-          {
-          vtkErrorMacro("HideAnnotationsForOtherReports: unalbe to convert associated node to an annotation node, at " << mrmlNode->GetID());
-          return;
-          }
-        annotationNode->SetVisible(visibFlag);
-        int numDisplayNodes = annotationNode->GetNumberOfDisplayNodes();
-        for (int n = 0; n < numDisplayNodes; ++n)
-          {
-          vtkMRMLDisplayNode *displayNode = annotationNode->GetNthDisplayNode(n);
-          if (displayNode)
-            {
-            vtkDebugMacro("HideAnnotationsForOtherReports: Setting display node " << displayNode->GetID() << " visibility");
-            displayNode->SetVisibility(visibFlag);
-            }
-          }
+        fidNode->SetDisplayVisibility(0);
         }
-          
+      else
+        {
+        fidNode->SetDisplayVisibility(1);
+        }
+      }
+    }
+  // and same for the ruler nodes
+  std::vector<vtkMRMLNode *> rulerNodes;
+  numNodes = this->GetMRMLScene()->GetNodesByClass("vtkMRMLAnnotationRulerNode", rulerNodes);
+  for (int i = 0; i < numNodes; i++)
+    {
+    vtkMRMLDisplayableNode *rulerNode = vtkMRMLDisplayableNode::SafeDownCast(rulerNodes[i]);
+    if (rulerNode)
+      {
+      const char *reportAttribute = rulerNode->GetAttribute("ReportingReportNodeID");
+      // if it doesn't have a report attribute set, or if it doesn't match
+      // this report's id, hide it
+      if (!reportAttribute ||
+          strcmp(reportAttribute, reportNode->GetID()) != 0)
+        {
+        rulerNode->SetDisplayVisibility(0);
+        }
+      else
+        {
+        rulerNode->SetDisplayVisibility(1);
+        }
       }
     }
 }
@@ -978,10 +770,9 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   vtkDebugMacro("SaveReportToAIM: directory name = " << dirname);
 
   vtkMRMLScalarVolumeNode *volumeNode = NULL;
-  vtkMRMLAnnotationHierarchyNode *markupHierarchyNode = NULL;
 
   // only one volume is allowed for now, so get the active one
-  char *volumeID = this->GetVolumeIDForReportNode(reportNode);
+  const char *volumeID = this->GetVolumeIDForReportNode(reportNode);
   if (volumeID)
     {
     vtkMRMLNode *mrmlVolumeNode = this->GetMRMLScene()->GetNodeByID(volumeID);
@@ -992,24 +783,6 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     else
       {
       volumeNode = vtkMRMLScalarVolumeNode::SafeDownCast(mrmlVolumeNode);
-      }
-    }
-  if (volumeNode)
-    {
-    // set this volume's markup hierarchy to be active, just to make sure
-    vtkDebugMacro("SaveReportToAIM: setting active markup hierarchy id from volume node " << volumeNode->GetID());
-    this->SetActiveMarkupHierarchyIDFromNode(volumeNode);
-    // now get it
-    const char *markupID = this->GetActiveMarkupHierarchyID();
-    vtkMRMLNode *mrmlMarkupNode = this->GetMRMLScene()->GetNodeByID(markupID);
-    if (mrmlMarkupNode)
-      {
-      markupHierarchyNode = vtkMRMLAnnotationHierarchyNode::SafeDownCast(mrmlMarkupNode);
-      if(!markupHierarchyNode)
-        {
-        vtkErrorMacro("ERROR: markup hierarchy node not found!");
-        return EXIT_FAILURE;
-        }
       }
     }
 
@@ -1182,43 +955,47 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   QStringList allInstanceUIDs;
   int shapeId = 0;
   vtkSmartPointer<vtkCollection> labelNodeCollection = vtkSmartPointer<vtkCollection>::New();
+  vtkSmartPointer<vtkCollection> annotationNodeCollection = vtkSmartPointer<vtkCollection>::New();
 
-  // Find all label nodes in the hierarchy
+  // Find all label nodes in the report that are associated with the active
+  // volume
   QStringList referencedUIDList;
-  if (markupHierarchyNode)
+
+  std::vector<vtkMRMLNode *> volumeNodes;
+  int numNodes = this->GetMRMLScene()->GetNodesByClass("vtkMRMLScalarVolumeNode", volumeNodes);
+  for (int i = 0; i < numNodes; i++)
     {
-    // get all the hierarchy nodes under the mark up node
-    std::vector< vtkMRMLHierarchyNode *> allChildren;
-    markupHierarchyNode->GetAllChildrenNodes(allChildren);
-    // get the associated markups and print them
-    for (unsigned int i = 0; i < allChildren.size(); ++i)
+     vtkMRMLScalarVolumeNode *labelVolumeNode = vtkMRMLScalarVolumeNode::SafeDownCast(volumeNodes[i]);
+     if (labelVolumeNode && labelVolumeNode->GetLabelMap())
+       {
+       // is this label map in the report and associated with the volume?
+       if (this->IsInReport(labelVolumeNode))
+         {
+         std::cout << "Found label volume in report " << reportNode->GetID() << ", id = " << labelVolumeNode->GetID() << std::endl;
+         labelNodeCollection->AddItem(labelVolumeNode);
+         }
+       }
+    }
+  // get the rulers and fiducials associated with this report and volume and
+  // get the volume UIDs for them
+  std::vector<vtkMRMLNode *> annotationNodes;
+  int numAnnotationNodes =  this->GetMRMLScene()->GetNodesByClass("vtkMRMLAnnotationNode", annotationNodes);
+  for (int i = 0; i < numAnnotationNodes; i++)
+    {
+    vtkMRMLAnnotationNode *annotationNode = vtkMRMLAnnotationNode::SafeDownCast(annotationNodes[i]);
+    if (this->IsInReport(annotationNode))
       {
-      vtkMRMLNode *mrmlAssociatedNode = allChildren[i]->GetAssociatedNode();
-      if (mrmlAssociatedNode)
+      // TODO: need to handle the case of multiframe data .. ?
+      std::string sliceUID = this->GetSliceUIDFromMarkUp(annotationNode);
+      if(sliceUID.compare("NONE") == 0)
         {
-        vtkMRMLAnnotationNode *annNode = vtkMRMLAnnotationNode::SafeDownCast(mrmlAssociatedNode);
-        vtkMRMLAnnotationFiducialNode *fidNode = vtkMRMLAnnotationFiducialNode::SafeDownCast(mrmlAssociatedNode);          
-        vtkMRMLAnnotationRulerNode *rulerNode = vtkMRMLAnnotationRulerNode::SafeDownCast(mrmlAssociatedNode);
-        vtkMRMLScalarVolumeNode *labelNode = vtkMRMLScalarVolumeNode::SafeDownCast(mrmlAssociatedNode);
-        
-        if(fidNode || rulerNode)
-          {
-          // TODO: need to handle the case of multiframe data .. ?
-          std::string sliceUID = this->GetSliceUIDFromMarkUp(annNode);
-          if(sliceUID.compare("NONE") == 0)
-            {
-            vtkErrorMacro("Cannot save AIM report: volume being annotated, " << volumeNode->GetName()  << " is not a DICOM volume!");
-            return EXIT_FAILURE;
-            }
- 
-          referencedUIDList << QString(sliceUID.c_str());
-          allInstanceUIDs << QString(sliceUID.c_str());
-          }
-        else if(labelNode)
-          {
-          labelNodeCollection->AddItem(labelNode);
-          }
+        vtkErrorMacro("Cannot save AIM report: volume being annotated, " << volumeNode->GetName()  << " is not a DICOM volume!");
+        return EXIT_FAILURE;
         }
+      std::cout << "Found associated annotation node " << annotationNode->GetID() << std::endl;
+      annotationNodeCollection->AddItem(annotationNode);
+      referencedUIDList << QString(sliceUID.c_str());
+      allInstanceUIDs << QString(sliceUID.c_str());
       }
     }
   
@@ -1415,73 +1192,62 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   QDomElement gsc = doc.createElement("geometricShapeCollection");
   root.appendChild(gsc);
 
-  if (markupHierarchyNode)
+  // get the associated markups and print them
+  for (int i = 0; i < annotationNodeCollection->GetNumberOfItems(); ++i)
     {
-    // get all the hierarchy nodes under the mark up node
-    std::vector< vtkMRMLHierarchyNode *> allChildren;
-    markupHierarchyNode->GetAllChildrenNodes(allChildren);
-    // get the associated markups and print them
-    for (unsigned int i = 0; i < allChildren.size(); ++i)
+    vtkMRMLNode *mrmlAssociatedNode = vtkMRMLNode::SafeDownCast(annotationNodeCollection->GetItemAsObject(i));
+    if (mrmlAssociatedNode)
       {
-      vtkMRMLNode *mrmlAssociatedNode = allChildren[i]->GetAssociatedNode();
-      if (mrmlAssociatedNode)
+      vtkMRMLAnnotationNode *annNode = vtkMRMLAnnotationNode::SafeDownCast(mrmlAssociatedNode);
+      vtkMRMLAnnotationFiducialNode *fidNode = vtkMRMLAnnotationFiducialNode::SafeDownCast(mrmlAssociatedNode);          
+      vtkMRMLAnnotationRulerNode *rulerNode = vtkMRMLAnnotationRulerNode::SafeDownCast(mrmlAssociatedNode);
+      // print out a point
+      if(fidNode || rulerNode)
         {
-        vtkMRMLAnnotationNode *annNode = vtkMRMLAnnotationNode::SafeDownCast(mrmlAssociatedNode);
-        // print out a point
-        vtkMRMLAnnotationFiducialNode *fidNode = vtkMRMLAnnotationFiducialNode::SafeDownCast(mrmlAssociatedNode);          
-        vtkMRMLAnnotationRulerNode *rulerNode = vtkMRMLAnnotationRulerNode::SafeDownCast(mrmlAssociatedNode);
-        vtkMRMLScalarVolumeNode *labelNode = vtkMRMLScalarVolumeNode::SafeDownCast(mrmlAssociatedNode);
-
-        if(fidNode || rulerNode)
+        QStringList coordStr = this->GetMarkupPointCoordinatesStr(annNode);
+        
+        QDomElement gs = doc.createElement("GeometricShape");
+        
+        // GeometricShape markup-specific initialization
+        
+        // Fiducial = AIM Point
+        if (fidNode)
           {
-          QStringList coordStr = this->GetMarkupPointCoordinatesStr(annNode);
-
-          QDomElement gs = doc.createElement("GeometricShape");
-
-          // GeometricShape markup-specific initialization
-
-          // Fiducial = AIM Point
-          if (fidNode)
+          vtkDebugMacro("SaveReportToAIM: saving Point from node named " << fidNode->GetName());
+          
+          if(coordStr.size()!=2)
             {
-            vtkDebugMacro("SaveReportToAIM: saving Point from node named " << fidNode->GetName());
-
-            if(coordStr.size()!=2)
-              {
-              vtkErrorMacro("Failed to obtain fiducial points for markup point!");
-              return EXIT_FAILURE;
-              }
-
-            gs.setAttribute("xsi:type","Point");
-            gs.setAttribute("shapeIdentifier",shapeId++);
-            gs.setAttribute("includeFlag", "true");
-            gs.setAttribute("cagridId","0");
+            vtkErrorMacro("Failed to obtain fiducial points for markup point!");
+            return EXIT_FAILURE;
             }
           
-          // Ruler = AIM MultiPoint
-          if (rulerNode)
+          gs.setAttribute("xsi:type","Point");
+          gs.setAttribute("shapeIdentifier",shapeId++);
+          gs.setAttribute("includeFlag", "true");
+          gs.setAttribute("cagridId","0");
+          }
+        
+        // Ruler = AIM MultiPoint
+        if (rulerNode)
+          {
+          vtkDebugMacro("SaveReportToAIM: saving MultiPoint from node named " << rulerNode->GetName());
+          
+          if(coordStr.size()!=4)
             {
-            vtkDebugMacro("SaveReportToAIM: saving MultiPoint from node named " << rulerNode->GetName());
-
-            if(coordStr.size()!=4)
-              {
-              vtkErrorMacro("Failed to obtain fiducial points for markup point!");
-              return EXIT_FAILURE;
-              }
-
-            gs.setAttribute("xsi:type","MultiPoint");
-            gs.setAttribute("shapeIdentifier",shapeId++);
-            gs.setAttribute("includeFlag", "true");
-            gs.setAttribute("cagridId","0");
+            vtkErrorMacro("Failed to obtain fiducial points for markup point!");
+            return EXIT_FAILURE;
             }
- 
-          // Procedure for saving the list of points should be the same for
-          // all markup elements
-          this->AddSpatialCoordinateCollectionElement(doc, gs, coordStr, referencedUIDList);
-          gsc.appendChild(gs);
-        }
-      else if(labelNode)
-        {
-          // skip -- handled earlier
+          
+          gs.setAttribute("xsi:type","MultiPoint");
+          gs.setAttribute("shapeIdentifier",shapeId++);
+          gs.setAttribute("includeFlag", "true");
+          gs.setAttribute("cagridId","0");
+          }
+        
+        // Procedure for saving the list of points should be the same for
+        // all markup elements
+        this->AddSpatialCoordinateCollectionElement(doc, gs, coordStr, referencedUIDList);
+        gsc.appendChild(gs);
         }
       else
         {
@@ -1489,8 +1255,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
         }
       }
     }
-  }
-
+  
   // Extract patient information from the referenced volume
   //
   QDomElement person = doc.createElement("person");
@@ -1692,6 +1457,7 @@ QStringList vtkSlicerReportingModuleLogic::GetMarkupPointCoordinatesStr(vtkMRMLA
   return sl;
 }
 
+//---------------------------------------------------------------------------
 void vtkSlicerReportingModuleLogic::copyDcmElement(const DcmTag& tag, DcmDataset* dcmIn, DcmDataset* dcmOut)
 {
   char *str;
@@ -1710,6 +1476,7 @@ void vtkSlicerReportingModuleLogic::copyDcmElement(const DcmTag& tag, DcmDataset
   }
 }
 
+//---------------------------------------------------------------------------
 std::string vtkSlicerReportingModuleLogic::GetFileNameFromUID(const std::string uid)
 {
   std::string fileName = "";
@@ -1721,6 +1488,7 @@ std::string vtkSlicerReportingModuleLogic::GetFileNameFromUID(const std::string 
   return fileName;
 }
 
+//---------------------------------------------------------------------------
 std::string vtkSlicerReportingModuleLogic::getDcmElementAsString(const DcmTag& tag, DcmDataset* dcmIn)
 {
   char *str;
@@ -1737,34 +1505,41 @@ std::string vtkSlicerReportingModuleLogic::getDcmElementAsString(const DcmTag& t
 }
 
 //---------------------------------------------------------------------------
-const char *vtkSlicerReportingModuleLogic::GetActiveReportHierarchyID()
+std::string vtkSlicerReportingModuleLogic::GetActiveReportID()
 {
+  std::string reportID = "";
   if (this->GetActiveParameterNodeID() == NULL)
     {
-    vtkDebugMacro("GetActiveReportHierarchyID: no active parameter node id, returning null");
-    return NULL;
+    vtkDebugMacro("GetActiveReportID: no active parameter node id, returning null");
+    return reportID;
     }
   vtkMRMLScriptedModuleNode *parameterNode;
   vtkMRMLNode *mrmlNode = this->GetMRMLScene()->GetNodeByID(this->GetActiveParameterNodeID());
   if (!mrmlNode)
     {
-    vtkErrorMacro("GetActiveReportHierarchyID: no node with id " << this->GetActiveParameterNodeID());
-    return NULL;
+    vtkErrorMacro("GetActiveReportID: no node with id " << this->GetActiveParameterNodeID());
+    return reportID;
     }
   parameterNode = vtkMRMLScriptedModuleNode::SafeDownCast(mrmlNode);
   if (!parameterNode)
     {
-    vtkErrorMacro("GetActiveReportHierarchyID: no active parameter node with id " << this->GetActiveParameterNodeID());
-    return NULL;
+    vtkErrorMacro("GetActiveReportID: no active parameter node with id " << this->GetActiveParameterNodeID());
+    return reportID;
     }
 
-  std::string reportID = parameterNode->GetParameter("reportID");
-  if (reportID == "")
+  reportID = parameterNode->GetParameter("reportID");
+  return reportID;  
+}
+/*
+//---------------------------------------------------------------------------
+const char *vtkSlicerReportingModuleLogic::GetActiveReportHierarchyID()
+{
+  std::string reportID = this->GetActiveReportID();
+  if (reportID.compare("") == 0)
     {
     vtkErrorMacro("GetActiveReportHierarchyID: no parameter reportID on node with id " << parameterNode->GetID());
     return NULL;
     }
-
   // get the hierarchy associated with this report
   vtkMRMLHierarchyNode *hnode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(parameterNode->GetScene(), reportID.c_str());
   if (hnode)
@@ -1778,7 +1553,8 @@ const char *vtkSlicerReportingModuleLogic::GetActiveReportHierarchyID()
     return NULL;
     }
 }
-
+*/
+//---------------------------------------------------------------------------
 bool vtkSlicerReportingModuleLogic::IsDicomSeg(const std::string fname)
 {
    DcmFileFormat fileFormat;
@@ -1792,6 +1568,7 @@ bool vtkSlicerReportingModuleLogic::IsDicomSeg(const std::string fname)
    return false;
 }
 
+//---------------------------------------------------------------------------
 std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNodes, const std::string dirname)
 {
   // TODO: what should be the behavior if the label node references a DICOM SEG already?
@@ -2440,6 +2217,7 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
     return true;
 }
 
+//---------------------------------------------------------------------------
 vtkMRMLColorNode* vtkSlicerReportingModuleLogic::GetDefaultColorNode()
 {
   vtkMRMLColorNode* colorNode = 

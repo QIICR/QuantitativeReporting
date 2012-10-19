@@ -40,7 +40,6 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/CMake/vtkReportingVersionConfigure.h.
 
 #-----------------------------------------------------------------------------
 add_subdirectory(MRML)
-add_subdirectory(Widgets)
 add_subdirectory(Logic)
 add_subdirectory(Py)
 
@@ -54,8 +53,6 @@ set(MODULE_INCLUDE_DIRECTORIES
   ${CMAKE_CURRENT_BINARY_DIR}/Logic
   ${CMAKE_CURRENT_SOURCE_DIR}/MRML
   ${CMAKE_CURRENT_BINARY_DIR}/MRML
-  ${CMAKE_CURRENT_SOURCE_DIR}/Widgets
-  ${CMAKE_CURRENT_BINARY_DIR}/Widgets
   )
 
 set(MODULE_SRCS

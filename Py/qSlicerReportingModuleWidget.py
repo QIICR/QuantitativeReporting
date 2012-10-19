@@ -154,18 +154,8 @@ class qSlicerReportingModuleWidget:
     self.__markupSliceText = qt.QLabel()
     markupFrameLayout.addRow(self.__markupSliceText)
 
-    # Add a flag to switch between different tree view models
-    self.__useNewTreeView = 0
-
-    # Add the tree widget
-    if self.__useNewTreeView == 1:
-      self.__markupTreeView = slicer.modulewidget.qMRMLReportingTreeView()
-      self.__markupTreeView.sceneModelType = "DisplayableHierarchy"
-      self.__markupTreeView.setMRMLScene(self.__logic.GetMRMLScene())
-      markupFrameLayout.addRow(self.__markupTreeView)
-    else:
-      self.__markupTreeView = ReportingMarkupWidget(self.layout)
-      markupFrameLayout.addRow(self.__markupTreeView.widget)
+    self.__markupTreeView = ReportingMarkupWidget(self.layout)
+    markupFrameLayout.addRow(self.__markupTreeView.widget)
         
     
     
@@ -268,12 +258,9 @@ class qSlicerReportingModuleWidget:
     hasObserver = self.__logic.HasObserver(self.__logic.AnnotationAdded)
     if hasObserver == 0:
       tag = self.__logic.AddObserver(self.__logic.AnnotationAdded, self.respondToAnnotationAdded)
-      print '\tannotation added tag = ',tag
     vnode = self.__volumeSelector.currentNode()
     if vnode != None:
-      # print "Enter: setting active hierarchy from node ",vnode.GetID()
-      # update the logic active markup
-      self.__logic.SetActiveMarkupHierarchyIDFromNode(vnode)
+      # print "Enter: updating the tree view"
       self.updateTreeView()
 
     self.__editorWidget.enter()
@@ -313,27 +300,8 @@ class qSlicerReportingModuleWidget:
     
   def updateTreeView(self):
     Helper.Debug('updateTreeView')
-    # make the tree view update
-    if self.__useNewTreeView == 1:
-      self.__markupTreeView.updateTreeView()
-  
-      # set the root to be the current report hierarchy root 
-      if self.__rNode == None:
-        Helper.Error("updateTreeView: report node is not initialized!")
-        self.__markupTreeView.setRootNode(None)
-        return
-      else:
-        # the tree root node has to be a hierarchy node, so get the associated hierarchy node for the active report node
-        rootNode = slicer.vtkMRMLHierarchyNode().GetAssociatedHierarchyNode(self.__rNode.GetScene(), self.__rNode.GetID())
-        if rootNode:
-          self.__markupTreeView.setRootNode(rootNode)
-          Helper.Debug("UpdateTreeView: Set tree view root to be " + rootNode.GetID() + " named " + rootNode.GetName())
-          self.__markupTreeView.expandAll()
-        else:
-          Helper.Debug("Setting tree view root to be None")
-          self.__markupTreeView.setRootNode(None)
-    else:
-      self.populateTreeView()
+    # make the view update
+    self.populateTreeView()
 
   def onAnnotatedVolumeNodeChanged(self):
     Helper.Debug("onAnnotatedVolumeNodeChanged()")
@@ -377,9 +345,8 @@ class qSlicerReportingModuleWidget:
     associatedLabelFound = False
     for i in range(volumeNodes.GetNumberOfItems()):
       vol = volumeNodes.GetItemAsObject(i)
-      associatedNodeID = vol.GetAttribute('AssociatedNodeID')
       label = vol.GetAttribute('LabelMap')
-      if associatedNodeID == self.__vNode.GetID() and label == '1':
+      if label == '1' and self.__logic.IsInReport(vol):
         Helper.SetLabelVolume(vol.GetID())
         associatedLabelFound = True
 
@@ -400,7 +367,7 @@ class qSlicerReportingModuleWidget:
     self.__parameterNode.SetParameter('acquisitionSliceViewer',orientation[0])
 
     # print "Calling logic to set up hierarchy"
-    self.__logic.InitializeHierarchyForVolume(self.__vNode)
+    self.__logic.AddVolumeToReport(self.__vNode)
     self.updateTreeView()
 
   def onSegmentationNodeChanged(self):
@@ -484,7 +451,7 @@ class qSlicerReportingModuleWidget:
       else:
         Helper.Debug('Color node has already been set to '+self.__rNode.GetColorNodeID())
 
-      self.__logic.InitializeHierarchyForReport(self.__rNode)
+      # self.__logic.InitializeHierarchyForReport(self.__rNode)
 
       vID = self.__rNode.GetVolumeNodeID()
       if vID:
@@ -682,8 +649,8 @@ class qSlicerReportingModuleWidget:
     nodeIDList = []
     for n in range(numDisplayableNodes): 
       displayableNode = slicer.mrmlScene.GetNthNodeByClass(n, "vtkMRMLDisplayableNode")
-      associatedNodeID = displayableNode.GetAttribute("AssociatedNodeID")
-      if associatedNodeID == volumeID:
+      inReport = self.__logic.IsInReport(displayableNode)
+      if inReport:
         Helper.Debug('Found node associated with the volume node: ' + displayableNode.GetName())
         nodeIDList.append(displayableNode.GetID())
 
@@ -703,7 +670,7 @@ class qSlicerReportingModuleWidget:
     for nodeID in nodeIDList:
        node = Helper.getNodeByID(nodeID)
        if node != None and node.IsA("vtkMRMLVolumeNode") and node.GetLabelMap() == 1:
-         print "Segmentation: " + node.GetName()
+         Helper.Debug('Segmentation: ' + node.GetName())
          item = qt.QStandardItem()
          item.setEditable(False)
          item.setText(node.GetName())
@@ -711,7 +678,7 @@ class qSlicerReportingModuleWidget:
          self.items.append(item)
          row += 1
        if node != None and node.IsA("vtkMRMLAnnotationNode"):
-         print "Annotation: " + node.GetName()
+         Helper.Debug('Annotation: ' + node.GetName())
          # annotation name
          item = qt.QStandardItem()
          item.setEditable(False)
@@ -722,7 +689,7 @@ class qSlicerReportingModuleWidget:
          item = qt.QStandardItem()
          # todo: allow click to toggle visib
          item.setEditable(False)
-         if node.GetVisible() == 1:
+         if node.GetDisplayVisibility() == 1:
            item.setData(qt.QPixmap(":/Icons/Small/SlicerVisible.png"),qt.Qt.DecorationRole)
          else:
            item.setData(qt.QPixmap(":/Icons/Small/SlicerInvisible.png"),qt.Qt.DecorationRole)
@@ -738,6 +705,8 @@ class ReportingMarkupWidget(object):
   def __init__(self,parent):
     self.widget = qt.QTableWidget()
     self.widget.setFixedSize(400,200)
+    self.widget.setSelectionBehavior(1) # qt.Qt.QAbstractItemView.SelectRows)
+    self.widget.connect('itemClicked(QTableWidgetItem*)', self.onItemClicked)
     self.items = []
     self.setHeader(None)
 
@@ -752,7 +721,8 @@ class ReportingMarkupWidget(object):
 
     if not reportNode:
       return
-
+    if reportNode == None:
+      return
     # get the volume node associated with this report
     volumeID = reportNode.GetVolumeNodeID()     
     if volumeID == "":
@@ -765,9 +735,10 @@ class ReportingMarkupWidget(object):
     nodeIDList = [volumeID]
     for n in range(numDisplayableNodes): 
       displayableNode = slicer.mrmlScene.GetNthNodeByClass(n, "vtkMRMLDisplayableNode")
-      associatedNodeID = displayableNode.GetAttribute("AssociatedNodeID")
-      if associatedNodeID == volumeID:
-        print('Found node associated with the volume node: ' + displayableNode.GetName())
+      # how best to get at module widget logic?
+      inReport = slicer.modules.reporting.logic().IsInReport(displayableNode)
+      if inReport:
+        Helper.Debug('Found node associated with the report node: ' + displayableNode.GetName())
         nodeIDList.append(displayableNode.GetID())
 
     self.widget.setRowCount(len(nodeIDList))
@@ -779,13 +750,32 @@ class ReportingMarkupWidget(object):
       self.items.append(item)
       if node.IsA("vtkMRMLAnnotationNode"):
         item = qt.QTableWidgetItem()
-        if node.GetVisible() == 1:
+        # save the id for toggling visibility on the node
+        # TODO: make this more elegant instead of overloading the what's this role with the id
+        item.setData(qt.Qt.WhatsThisRole, node.GetID())
+        if node.GetDisplayVisibility() == 1:
           item.setData(qt.Qt.DecorationRole,qt.QPixmap(":/Icons/Small/SlicerVisible.png"))
-          # visib = "1"
         else:
           item.setData(qt.Qt.DecorationRole,qt.QPixmap(":/Icons/Small/SlicerInvisible.png"))
-          # visib = "0"
-        # item = qt.QTableWidgetItem(visib)
         self.widget.setItem(row,1,item)
         self.items.append(item)
       row += 1
+
+  def onItemClicked(self, item):
+    # column 1 is the visibility column
+    if item.column() != 1:
+      return
+    # is it a displayable?
+    nodeID = item.data(qt.Qt.WhatsThisRole)
+    if id == None:
+      return
+    node = slicer.mrmlScene.GetNodeByID(nodeID)
+    if node == None:
+      return
+    # update the visibility and the eye icon
+    if node.GetDisplayVisibility() == 0:
+      node.SetDisplayVisibility(1)
+      item.setData(qt.Qt.DecorationRole,qt.QPixmap(":/Icons/Small/SlicerVisible.png"))
+    else:
+      node.SetDisplayVisibility(0)
+      item.setData(qt.Qt.DecorationRole,qt.QPixmap(":/Icons/Small/SlicerInvisible.png"))

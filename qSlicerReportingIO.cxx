@@ -138,9 +138,6 @@ bool qSlicerReportingIO::load(const IOProperties& properties)
   reportNode->SetColorNodeID(colorNodeID);
   this->mrmlScene()->AddNode(reportNode);
 
-  // init hierarchy for report
-  this->reportingLogic()->InitializeHierarchyForReport(reportNode);
-
   
   qSlicerPythonManager* pythonManager = qSlicerApplication::application()->pythonManager();
   // first go to the Reporting module

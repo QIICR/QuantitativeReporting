@@ -65,25 +65,16 @@ public:
   /// points aren't on the same slice
   std::string GetSliceUIDFromMarkUp(vtkMRMLAnnotationNode *node);
 
-  /// Return the id of the top level reporting module hierarchy node, creating
-  /// one if not found, NULL on error
-  char *GetTopLevelHierarchyNodeID();
-  
-  /// Set up the hierarchy for the newly selected report node
-  void InitializeHierarchyForReport(vtkMRMLReportingReportNode *node);
-  
-  /// Set up the hierarchy for the newly selected volume node
-  void InitializeHierarchyForVolume(vtkMRMLVolumeNode *node);
-
-  /// Set the active hierarchy from a node by looking for hierarchies
-  void SetActiveMarkupHierarchyIDFromNode(vtkMRMLNode *node);
+  /// Set up the report to include the newly selected volume node
+  void AddVolumeToReport(vtkMRMLVolumeNode *node);
 
   /// Return the active volume ID for the given report, returns NULL on error
-  char *GetVolumeIDForReportNode(vtkMRMLReportingReportNode *node);
+  const char *GetVolumeIDForReportNode(vtkMRMLReportingReportNode *node);
 
-  /// Return the annotation node id for the given report, returns NULL on
-  /// error
-  char *GetAnnotationIDForReportNode(vtkMRMLReportingReportNode *node);
+  /// return true if the node has an attribute ReportingReportNodeID that
+  /// matches the active report, and an associatedNodeID attribute that
+  /// matches the active volume in the active report
+  bool IsInReport(vtkMRMLNode *node);
   
   /// Hide reporting annotations that aren't under this report node
   void HideAnnotationsForOtherReports(vtkMRMLReportingReportNode *node);
@@ -97,18 +88,11 @@ public:
   vtkGetStringMacro(ActiveParameterNodeID);
   vtkSetStringMacro(ActiveParameterNodeID);
 
-  /// set/get the currently active markup hierarchy
-  vtkGetStringMacro(ActiveMarkupHierarchyID);
-  vtkSetStringMacro(ActiveMarkupHierarchyID);
-
   /// set/get the GUI hidden flag
   vtkGetMacro(GUIHidden, int);
   vtkSetMacro(GUIHidden, int);
   vtkBooleanMacro(GUIHidden, int);
-  
-  /// utility methods to call from python
-  void SetActiveMarkupHierarchyIDToNull();
-  
+    
   bool IsDicomSeg(const std::string fname);
   // TODO: consider taking report as as a parameter here?
   std::string DicomSegWrite(vtkCollection* labelNodes, const std::string dirname);
@@ -147,9 +131,10 @@ protected:
                                       void *callData );
   virtual void OnMRMLSceneNodeAdded(vtkMRMLNode* node);
   virtual void OnMRMLSceneNodeRemoved(vtkMRMLNode* node);
- 
-  /// get the currently active report hierarchy from the parameter node
-  const char *GetActiveReportHierarchyID();
+
+  /// get the currently active report node id, from the parameter
+  /// node. Returns an empty string on failure.
+  std::string GetActiveReportID();
   
   int AddSpatialCoordinateCollectionElement(QDomDocument&, QDomElement&, QStringList&, QStringList&);
 
@@ -168,10 +153,8 @@ private:
   vtkMRMLScalarVolumeNode* GetMarkupVolumeNode(vtkMRMLAnnotationNode *ann);
 
   /// the currently active parameter node, contains the active report
-  /// hierarchy node
+  /// node
   char *ActiveParameterNodeID;
-  /// the currently active markup hierarchy
-  char *ActiveMarkupHierarchyID;
 
   /// is the GUI hidden? When it's hidden/true, don't grab fiducials (but do grab
   /// label volumes if they're associated with the current volume being

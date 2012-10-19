@@ -350,8 +350,10 @@ class SlicerReportingModuleWidgetHelper( object ):
 
         fiducial = slicer.mrmlScene.CreateNodeByClass('vtkMRMLAnnotationFiducialNode')
         fiducial.SetReferenceCount(fiducial.GetReferenceCount()-1)
+        # associate it with the report
+        fiducial.SetAttribute('ReportingReportNodeID', newReport.GetID())
         # associate it with the volume
-        fiducial.SetAttribute("AssociatedNodeID", volume.GetID())
+        fiducial.SetAttribute('AssociatedNodeID', volume.GetID())
         # ??? Why the API is so inconsistent -- there's no SetPosition1() ???
         fiducial.SetFiducialCoordinates(rasPointList[0])
         fiducial.Initialize(slicer.mrmlScene)
@@ -365,8 +367,10 @@ class SlicerReportingModuleWidgetHelper( object ):
 
         ruler = slicer.mrmlScene.CreateNodeByClass('vtkMRMLAnnotationRulerNode')
         ruler.SetReferenceCount(ruler.GetReferenceCount()-1)
+        # associate it with the report
+        ruler.SetAttribute('ReportingReportNodeID', newReport.GetID())
         # associate it with the volume
-        ruler.SetAttribute("AssociatedNodeID", volume.GetID())
+        ruler.SetAttribute('AssociatedNodeID', volume.GetID())
         SlicerReportingModuleWidgetHelper.Debug('Initializing with points '+str(rasPointList[0])+' and '+str(rasPointList[1]))
         ruler.SetPosition1(rasPointList[0])
         ruler.SetPosition2(rasPointList[1])
@@ -406,6 +410,7 @@ class SlicerReportingModuleWidgetHelper( object ):
         displayNode.SetAndObserveColorNodeID(newReport.GetColorNodeID())
         slicer.mrmlScene.AddNode(displayNode)
         labelNode = labelNodes.GetItemAsObject(i)
+        labelNode.SetAttribute('ReportingReportNodeID', newReport.GetID())
         labelNode.SetAttribute('AssociatedNodeID', volumeList[0].GetID())
         labelNode.SetAndObserveDisplayNodeID(displayNode.GetID())
         slicer.mrmlScene.AddNode(labelNode)
@@ -455,6 +460,7 @@ class SlicerReportingModuleWidgetHelper( object ):
           displayNode.SetAndObserveColorNodeID(newReport.GetColorNodeID())
           slicer.mrmlScene.AddNode(displayNode)
           labelNode = labelNodes.GetItemAsObject(i)
+          labelNode.SetAttribute('ReportingReportNodeID', newReport.GetID())
           labelNode.SetAttribute('AssociatedNodeID', referenceNode.GetID())
           labelNode.SetAndObserveDisplayNodeID(displayNode.GetID())
           slicer.mrmlScene.AddNode(labelNodes.GetItemAsObject(i))
@@ -519,7 +525,8 @@ class SlicerReportingModuleWidgetHelper( object ):
     sourceVolume.GetRASToIJKMatrix(ras2ijk)
     newLabel.SetRASToIJKMatrix(ras2ijk)
 
+    newLabel.SetAttribute('ReportingReportNodeID', sourceVolume.GetAttribute('ReportingReportNodeID'))
     newLabel.SetAttribute('AssociatedNodeID', sourceVolume.GetID())
-
+    
     newLabel.SetAndObserveDisplayNodeID(displayNode.GetID())
     newLabel.SetAndObserveImageData(labelImage)

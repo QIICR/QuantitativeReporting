@@ -669,8 +669,8 @@ void qMRMLReportingTreeView::toggleVisibility(const QModelIndex& index)
     }
   else if (annotationNode)
     {
-    visibility = !annotationNode->GetVisible();
-    annotationNode->SetVisible(visibility);
+    visibility = !annotationNode->GetDisplayVisibility();
+    annotationNode->SetDisplayVisibility(visibility);
     }
   else if (displayNode)
     {
