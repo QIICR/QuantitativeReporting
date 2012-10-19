@@ -144,7 +144,7 @@ class ReportingRoundTripTest(unittest.TestCase):
     fidName = "AIM Round Trip Test Fiducial"
     fidNode.SetName(fidName)
     fidNode.SetSelected(1)
-    fidNode.SetVisible(1)
+    fidNode.SetDisplayVisibility(1)
     fidNode.SetLocked(0)
     print("Calling set fid coords")
     startCoords = [15.8, 70.8, -126.7]    

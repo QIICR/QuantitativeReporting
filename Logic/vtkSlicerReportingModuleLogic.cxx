@@ -1569,7 +1569,7 @@ bool vtkSlicerReportingModuleLogic::IsDicomSeg(const std::string fname)
 }
 
 //---------------------------------------------------------------------------
-std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNodes, const std::string dirname)
+std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNodes, const std::string dirname, bool saveReferencedDcm)
 {
   // TODO: what should be the behavior if the label node references a DICOM SEG already?
   // iterate over all labels:
@@ -1581,59 +1581,69 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
   std::string referenceNodeID;
   vtkMRMLColorNode *colorNode = NULL;
 
-  for(unsigned i=0;i<numLabels;i++)
-  {
-    vtkSmartPointer<vtkMRMLScalarVolumeNode> labelNode = vtkMRMLScalarVolumeNode::SafeDownCast(labelNodes->GetItemAsObject(i));
-    if(!labelNode)
+  for (unsigned i=0;i<numLabels;i++)
     {
-        std::cout << "Expected label map" << std::endl;
-        return "";
-    }
+    vtkSmartPointer<vtkMRMLScalarVolumeNode> labelNode = vtkMRMLScalarVolumeNode::SafeDownCast(labelNodes->GetItemAsObject(i));
+    if (!labelNode)
+      {
+      std::cout << "Expected label map" << std::endl;
+      return "";
+      }
     labelImages.push_back(labelNode->GetImageData());
 
-    if(i==0)
-    {
-        colorNode = labelNode->GetDisplayNode()->GetColorNode();
+    if (i==0)
+      {
+      if (!labelNode->GetDisplayNode() || !labelNode->GetDisplayNode()->GetColorNode())
+        {
+        std::cerr << "Label cannot be saved when the display node or color node is empty!" << std::endl;
+        return "";
+        }
 
-        referenceNodeID = labelNode->GetAttribute("AssociatedNodeID");
+      colorNode = labelNode->GetDisplayNode()->GetColorNode();
 
-        vtkMRMLScalarVolumeNode* referenceNode =
+      referenceNodeID = labelNode->GetAttribute("AssociatedNodeID");
+      if (referenceNodeID == "")
+        {
+        std::cerr << "Label cannot be saved when AssociatedNodeID attrubute is not initialized!" << std::endl;
+        return "";
+        }
+
+      vtkMRMLScalarVolumeNode* referenceNode =
                 vtkMRMLScalarVolumeNode::SafeDownCast(this->GetMRMLScene()->GetNodeByID(referenceNodeID.c_str()));
-        if(!referenceNode)
+      if (!referenceNode)
         {
-          std::cerr << "Label node does not have AssociatedNodeID initialized!" << std::endl;
-          return "";
+        std::cerr << "Label node does not have AssociatedNodeID initialized!" << std::endl;
+        return "";
         }
-
-        const char* uids = referenceNode->GetAttribute("DICOM.instanceUIDs");
-        if(!uids)
+      
+      const char* uids = referenceNode->GetAttribute("DICOM.instanceUIDs");
+      if (!uids)
         {
-          std::cerr << "Referenced node does not have DICOM.instanceUIDs initialized!" << std::endl;
-          return "";
+        std::cerr << "Referenced node does not have DICOM.instanceUIDs initialized!" << std::endl;
+        return "";
         }
-
+      
+      std::istringstream iss(uids);
+      std::string word;
+      std::cout << "Reference dicom UIDs: ";
+      while(std::getline(iss, word, ' '))
         {
-          std::istringstream iss(uids);
-          std::string word;
-          std::cout << "Reference dicom UIDs: ";
-          while(std::getline(iss, word, ' ')) {
-            refDcmSeriesUIDs.push_back(word);
-            std::cout << word << " ";
-          }
-          std::cout << std::endl;
+        refDcmSeriesUIDs.push_back(word);
+        std::cout << word << " ";
         }
-    }
+      std::cout << std::endl;
+      }
     else
-    {
-        std::string thisReferenceNodeID = labelNode->GetAttribute("AssociatedNodeID");
-        if(thisReferenceNodeID != referenceNodeID)
+      {
+      std::string thisReferenceNodeID = labelNode->GetAttribute("AssociatedNodeID");
+      if (thisReferenceNodeID != referenceNodeID)
         {
-          std::cerr << "Label number " << i << " AssociatedNodeID = " << thisReferenceNodeID <<
-            ", while the first label references " << referenceNodeID << std::endl;
-          return "";
+        std::cerr << "Label number " << i << " AssociatedNodeID = " << thisReferenceNodeID <<
+          ", while the first label references " << referenceNodeID << std::endl;
+        return "";
         }
+      }
     }
-  }
 
   // pixel data
   //
@@ -1708,12 +1718,15 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
       std::cerr << "Failed to query the database! Exiting." << std::endl;
       return "";
       }
-      // save the referenced file into the export directory
-      std::string outputFilename = dirname+"/"+*uidIt+".dcm";
-      status = fileFormat.saveFile(outputFilename.c_str(), EXS_LittleEndianExplicit);
-      if(status.bad())
+      if(saveReferencedDcm)
         {
-        std::cout << "Failed to export one of the referenced files: " << *uidIt << std::endl;
+        // save the referenced file into the export directory
+        std::string outputFilename = dirname+"/"+*uidIt+".dcm";
+        status = fileFormat.saveFile(outputFilename.c_str(), EXS_LittleEndianExplicit);
+        if(status.bad())
+          {
+          std::cout << "Failed to export one of the referenced files: " << *uidIt << std::endl;
+          }
         }
     }
 
