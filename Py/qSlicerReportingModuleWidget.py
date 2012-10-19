@@ -762,20 +762,47 @@ class ReportingMarkupWidget(object):
       row += 1
 
   def onItemClicked(self, item):
+    # column 0 is the name, do jump to annotation
+    if item.column() == 0:
+      # get the id from the item in column 1
+      idItem = self.widget.item(item.row(), 1)
+      if idItem == None:
+         # volumes don't have anything in this column
+         return
+      nodeID = idItem.data(qt.Qt.WhatsThisRole)
+      if nodeID == None:
+        return
+      controlPointsNode = slicer.mrmlScene.GetNodeByID(nodeID)
+      if controlPointsNode == None:
+        return
+      # is it an annotation?
+      if controlPointsNode.IsA('vtkMRMLAnnotationControlPointsNode') == 0:
+        return
+      # get the coordinates of this annotation
+      rasCoordinates = [0,0,0]
+      if controlPointsNode.IsA('vtkMRMLAnnotationFiducialNode'):
+        controlPointsNode.GetFiducialCoordinates(rasCoordinates)
+      if controlPointsNode.IsA('vtkMRMLAnnotationRulerNode'):
+        controlPointsNode.GetPosition1(rasCoordinates)
+      sliceNode = slicer.mrmlScene.GetNthNodeByClass(0, 'vtkMRMLSliceNode')
+      if sliceNode != None:
+        Helper.Debug("Jumping to first point in annotation")
+        # jump the other slices and then this slice
+        sliceNode.JumpAllSlices(rasCoordinates[0],rasCoordinates[1],rasCoordinates[2])
+        sliceNode.JumpSlice(rasCoordinates[0],rasCoordinates[1],rasCoordinates[2])
     # column 1 is the visibility column
-    if item.column() != 1:
-      return
-    # is it a displayable?
-    nodeID = item.data(qt.Qt.WhatsThisRole)
-    if id == None:
-      return
-    node = slicer.mrmlScene.GetNodeByID(nodeID)
-    if node == None:
-      return
-    # update the visibility and the eye icon
-    if node.GetDisplayVisibility() == 0:
-      node.SetDisplayVisibility(1)
-      item.setData(qt.Qt.DecorationRole,qt.QPixmap(":/Icons/Small/SlicerVisible.png"))
-    else:
-      node.SetDisplayVisibility(0)
-      item.setData(qt.Qt.DecorationRole,qt.QPixmap(":/Icons/Small/SlicerInvisible.png"))
+    if item.column() == 1:
+      # is it a displayable?
+      nodeID = item.data(qt.Qt.WhatsThisRole)
+      if id == None:
+        return
+      node = slicer.mrmlScene.GetNodeByID(nodeID)
+      if node == None:
+        return
+      # update the visibility and the eye icon
+      if node.GetDisplayVisibility() == 0:
+        node.SetDisplayVisibility(1)
+        item.setData(qt.Qt.DecorationRole,qt.QPixmap(":/Icons/Small/SlicerVisible.png"))
+      else:
+        node.SetDisplayVisibility(0)
+        item.setData(qt.Qt.DecorationRole,qt.QPixmap(":/Icons/Small/SlicerInvisible.png"))
