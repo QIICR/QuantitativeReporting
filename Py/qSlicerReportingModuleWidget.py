@@ -104,7 +104,7 @@ class qSlicerReportingModuleWidget:
     self.__reportSelector.nodeTypes =  ['vtkMRMLReportingReportNode']
     self.__reportSelector.setMRMLScene(slicer.mrmlScene)
     self.__reportSelector.addEnabled = True
-    self.__reportSelector.removeEnabled = False
+    self.__reportSelector.removeEnabled = True
     
     inputFrameLayout.addRow(label, self.__reportSelector)
 
