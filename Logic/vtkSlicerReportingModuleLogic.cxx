@@ -1530,30 +1530,7 @@ std::string vtkSlicerReportingModuleLogic::GetActiveReportID()
   reportID = parameterNode->GetParameter("reportID");
   return reportID;  
 }
-/*
-//---------------------------------------------------------------------------
-const char *vtkSlicerReportingModuleLogic::GetActiveReportHierarchyID()
-{
-  std::string reportID = this->GetActiveReportID();
-  if (reportID.compare("") == 0)
-    {
-    vtkErrorMacro("GetActiveReportHierarchyID: no parameter reportID on node with id " << parameterNode->GetID());
-    return NULL;
-    }
-  // get the hierarchy associated with this report
-  vtkMRMLHierarchyNode *hnode = vtkMRMLHierarchyNode::GetAssociatedHierarchyNode(parameterNode->GetScene(), reportID.c_str());
-  if (hnode)
-    {
-    vtkDebugMacro("Returning hierarchy node for report, with id " << hnode->GetID());
-    return hnode->GetID();
-    }
-  else
-    {
-    vtkErrorMacro("GetActiveReportHierarchyID: no hierarchy node associated with report id in parameter node " << parameterNode->GetID() << ", report id of " << reportID);
-    return NULL;
-    }
-}
-*/
+
 //---------------------------------------------------------------------------
 bool vtkSlicerReportingModuleLogic::IsDicomSeg(const std::string fname)
 {
