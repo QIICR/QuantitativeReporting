@@ -276,7 +276,7 @@ class SlicerReportingModuleWidgetHelper( object ):
       volumeList.append(volume)
       SlicerReportingModuleWidgetHelper.Debug('Volume read from AIM report:')
 
-      slicer.modules.reporting.logic().InitializeHierarchyForVolume(volume)
+      slicer.modules.reporting.logic().AddVolumeToReport(volume)
       newReport.SetVolumeNodeID(volume.GetID())
 
     if len(volumeList) > 1:
@@ -452,7 +452,7 @@ class SlicerReportingModuleWidgetHelper( object ):
         if nodeToAdd != None:
           slicer.mrmlScene.AddNode(nodeToAdd)
 
-        slicer.modules.reporting.logic().InitializeHierarchyForVolume(referenceNode)
+        slicer.modules.reporting.logic().AddVolumeToReport(referenceNode)
 
         for i in range(labelNodes.GetNumberOfItems()):
           displayNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLScalarVolumeDisplayNode')
