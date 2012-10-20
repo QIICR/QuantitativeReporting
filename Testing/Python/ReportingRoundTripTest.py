@@ -113,8 +113,6 @@ class ReportingRoundTripTest(unittest.TestCase):
 
     slicer.mrmlScene.AddNode(reportNode)
     parameterNode.SetParameter("reportID", reportNode.GetID())
-    print("Init hierarchy for report node, set parameter node to report id of "+reportNode.GetID())
-    l.InitializeHierarchyForReport(reportNode)
 
     #
     # get some sample data from the database
@@ -132,9 +130,8 @@ class ReportingRoundTripTest(unittest.TestCase):
     volumeNode.SetName(volName)
     # print "volumeNode = ",volumeNode
 
-    print("Initialize Hierarchy For Volume with id "+volumeNode.GetID())
-    l.InitializeHierarchyForVolume(volumeNode)
-    print("---Now active mark up is "+l.GetActiveMarkupHierarchyID())
+    print("Adding to Report: Volume with id "+volumeNode.GetID())
+    l.AddVolumeToReport(volumeNode)
     print("adding a fiducial")
 
     #
@@ -240,7 +237,7 @@ class ReportingRoundTripTest(unittest.TestCase):
     nFiducials = col.GetNumberOfItems()
 
     if nFiducials != 2:
-      print("Failed to read fiducial form the saved report!")
+      print("Failed to read a fiducial from the saved report! Expect 2 in the non cleared scene, have " + str(nFiducials))
       self.assertTrue(False)
     
     f = col.GetItemAsObject(1)
