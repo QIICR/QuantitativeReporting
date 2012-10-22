@@ -42,6 +42,7 @@ class vtkMRMLScalarVolumeNode;
 
 class QDomDocument;
 class QDomElement;
+class QString;
 class QStringList;
 
 class ctkDICOMDatabase;
@@ -136,7 +137,7 @@ protected:
   /// node. Returns an empty string on failure.
   std::string GetActiveReportID();
   
-  int AddSpatialCoordinateCollectionElement(QDomDocument&, QDomElement&, QStringList&, QStringList&);
+  int AddSpatialCoordinateCollectionElement(QDomDocument&, QDomElement&, QStringList&, QString&);
 
 private:
 

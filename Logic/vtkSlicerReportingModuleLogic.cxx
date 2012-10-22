@@ -1246,7 +1246,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
         
         // Procedure for saving the list of points should be the same for
         // all markup elements
-        this->AddSpatialCoordinateCollectionElement(doc, gs, coordStr, referencedUIDList);
+        this->AddSpatialCoordinateCollectionElement(doc, gs, coordStr, referencedUIDList[i]);
         gsc.appendChild(gs);
         }
       else
@@ -1326,7 +1326,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
 
 //---------------------------------------------------------------------------
 int vtkSlicerReportingModuleLogic::AddSpatialCoordinateCollectionElement(QDomDocument &doc, QDomElement &parent,
-  QStringList &coordList, QStringList &sliceUIDList)
+                                                                         QStringList &coordList, QString &sliceUID)
 {
   QDomElement fidscC = doc.createElement("spatialCoordinateCollection");
   parent.appendChild(fidscC);
@@ -1343,7 +1343,7 @@ int vtkSlicerReportingModuleLogic::AddSpatialCoordinateCollectionElement(QDomDoc
 
     sc.setAttribute("cagridId","0");
     sc.setAttribute("coordinateIndex","0");
-    sc.setAttribute("imageReferenceUID",sliceUIDList[0]);
+    sc.setAttribute("imageReferenceUID",sliceUID);
     sc.setAttribute("referencedFrameNumber","1"); // TODO: maybe add handling of multiframe DICOM?
     sc.setAttribute("xsi:type", "TwoDimensionSpatialCoordinate");
     sc.setAttribute("x", coordList[i]);
