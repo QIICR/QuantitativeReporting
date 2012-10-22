@@ -221,7 +221,7 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
   //  or if there is no volume associated with the report
   if(!this->GetVolumeIDForReportNode(reportNode))
     {
-    vtkDebugMacro("Volume is not assigned for the report. Exiting.");
+    vtkDebugMacro("No volume is assigned to the report " << reportNode->GetID() << ". Exiting.");
     return;
     }
 
@@ -599,9 +599,13 @@ void vtkSlicerReportingModuleLogic::AddVolumeToReport(vtkMRMLVolumeNode *node)
     return;
     }
 
-  vtkDebugMacro("AddVolumeToReport: setting up for volume " << node->GetID());
-
   std::string reportID = this->GetActiveReportID();
+  if (reportID.compare("") == 0)
+    {
+    vtkWarningMacro("No active report to which to add volume " << node->GetName());
+    return;
+    }
+  vtkDebugMacro("AddVolumeToReport: associating volume " << node->GetID() << " with report " << reportID.c_str());
   if (node->GetAttribute("ReportingReportNodeID") != NULL)
     {
     vtkWarningMacro("Volume " << node->GetName() << " was already in a report, moving it to this one");

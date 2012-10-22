@@ -132,6 +132,9 @@ class ReportingRoundTripTest(unittest.TestCase):
 
     print("Adding to Report: Volume with id "+volumeNode.GetID())
     l.AddVolumeToReport(volumeNode)
+    # set it on the report
+    reportNode.SetVolumeNodeID(volumeNode.GetID())
+
     print("adding a fiducial")
 
     #
@@ -149,6 +152,8 @@ class ReportingRoundTripTest(unittest.TestCase):
     print("Starting fiducial coordinates: "+str(startCoords))
     # point it to the volume
     fidNode.SetAttribute("AssociatedNodeID", volumeNode.GetID())
+    # point it to the report
+    fidNode.SetAttribute("ReportingReportNodeID", reportNode.GetID())
     fidNode.SetScene(slicer.mrmlScene)
     print("Adding text disp node")
     fidNode.CreateAnnotationTextDisplayNode()
@@ -168,7 +173,7 @@ class ReportingRoundTripTest(unittest.TestCase):
     # create a label volume
     #
     volumesLogic = slicer.modules.volumes.logic()
-    labelNode = volumesLogic.CreateLabelVolume(slicer.mrmlScene, volumeNode, "Segmentation")
+    labelNode = volumesLogic.CreateAndAddLabelVolume(slicer.mrmlScene, volumeNode, "Segmentation")
     labelDisplayNode = labelNode.GetDisplayNode()
     labelDisplayNode.SetAndObserveColorNodeID('vtkMRMLColorTableNodeFileGenericAnatomyColors.txt')
     l.AddNodeToReport(labelNode)
@@ -203,7 +208,7 @@ class ReportingRoundTripTest(unittest.TestCase):
     if (retval != 0):
       print("ERROR: unable to save report to aim file "+dirName+", retval="+retval)
     else:
-      print("Saved report to "+dirName+"in file"+reportNode.GetAIMFileName())
+      print("Saved report to "+dirName+" in file "+reportNode.GetAIMFileName())
 
     self.assertEqual(retval, 0)
 
