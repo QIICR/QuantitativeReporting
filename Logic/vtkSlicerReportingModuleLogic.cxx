@@ -2006,6 +2006,17 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
 */
 bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, const std::string instanceUID, vtkMRMLColorNode *colorNode)
 {
+    if(!this->DICOMDatabase)
+      {
+      std::cerr << "DICOM DB is not initialized!" << std::endl;
+      return false;
+      }
+    if(!this->DICOMDatabase->isOpen())
+      {
+      std::cerr << "DICOM DB is not open!" << std::endl;
+      return false;
+      }
+
     // query the filename for the seg object from the database
     // get the list of reference UIDs
     // read the volume geometry
