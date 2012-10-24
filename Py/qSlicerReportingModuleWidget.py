@@ -704,7 +704,6 @@ class qSlicerReportingModuleWidget:
 class ReportingMarkupWidget(object):
   def __init__(self,parent):
     self.widget = qt.QTableWidget()
-    self.widget.setFixedSize(400,200)
     self.widget.setSelectionBehavior(1) # qt.Qt.QAbstractItemView.SelectRows)
     self.widget.connect('itemClicked(QTableWidgetItem*)', self.onItemClicked)
     self.items = []
@@ -716,8 +715,9 @@ class ReportingMarkupWidget(object):
     self.widget.clearContents()
     self.widget.setColumnCount(2)
     self.widget.setHorizontalHeaderLabels(['Markup','Visibility'])
-    self.widget.setColumnWidth(0,300)
-    self.widget.setColumnWidth(1,75)
+    self.widget.horizontalHeader().setResizeMode(0, qt.QHeaderView.Stretch)
+    self.widget.horizontalHeader().setResizeMode(1, qt.QHeaderView.Fixed)
+    self.widget.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
 
     if not reportNode:
       return
