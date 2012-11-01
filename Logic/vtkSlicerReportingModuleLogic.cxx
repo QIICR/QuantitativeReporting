@@ -38,6 +38,7 @@
 #include <vtksys/SystemTools.hxx>
 #include <vtkPointData.h>
 #include <vtkImageCast.h>
+#include <vtkImageThreshold.h>
 
 // Qt includes
 #include <QDomDocument>
@@ -2232,4 +2233,90 @@ vtkMRMLColorNode* vtkSlicerReportingModuleLogic::GetDefaultColorNode()
     colorNode = NULL;
     }
   return colorNode;
+}
+
+//---------------------------------------------------------------------------
+void vtkSlicerReportingModuleLogic::PropagateFindingUpdateToMarkup()
+{
+  // iterate over all annotations and set the name according to the selected
+  // label
+  // get the rulers and fiducials associated with this report and volume and
+  // get the volume UIDs for them
+  std::vector<vtkMRMLNode *> annotationNodes;
+  if(!this->GetMRMLScene())
+    return;
+
+  // get the active report
+  std::string activeReportID = this->GetActiveReportID();
+  if(!activeReportID.compare(""))
+    {
+    return;
+    }
+  
+  vtkMRMLReportingReportNode *reportNode = NULL;
+  vtkMRMLNode *mrmlNode = this->GetMRMLScene()->GetNodeByID(activeReportID.c_str());
+  if (mrmlNode)
+    {
+    reportNode = vtkMRMLReportingReportNode::SafeDownCast(mrmlNode);
+    }
+  // exit if there is no report
+  if(!reportNode)
+    {
+    vtkDebugMacro("Report node does not exist. Exiting.");
+    return;
+    }
+
+  // rename it from the reporting node
+  vtkMRMLColorNode *colorNode = vtkMRMLColorNode::SafeDownCast(this->GetMRMLScene()->GetNodeByID(reportNode->GetColorNodeID()));
+  std::string colorName = colorNode->GetColorName(reportNode->GetFindingLabel());
+
+  int numAnnotationNodes =  this->GetMRMLScene()->GetNodesByClass("vtkMRMLAnnotationNode", annotationNodes);
+  for (int i = 0; i < numAnnotationNodes; i++)
+    {
+    std::string markupName;
+    vtkMRMLAnnotationNode *annotationNode = vtkMRMLAnnotationNode::SafeDownCast(annotationNodes[i]);
+    if (this->IsInReport(annotationNode))
+      {
+      std::cout << "Found associated annotation node " << annotationNode->GetID() << std::endl;
+      if(annotationNode->IsA("vtkMRMLAnnotationFiducialNode"))
+        {
+        markupName = colorName+"_Fiducial";
+        annotationNode->SetName(markupName.c_str());
+        } 
+      else if(annotationNode->IsA("vtkMRMLAnnotationRulerNode"))
+        {
+        markupName = colorName+"_Ruler";
+        annotationNode->SetName(markupName.c_str());
+        }
+      }
+    }
+
+  //
+  // for each of the attached segmentations, set all non-zero voxels to the
+  // label selected, and update the name of the segmentation
+  std::vector<vtkMRMLNode *> volumeNodes;
+  int numNodes = this->GetMRMLScene()->GetNodesByClass("vtkMRMLScalarVolumeNode", volumeNodes);
+  for (int i = 0; i < numNodes; i++)
+    {
+    vtkMRMLScalarVolumeNode *labelVolumeNode = vtkMRMLScalarVolumeNode::SafeDownCast(volumeNodes[i]);
+    if (labelVolumeNode && labelVolumeNode->GetLabelMap())
+      {
+      // is this label map in the report and associated with the volume?
+      if (this->IsInReport(labelVolumeNode))
+        {
+        std::string markupName = colorName+"_Segmentation";
+        labelVolumeNode->SetName(markupName.c_str());
+
+        vtkImageData* labelImage = labelVolumeNode->GetImageData();
+        vtkImageThreshold* thresh = vtkImageThreshold::New();
+        thresh->SetInput(labelImage);
+        thresh->ThresholdByUpper(1);
+        thresh->SetInValue(reportNode->GetFindingLabel());
+        thresh->Update();
+        labelVolumeNode->SetAndObserveImageData(thresh->GetOutput());
+        thresh->Delete();
+
+        }
+      }
+    }
 }

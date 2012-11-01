@@ -109,6 +109,8 @@ public:
 
   void AddNodeToReport(vtkMRMLNode*);
 
+  void PropagateFindingUpdateToMarkup();
+
   /// logic events
   enum
     {

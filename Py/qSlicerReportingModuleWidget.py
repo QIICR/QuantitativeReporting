@@ -235,6 +235,8 @@ class qSlicerReportingModuleWidget:
     if self.__rNode:
       print("Updating report label")
       self.__rNode.SetFindingLabel(int(label))
+      self.__logic.PropagateFindingUpdateToMarkup()
+      self.updateTreeView()
 
   def enter(self):
     # switch to Two-over-Two layout
