@@ -56,27 +56,31 @@ class LabelToDICOMSEGConverterWidget:
     # reload button
     # (use this during development, but remove it when delivering
     #  your module to users)
-    self.reloadButton = qt.QPushButton("Reload")
-    self.reloadButton.toolTip = "Reload this module."
-    self.reloadButton.name = "LabelToDICOMSEGConverter Reload"
-    self.layout.addWidget(self.reloadButton)
-    self.reloadButton.connect('clicked()', self.onReload)
+    #self.reloadButton = qt.QPushButton("Reload")
+    #self.reloadButton.toolTip = "Reload this module."
+    #self.reloadButton.name = "LabelToDICOMSEGConverter Reload"
+    #self.layout.addWidget(self.reloadButton)
+    #self.reloadButton.connect('clicked()', self.onReload)
 
     # reload and test button
     # (use this during development, but remove it when delivering
     #  your module to users)
-    self.reloadAndTestButton = qt.QPushButton("Reload and Test")
-    self.reloadAndTestButton.toolTip = "Reload this module and then run the self tests."
-    self.layout.addWidget(self.reloadAndTestButton)
-    self.reloadAndTestButton.connect('clicked()', self.onReloadAndTest)
+    #self.reloadAndTestButton = qt.QPushButton("Reload and Test")
+    #self.reloadAndTestButton.toolTip = "Reload this module and then run the self tests."
+    #self.layout.addWidget(self.reloadAndTestButton)
+    #self.reloadAndTestButton.connect('clicked()', self.onReloadAndTest)
 
     # Collapsible button
     dummyCollapsibleButton = ctk.ctkCollapsibleButton()
-    dummyCollapsibleButton.text = "A collapsible button"
+    dummyCollapsibleButton.text = "IO"
     self.layout.addWidget(dummyCollapsibleButton)
 
     # Layout within the dummy collapsible button
     dummyFormLayout = qt.QFormLayout(dummyCollapsibleButton)
+
+    # Input hint
+    self.__helpLabel = qt.QLabel('Select a label associated with a DICOM volume')
+    dummyFormLayout.addRow(self.__helpLabel)
 
     # Input label node
     label = qt.QLabel('Input label: ')
@@ -91,19 +95,44 @@ class LabelToDICOMSEGConverterWidget:
     self.__segmentationSelector.selectNodeUponCreation = 1
     self.__segmentationSelector.addAttribute('vtkMRMLScalarVolumeNode','LabelMap',1)
     self.__segmentationSelector.addAttribute('vtkMRMLScalarVolumeNode','AssociatedNodeID')
+    self.__segmentationSelector.connect('currentNodeChanged(vtkMRMLNode*)',self.onInputChanged)
     dummyFormLayout.addRow(label, self.__segmentationSelector)
 
     # Buttons to save/load report using AIM XML serialization
     label = qt.QLabel('Export folder')
     self.__exportFolderPicker = ctk.ctkDirectoryButton()
-    exportButton = qt.QPushButton('Export')
+    self.exportButton = qt.QPushButton('Export')
     dummyFormLayout.addRow(label, self.__exportFolderPicker)
-    dummyFormLayout.addRow(exportButton)
-    exportButton.connect('clicked()', self.onLabelExport)
+    dummyFormLayout.addRow(self.exportButton)
+    self.exportButton.connect('clicked()', self.onLabelExport)
+    self.exportButton.enabled = 0
 
     # Add vertical spacer
     self.layout.addStretch(1)
+  
+  def onInputChanged(self,newNode):
+    label = self.__segmentationSelector.currentNode()
+    if label == None:
+      self.exportButton.enabled = 0
+      self.__helpLabel.text = 'Select a label associated with a DICOM volume'
+      return
 
+    masterNodeID = label.GetAttribute('AssociatedNodeID')
+    if masterNodeID == None or  masterNodeID == '':
+      self.exportButton.enabled = 0
+      self.__helpLabel.text = 'Selected label does not have an associated volume!'
+      return
+
+    masterNode = slicer.mrmlScene.GetNodeByID(masterNodeID)
+    dicomUIDs = masterNode.GetAttribute('DICOM.instanceUIDs')
+    if dicomUIDs == None or dicomUIDs == '':
+      self.exportButton.enabled = 0
+      self.__helpLabel.text = 'Selected label is not associated with a DICOM volume!'
+      return
+    
+    self.__helpLabel.text = 'Ready to export the selected label!'
+    self.exportButton.enabled = 1
+  
   def onLabelExport(self):
     '''
     TODO: add a check that the selected label is associated with a volume that
@@ -112,7 +141,8 @@ class LabelToDICOMSEGConverterWidget:
     label = self.__segmentationSelector.currentNode()
     reportingLogic = slicer.modules.reporting.logic()
     dirName = self.__exportFolderPicker.directory
-    if label == '':
+    print label
+    if label == None:
       return
     
     labelCollection = vtk.vtkCollection()

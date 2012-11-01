@@ -97,6 +97,7 @@ if(BUILD_TESTING)
 endif()
 
 # add_subdirectory(Prototype)
+add_subdirectory(Util/LabelToDICOMSEGConverter)
 
 #-----------------------------------------------------------------------------
 if(NOT Slicer_SOURCE_DIR)
