@@ -230,10 +230,8 @@ class qSlicerReportingModuleWidget:
     self.__editorParameterNode.AddObserver(vtk.vtkCommand.ModifiedEvent, self.onEditorParameterNodeChanged)
 
   def onEditorParameterNodeChanged(self,caller,event):
-    print('Editor parameter node changed')
     label = self.__editorParameterNode.GetParameter('label')
     if self.__rNode:
-      print("Updating report label")
       self.__rNode.SetFindingLabel(int(label))
       self.__logic.PropagateFindingUpdateToMarkup()
       self.updateTreeView()
