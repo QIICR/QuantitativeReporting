@@ -100,30 +100,30 @@ class qSlicerReportingModuleWidget:
 
     # Active report node
     label = qt.QLabel('Report: ')
-    self.__reportSelector = slicer.qMRMLNodeComboBox()
-    self.__reportSelector.nodeTypes =  ['vtkMRMLReportingReportNode']
-    self.__reportSelector.setMRMLScene(slicer.mrmlScene)
-    self.__reportSelector.addEnabled = True
-    self.__reportSelector.removeEnabled = True
+    self.reportSelector = slicer.qMRMLNodeComboBox()
+    self.reportSelector.nodeTypes =  ['vtkMRMLReportingReportNode']
+    self.reportSelector.setMRMLScene(slicer.mrmlScene)
+    self.reportSelector.addEnabled = True
+    self.reportSelector.removeEnabled = True
     
-    inputFrameLayout.addRow(label, self.__reportSelector)
+    inputFrameLayout.addRow(label, self.reportSelector)
 
-    self.__reportSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onReportNodeChanged)
+    self.reportSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onReportNodeChanged)
  
     # Volume being annotated (only one is allowed for the report)
     label = qt.QLabel('NOTE: Only volumes loaded from DICOM can be annotated!')
     inputFrameLayout.addRow(label)
     label = qt.QLabel('Annotated volume: ')
-    self.__volumeSelector = slicer.qMRMLNodeComboBox()
-    self.__volumeSelector.nodeTypes = ['vtkMRMLScalarVolumeNode']
+    self.volumeSelector = slicer.qMRMLNodeComboBox()
+    self.volumeSelector.nodeTypes = ['vtkMRMLScalarVolumeNode']
     # only allow volumes with the attribute DICOM.instanceUIDs
-    self.__volumeSelector.addAttribute('vtkMRMLScalarVolumeNode','DICOM.instanceUIDs')
-    self.__volumeSelector.setMRMLScene(slicer.mrmlScene)
-    self.__volumeSelector.addEnabled = False
+    self.volumeSelector.addAttribute('vtkMRMLScalarVolumeNode','DICOM.instanceUIDs')
+    self.volumeSelector.setMRMLScene(slicer.mrmlScene)
+    self.volumeSelector.addEnabled = False
     
-    inputFrameLayout.addRow(label, self.__volumeSelector)
+    inputFrameLayout.addRow(label, self.volumeSelector)
 
-    self.__volumeSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onAnnotatedVolumeNodeChanged)
+    self.volumeSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onAnnotatedVolumeNodeChanged)
 
     #
     # Annotation frame -- vocabulary-based description of what is
@@ -167,18 +167,18 @@ class qSlicerReportingModuleWidget:
     editorFrameLayout = qt.QFormLayout(self.__editorFrame)
 
     label = qt.QLabel('Segmentation volume: ')
-    self.__segmentationSelector = slicer.qMRMLNodeComboBox()
-    self.__segmentationSelector.nodeTypes = ['vtkMRMLScalarVolumeNode']
-    self.__segmentationSelector.setMRMLScene(slicer.mrmlScene)
-    self.__segmentationSelector.addEnabled = 1
-    self.__segmentationSelector.noneEnabled = 1
-    self.__segmentationSelector.removeEnabled = 0
-    self.__segmentationSelector.showHidden = 0
-    self.__segmentationSelector.showChildNodeTypes = 0
-    self.__segmentationSelector.selectNodeUponCreation = 1
-    self.__segmentationSelector.addAttribute('vtkMRMLScalarVolumeNode','LabelMap',1)
+    self.segmentationSelector = slicer.qMRMLNodeComboBox()
+    self.segmentationSelector.nodeTypes = ['vtkMRMLScalarVolumeNode']
+    self.segmentationSelector.setMRMLScene(slicer.mrmlScene)
+    self.segmentationSelector.addEnabled = 1
+    self.segmentationSelector.noneEnabled = 1
+    self.segmentationSelector.removeEnabled = 0
+    self.segmentationSelector.showHidden = 0
+    self.segmentationSelector.showChildNodeTypes = 0
+    self.segmentationSelector.selectNodeUponCreation = 1
+    self.segmentationSelector.addAttribute('vtkMRMLScalarVolumeNode','LabelMap',1)
 
-    editorFrameLayout.addRow(label, self.__segmentationSelector)
+    editorFrameLayout.addRow(label, self.segmentationSelector)
 
     editorWidgetParent = slicer.qMRMLWidget()
     editorWidgetParent.setLayout(qt.QVBoxLayout())
@@ -190,7 +190,7 @@ class qSlicerReportingModuleWidget:
 
     markupFrameLayout.addRow(self.__editorFrame)
 
-    self.__segmentationSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onSegmentationNodeChanged)
+    self.segmentationSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onSegmentationNodeChanged)
 
     # IO frame
     self.__ioFrame = ctk.ctkCollapsibleButton()
@@ -219,8 +219,8 @@ class qSlicerReportingModuleWidget:
     ioFrameLayout.addWidget(button,1,2)
     self.__importAIMFile = None
 
-    self.__reportSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.updateWidgets)
-    self.__volumeSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.updateWidgets)
+    self.reportSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.updateWidgets)
+    self.volumeSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.updateWidgets)
     self.updateWidgets()
 
     self.layout.addStretch(1)
@@ -258,7 +258,7 @@ class qSlicerReportingModuleWidget:
     hasObserver = self.__logic.HasObserver(self.__logic.AnnotationAdded)
     if hasObserver == 0:
       tag = self.__logic.AddObserver(self.__logic.AnnotationAdded, self.respondToAnnotationAdded)
-    vnode = self.__volumeSelector.currentNode()
+    vnode = self.volumeSelector.currentNode()
     if vnode != None:
       # print "Enter: updating the tree view"
       self.updateTreeView()
@@ -296,7 +296,7 @@ class qSlicerReportingModuleWidget:
     if mrmlScene != self.__logic.GetMRMLScene():
       self.__logic.SetMRMLScene(mrmlScene)
       self.__logic.RegisterNodes()
-    self.__reportSelector.setMRMLScene(slicer.mrmlScene)
+    self.reportSelector.setMRMLScene(slicer.mrmlScene)
     
   def updateTreeView(self):
     Helper.Debug('updateTreeView')
@@ -307,23 +307,23 @@ class qSlicerReportingModuleWidget:
     Helper.Debug("onAnnotatedVolumeNodeChanged()")
 
     # get the current volume node
-    selectedVolume = self.__volumeSelector.currentNode()
+    selectedVolume = self.volumeSelector.currentNode()
 
     # do the error checks
     if selectedVolume == None or self.__rNode == None:
-      self.__volumeSelector.setCurrentNode(None)
+      self.volumeSelector.setCurrentNode(None)
       return
 
     uids = selectedVolume.GetAttribute('DICOM.instanceUIDs')
     if uids == None:
       Helper.ErrorPopup("Volume \""+selectedVolume.GetName()+"\" was not loaded from DICOM. Only volumes loaded from DICOM data can be annotated in the Reporting module.")
-      self.__volumeSelector.setCurrentNode(None)
+      self.volumeSelector.setCurrentNode(None)
       return
 
     nSlices = selectedVolume.GetImageData().GetExtent()[-1]+1
     if nSlices != len(string.split(uids)):
       Helper.ErrorPopup("Volume \""+selectedVolume.GetName()+"\" was loaded from multi-frame DICOM. Multi-frame DICOM is currently not supported by the Reporting module")
-      self.__volumeSelector.setCurrentNode(None)
+      self.volumeSelector.setCurrentNode(None)
       return
 
     # volume node is valid!
@@ -378,7 +378,7 @@ class qSlicerReportingModuleWidget:
       return
 
     # get the current segmentation (label) node
-    sNode = self.__segmentationSelector.currentNode()
+    sNode = self.segmentationSelector.currentNode()
     if sNode == None:
       self.updateWidgets()
       return
@@ -393,7 +393,7 @@ class qSlicerReportingModuleWidget:
       # the annotated label geometry, and if so, add it to the hierarchy
       if Helper.GeometriesMatch(sNode, self.__vNode) == False:
         Helper.ErrorPopup('The geometry of the segmentation label you attempted to select does not match the geometry of the volume being annotated! Please select a different label or create a new one.')
-        self.__segmentationSelector.setCurrentNode(None)
+        self.segmentationSelector.setCurrentNode(None)
         self.updateWidgets()
         return
 
@@ -410,7 +410,7 @@ class qSlicerReportingModuleWidget:
     # TODO: disable adding new label node to the hierarchy if it was added
     # outside the reporting module
 
-    self.__segmentationSelector.setCurrentNode(sNode)
+    self.segmentationSelector.setCurrentNode(sNode)
 
     self.__editorWidget.setMasterNode(self.__vNode)
     self.__editorWidget.setMergeNode(sNode)
@@ -430,10 +430,10 @@ class qSlicerReportingModuleWidget:
     # TODO
     #  -- initialize annotations and markup frames based on the report node
     #  content
-    self.__rNode = self.__reportSelector.currentNode()
+    self.__rNode = self.reportSelector.currentNode()
       
     Helper.Debug("onReportNodeChanged: changing segmentation selector to None")
-    self.__segmentationSelector.setCurrentNode(None)
+    self.segmentationSelector.setCurrentNode(None)
 
     if self.__rNode != None:
     
@@ -457,12 +457,12 @@ class qSlicerReportingModuleWidget:
       if vID:
         Helper.Debug('Have a volume node id in the report ' + vID + ', setting current volume node selector')
         self.__vNode = slicer.mrmlScene.GetNodeByID(vID)      
-        self.__volumeSelector.setCurrentNode(self.__vNode)
+        self.volumeSelector.setCurrentNode(self.__vNode)
       else:
         Helper.Debug('Do not have a volume id in the report, setting current volume node selector to none')
         # set the volume to be none
         self.__vNode = None
-        self.__volumeSelector.setCurrentNode(None)
+        self.volumeSelector.setCurrentNode(None)
 
       # hide the markups that go with other report nodes
       self.__logic.HideAnnotationsForOtherReports(self.__rNode)
@@ -501,7 +501,7 @@ class qSlicerReportingModuleWidget:
     newReport.SetColorNodeID(self.__defaultColorNode.GetID())
 
     slicer.mrmlScene.AddNode(newReport)
-    self.__reportSelector.setCurrentNode(newReport)
+    self.reportSelector.setCurrentNode(newReport)
     self.onReportNodeChanged()
 
     # initialize the report hierarchy
@@ -546,7 +546,7 @@ class qSlicerReportingModuleWidget:
     Helper.Debug('Will export to '+exportDirectory)
 
     # use the currently selected report
-    self.__rNode = self.__reportSelector.currentNode()
+    self.__rNode = self.reportSelector.currentNode()
     if self.__rNode == None:
       return
 
@@ -577,14 +577,14 @@ class qSlicerReportingModuleWidget:
     if reportID != None:
       self.__rNode = Helper.getNodeByID(reportID)
       # AF: looks like this does not trigger event, why?
-      self.__reportSelector.setCurrentNode(self.__rNode)
+      self.reportSelector.setCurrentNode(self.__rNode)
 
   def updateParametersFromWidget(self):
     pn = self.__parameterNode
     if pn == None:
       return
 
-    report = self.__reportSelector.currentNode()
+    report = self.reportSelector.currentNode()
   
     if report != None:
       pn.SetParameter('reportID', report.GetID())
@@ -595,25 +595,25 @@ class qSlicerReportingModuleWidget:
 
     report = self.__rNode
     volume = None
-    label = self.__segmentationSelector.currentNode()
+    label = self.segmentationSelector.currentNode()
 
     if report != None:
-      self.__reportSelector.setCurrentNode(self.__rNode)
+      self.reportSelector.setCurrentNode(self.__rNode)
       volume = slicer.mrmlScene.GetNodeByID(report.GetVolumeNodeID())
       # TODO: get the label node from volume hieararchy
 
       if volume != None:
-        self.__volumeSelector.setCurrentNode(volume)
+        self.volumeSelector.setCurrentNode(volume)
         self.__markupFrame.enabled = 1
         self.__annotationsFrame.enabled = 1
-        self.__volumeSelector.enabled = 0
+        self.volumeSelector.enabled = 0
       else:
-        self.__volumeSelector.enabled = 1
+        self.volumeSelector.enabled = 1
         self.__markupFrame.enabled = 0
         self.__annotationsFrame.enabled = 0
 
     else:
-      self.__volumeSelector.enabled = 0
+      self.volumeSelector.enabled = 0
       self.__markupFrame.enabled = 0
       self.__annotationsFrame.enabled = 0
       
