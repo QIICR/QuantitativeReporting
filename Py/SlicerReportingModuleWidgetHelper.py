@@ -1,5 +1,5 @@
 # slicer imports
-from __main__ import vtk, slicer, tcl, qt
+from __main__ import vtk, slicer, qt
 
 # python includes
 import sys
@@ -77,10 +77,10 @@ class SlicerReportingModuleWidgetHelper( object ):
     appLogic.PropagateVolumeSelection()
 
   @staticmethod
-  def RotateToVolumePlanes():
-    # AF TODO: check with Steve if this has any undesired consequences
-    # Volumes slicenode has a method for this, no need for tcl
-    tcl('EffectSWidget::RotateToVolumePlanes')
+  def RotateToVolumePlanes(referenceVolume):
+    sliceNodes = slicer.util.getNodes('vtkMRMLSliceNode*')
+    for name, node in sliceNodes.items():
+      node.RotateToVolumePlane(referenceVolume)
     # snap to IJK to try and avoid rounding errors
     sliceLogics = slicer.app.layoutManager().mrmlSliceLogics()
     numLogics = sliceLogics.GetNumberOfItems()

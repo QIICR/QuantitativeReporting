@@ -1,4 +1,5 @@
 from __main__ import vtk, qt, ctk, slicer
+import string
 
 from SlicerReportingModuleWidgetHelper import SlicerReportingModuleWidgetHelper as Helper
 #from EditColor import *
@@ -335,7 +336,7 @@ class qSlicerReportingModuleWidget:
       self.__rNode.SetName('Report for Volume '+self.__vNode.GetName())
 
     Helper.SetBgFgVolumes(self.__vNode.GetID(), '')
-    Helper.RotateToVolumePlanes()
+    Helper.RotateToVolumePlanes(self.__vNode)
 
     # go over all label nodes in the scene
     # if there is a label that has the selected volume as associated node, 
