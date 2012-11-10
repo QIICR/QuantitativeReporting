@@ -218,7 +218,7 @@ class qSlicerReportingModuleWidget:
     ioFrameLayout.addWidget(label,1,0)
     ioFrameLayout.addWidget(self.__aimFilePicker,1,1)
     ioFrameLayout.addWidget(button,1,2)
-    self.__importAIMFile = None
+    self.importAIMFile = None
 
     self.reportSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.updateWidgets)
     self.volumeSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.updateWidgets)
@@ -483,13 +483,12 @@ class qSlicerReportingModuleWidget:
   '''
   def onReportImport(self):
 
-    print('onReportImport here!!!')
     # TODO
     #  -- popup file open dialog to choose the .xml AIM file
     #  -- warn the user if the selected report node is not empty
     #  -- populate the selected report node, initializing annotation template,
     #  content, markup hierarchy and content
-    if not self.__importAIMFile:
+    if not self.importAIMFile:
       Helper.Debug('onReportImport: import file name not specified')
       return
 
@@ -508,7 +507,7 @@ class qSlicerReportingModuleWidget:
     # initialize the report hierarchy
     #  -- assume that report node has been created and is in the selector
 
-    Helper.LoadAIMFile(newReport.GetID(),self.__importAIMFile)
+    Helper.LoadAIMFile(newReport.GetID(),self.importAIMFile)
 
     # update the GUI
     Helper.Debug('onReportImport --> calling onReportNodeChanged()')
@@ -516,16 +515,16 @@ class qSlicerReportingModuleWidget:
     
   def onSelectAIMFile(self):
     #  -- popup file dialog prompting output file
-    if not self.__importAIMFile:
+    if not self.importAIMFile:
       fileName = qt.QFileDialog.getOpenFileName(self.parent, "Choose AIM report","/","XML Files (*.xml)")
     else:
-      lastDir = self.__importAIMFile[0:string.rfind(self.__importAIMFile,'/')]
+      lastDir = self.importAIMFile[0:string.rfind(self.importAIMFile,'/')]
       fileName = qt.QFileDialog.getOpenFileName(self.parent, "Choose AIM report",lastDir,"XML Files (*.xml)")
 
     if fileName == '':
       return
     
-    self.__importAIMFile = fileName
+    self.importAIMFile = fileName
     try:
       label = string.split(fileName,'/')[-1]
     except:
