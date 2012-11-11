@@ -193,16 +193,10 @@ class ReportingSelfTestTest(unittest.TestCase):
   def setUp(self):
     """ Do whatever is needed to reset the state - typically a scene clear will be enough.
     """
-    self.delayDisplay("Closing XXX the scene")
+    self.delayDisplay("Closing the scene")
     layoutManager = slicer.app.layoutManager()
     layoutManager.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalView)
     slicer.mrmlScene.Clear(0)
-
-
-  def restoreDICOMDirectory(self):
-    self.delayDisplay("Restoring original database directory")
-    if originalDatabaseDirectory:
-      dicomWidget.onDatabaseDirectoryChanged(originalDatabaseDirectory)
 
   def clickAndDrag(self,widget,button='Left',start=(10,10),end=(10,40),steps=20,modifiers=[]):
     """Send synthetic mouse events to the specified widget (qMRMLSliceWidget or qMRMLThreeDView)
@@ -248,14 +242,14 @@ class ReportingSelfTestTest(unittest.TestCase):
     """Run as few or as many tests as needed here.
     """
     self.setUp()
-    self.test_Part1DICOM()
+    self.test_ReportingAIMRoundTrip()
     '''
     self.test_Part2Setup()
     self.test_Part3PlaceMarkups()
     self.restorDICOMDirectory()
     '''
 
-  def test_Part1DICOM(self):
+  def test_ReportingAIMRoundTrip(self):
     """ Load the data using DICOM module
     """
 
@@ -277,9 +271,7 @@ class ReportingSelfTestTest(unittest.TestCase):
         urllib.urlretrieve(url, filePath)
     self.delayDisplay('Finished with download\n')
 
-    self.delayDisplay("Unzipping")
     reportingTempDir = slicer.app.temporaryPath+'/Reporting'
-    qt.QDir().remove(reportingTempDir)
     qt.QDir().mkpath(reportingTempDir)
     dicomFilesDirectory = reportingTempDir + '/dicomFiles'
     qt.QDir().mkpath(dicomFilesDirectory)
@@ -314,71 +306,7 @@ class ReportingSelfTestTest(unittest.TestCase):
       self.delayDisplay('Loading Selection')
       dicomWidget.detailsPopup.loadCheckedLoadables()
 
-      '''
-      self.delayDisplay('Change Level')
-      layoutManager = slicer.app.layoutManager()
-      redWidget = layoutManager.sliceWidget('Red')
-      self.clickAndDrag(redWidget,start=(10,10),end=(10,40))
-
-      self.delayDisplay('Change Window')
-      self.clickAndDrag(redWidget,start=(10,10),end=(40,10))
-
-      self.delayDisplay('Change Layout')
-      layoutManager = slicer.app.layoutManager()
-      layoutManager.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutOneUpRedSliceView)
-
-      self.delayDisplay('Zoom')
-      self.clickAndDrag(redWidget,button='Right',start=(10,10),end=(10,40))
-
-      self.delayDisplay('Pan')
-      self.clickAndDrag(redWidget,button='Middle',start=(10,10),end=(40,40))
-
-      self.delayDisplay('Center')
-      redWidget.sliceController().fitSliceToBackground()
-
-      self.delayDisplay('Lightbox')
-      redWidget.sliceController().setLightboxTo6x6()
-
-      self.delayDisplay('Conventional Layout')
-      layoutManager.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalView)
-
-      self.delayDisplay('No Lightbox')
-      redWidget.sliceController().setLightboxTo1x1()
-
-      self.delayDisplay('Four Up Layout')
-      layoutManager.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpView)
-
-      self.delayDisplay('Shift Mouse')
-      self.clickAndDrag(redWidget,button='None',start=(100,100),end=(140,140),modifiers=['Shift'])
-
-      self.delayDisplay('Conventional, Link, Slice Model')
-      layoutManager.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalView)
-      redWidget.sliceController().setSliceLink(True)
-      redWidget.sliceController().setSliceVisible(True);
-
-      self.delayDisplay('Rotate')
-      threeDView = layoutManager.threeDWidget(0).threeDView()
-      self.clickAndDrag(threeDView)
-
-      self.delayDisplay('Zoom')
-      threeDView = layoutManager.threeDWidget(0).threeDView()
-      self.clickAndDrag(threeDView,button='Right')
-      '''
-
-      self.delayDisplay('Test passed!')
-    except Exception, e:
-      import traceback
-      traceback.print_exc()
-      self.delayDisplay('Test caused exception!\n' + str(e))
-
-    '''
-    def test_Part2Setup(self):
-      """ Test module setup
-      """
-      self.delayDisplay("Starting the Reporting setup test")
-    '''
-
-    try:
+      # initialize the module with the report and volume
       
       volumes = slicer.util.getNodes('vtkMRMLScalarVolumeNode*')
       self.assertTrue(len(volumes) == 1)
@@ -402,26 +330,7 @@ class ReportingSelfTestTest(unittest.TestCase):
       reporting.volumeSelector.setCurrentNode(volume)
       slicer.app.processEvents()
 
-    except Exception, e:
-      import traceback
-      traceback.print_exc()
-      self.delayDisplay('Test caused exception!\n' + str(e))
-
-
-    '''
-    def test_Part3PlaceMarkups(self):
-      """ Test markup placement
-      """
-    '''
-    self.delayDisplay("Starting the markup placements")
-
-    volumes = slicer.util.getNodes('vtkMRMLScalarVolumeNode*')
-    self.assertTrue(len(volumes) == 1)
-
-    (name,volume) = volumes.items()[0]
-    self.delayDisplay('Loaded volume name %s' % volume.GetName())
-
-    try:
+      # place some markups and add a segmentation label
 
       # add fiducial
       fidNode = slicer.vtkMRMLAnnotationFiducialNode()
@@ -468,9 +377,8 @@ class ReportingSelfTestTest(unittest.TestCase):
       labelNode.SetAndObserveImageData(thresh.GetOutput())
       reporting.segmentationSelector.setCurrentNode(labelNode)
 
-      self.delayDisplay('Segmentation threshold updated')
-
       # Save the report
+
       exportDir = reportingTempDir+'/Output'
       qt.QDir().mkpath(exportDir)
       report.SetStorageDirectoryName(exportDir)
@@ -482,18 +390,9 @@ class ReportingSelfTestTest(unittest.TestCase):
       slicer.mrmlScene.Clear(0)
 
       # parse on patient level, find segmentation object, load and make sure
-  
-
       # it matches the input
       # close the scene and load the report, check consistency
 
-      self.delayDisplay('Test passed!')
-    except Exception, e:
-      import traceback
-      traceback.print_exc()
-      self.delayDisplay('Test caused exception!\n' + str(e))
-
-    try:
       # try to load back the saved AIM
       import glob
       print glob.glob(exportDir+'/*')      
@@ -504,7 +403,12 @@ class ReportingSelfTestTest(unittest.TestCase):
       reporting.importAIMFile = xmlFiles[0]
       reporting.onReportImport()
 
-      self.delayDisplay('Report loaded from AIM!')
+      self.delayDisplay('Report loaded from AIM! Test passed.')
+      
+      self.delayDisplay("Restoring original database directory")
+      if self.originalDatabaseDirectory:
+        dicomWidget.onDatabaseDirectoryChanged(self.originalDatabaseDirectory)
+
     except Exception, e:
       import traceback
       traceback.print_exc()
