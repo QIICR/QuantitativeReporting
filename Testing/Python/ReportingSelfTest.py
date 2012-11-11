@@ -11,12 +11,12 @@ class ReportingSelfTest:
     parent.title = "ReportingSelfTest" # TODO make this more human readable by adding spaces
     parent.categories = ["Work in Progress.Informatics.TestCases"]
     parent.dependencies = []
-    parent.contributors = ["Steve Pieper (Isomics)"] # replace with "Firstname Lastname (Org)"
+    parent.contributors = ["Andrey Fedorov (SPL)"] # replace with "Firstname Lastname (Org)"
     parent.helpText = """
-    This module was developed as a self test to perform the operations needed for the RSNA 2012 Visualization Tutorial
+    Self-test for the Reporting module
     """
     parent.acknowledgementText = """
-    This file was originally developed by Steve Pieper, Isomics, Inc.  and was partially funded by NIH grant 3P41RR013218-12S1.
+    This file was originally developed by Andrey Fedorov
 """ # replace with organization, grant and thanks.
     self.parent = parent
 

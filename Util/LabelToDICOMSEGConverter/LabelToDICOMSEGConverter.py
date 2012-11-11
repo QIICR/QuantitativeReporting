@@ -84,23 +84,24 @@ class LabelToDICOMSEGConverterWidget:
 
     # Input label node
     label = qt.QLabel('Input label: ')
-    self.__segmentationSelector = slicer.qMRMLNodeComboBox()
-    self.__segmentationSelector.nodeTypes = ['vtkMRMLScalarVolumeNode']
-    self.__segmentationSelector.setMRMLScene(slicer.mrmlScene)
-    self.__segmentationSelector.addEnabled = 0
-    self.__segmentationSelector.noneEnabled = 1
-    self.__segmentationSelector.removeEnabled = 0
-    self.__segmentationSelector.showHidden = 0
-    self.__segmentationSelector.showChildNodeTypes = 0
-    self.__segmentationSelector.selectNodeUponCreation = 1
-    self.__segmentationSelector.addAttribute('vtkMRMLScalarVolumeNode','LabelMap',1)
-    self.__segmentationSelector.addAttribute('vtkMRMLScalarVolumeNode','AssociatedNodeID')
-    self.__segmentationSelector.connect('currentNodeChanged(vtkMRMLNode*)',self.onInputChanged)
-    dummyFormLayout.addRow(label, self.__segmentationSelector)
+    self.segmentationSelector = slicer.qMRMLNodeComboBox()
+    self.segmentationSelector.nodeTypes = ['vtkMRMLScalarVolumeNode']
+    self.segmentationSelector.setMRMLScene(slicer.mrmlScene)
+    self.segmentationSelector.addEnabled = 0
+    self.segmentationSelector.noneEnabled = 1
+    self.segmentationSelector.removeEnabled = 0
+    self.segmentationSelector.showHidden = 0
+    self.segmentationSelector.showChildNodeTypes = 0
+    self.segmentationSelector.selectNodeUponCreation = 1
+    self.segmentationSelector.addAttribute('vtkMRMLScalarVolumeNode','LabelMap',1)
+    self.segmentationSelector.addAttribute('vtkMRMLScalarVolumeNode','AssociatedNodeID')
+    self.segmentationSelector.connect('currentNodeChanged(vtkMRMLNode*)',self.onInputChanged)
+    dummyFormLayout.addRow(label, self.segmentationSelector)
 
     # Buttons to save/load report using AIM XML serialization
     label = qt.QLabel('Export folder')
     self.__exportFolderPicker = ctk.ctkDirectoryButton()
+    self.__exportFolderPicker.connect('directoryChanged(const QString&)', self.onOutputDirChanged)
     self.exportButton = qt.QPushButton('Export')
     dummyFormLayout.addRow(label, self.__exportFolderPicker)
     dummyFormLayout.addRow(self.exportButton)
@@ -109,9 +110,11 @@ class LabelToDICOMSEGConverterWidget:
 
     # Add vertical spacer
     self.layout.addStretch(1)
-  
+
+    self.outputDir = None  
+
   def onInputChanged(self,newNode):
-    label = self.__segmentationSelector.currentNode()
+    label = self.segmentationSelector.currentNode()
     if label == None:
       self.exportButton.enabled = 0
       self.__helpLabel.text = 'Select a label associated with a DICOM volume'
@@ -133,23 +136,25 @@ class LabelToDICOMSEGConverterWidget:
     self.__helpLabel.text = 'Ready to export the selected label!'
     self.exportButton.enabled = 1
   
+  def onOutputDirChanged(self, newDir):
+    self.outputDir = newDir
+
   def onLabelExport(self):
     '''
     TODO: add a check that the selected label is associated with a volume that
     has DICOM.instanceUIDs attribute set
     '''
-    label = self.__segmentationSelector.currentNode()
+    label = self.segmentationSelector.currentNode()
     reportingLogic = slicer.modules.reporting.logic()
-    dirName = self.__exportFolderPicker.directory
-    print label
+    dirName = self.outputDir
+    
     if label == None:
+      print('Input label not defined')
       return
     
     labelCollection = vtk.vtkCollection()
     labelCollection.AddItem(label)
     reportingLogic.DicomSegWrite(labelCollection, dirName)
-
-    print "Ready!"
 
   def onReload(self,moduleName="LabelToDICOMSEGConverter"):
     """Generic reload method for any scripted module.
