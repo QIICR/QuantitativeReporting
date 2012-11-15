@@ -249,6 +249,13 @@ class ReportingSelfTestTest(unittest.TestCase):
     self.restorDICOMDirectory()
     '''
 
+  def cleanupDir(self, d):
+    oldFiles = os.listdir(d)
+    for f in oldFiles:
+      path = d+'/'+f
+      if not os.path.isdir(path):
+        os.unlink(d+'/'+f)
+
   def test_ReportingAIMRoundTrip(self):
     """ Load the data using DICOM module
     """
@@ -274,6 +281,7 @@ class ReportingSelfTestTest(unittest.TestCase):
     reportingTempDir = slicer.app.temporaryPath+'/Reporting'
     qt.QDir().mkpath(reportingTempDir)
     dicomFilesDirectory = reportingTempDir + '/dicomFiles'
+    self.cleanupDir(dicomFilesDirectory)
     qt.QDir().mkpath(dicomFilesDirectory)
     slicer.app.applicationLogic().Unzip(filePath, dicomFilesDirectory)
 
@@ -281,6 +289,7 @@ class ReportingSelfTestTest(unittest.TestCase):
       self.delayDisplay("Switching to temp database directory")
       tempDatabaseDirectory = reportingTempDir + '/tempDICOMDatbase'
       qt.QDir().mkpath(tempDatabaseDirectory)
+      self.cleanupDir(tempDatabaseDirectory)
       if slicer.dicomDatabase:
         self.originalDatabaseDirectory = os.path.split(slicer.dicomDatabase.databaseFilename)[0]
       else:
@@ -381,6 +390,7 @@ class ReportingSelfTestTest(unittest.TestCase):
 
       exportDir = reportingTempDir+'/Output'
       qt.QDir().mkpath(exportDir)
+      self.cleanupDir(exportDir)
       report.SetStorageDirectoryName(exportDir)
       reportingLogic = slicer.modules.reporting.logic()
       reportingLogic.SaveReportToAIM(report)
