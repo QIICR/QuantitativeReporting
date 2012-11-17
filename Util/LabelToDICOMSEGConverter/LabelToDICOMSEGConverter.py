@@ -94,9 +94,23 @@ class LabelToDICOMSEGConverterWidget:
     self.segmentationSelector.showChildNodeTypes = 0
     self.segmentationSelector.selectNodeUponCreation = 1
     self.segmentationSelector.addAttribute('vtkMRMLScalarVolumeNode','LabelMap',1)
-    self.segmentationSelector.addAttribute('vtkMRMLScalarVolumeNode','AssociatedNodeID')
     self.segmentationSelector.connect('currentNodeChanged(vtkMRMLNode*)',self.onInputChanged)
     dummyFormLayout.addRow(label, self.segmentationSelector)
+
+    # Input volume node
+    label = qt.QLabel('Input volume: ')
+    self.volumeSelector = slicer.qMRMLNodeComboBox()
+    self.volumeSelector.nodeTypes = ['vtkMRMLScalarVolumeNode']
+    self.volumeSelector.setMRMLScene(slicer.mrmlScene)
+    self.volumeSelector.addEnabled = 0
+    self.volumeSelector.noneEnabled = 1
+    self.volumeSelector.removeEnabled = 0
+    self.volumeSelector.showHidden = 0
+    self.volumeSelector.showChildNodeTypes = 0
+    self.volumeSelector.selectNodeUponCreation = 0
+    self.volumeSelector.addAttribute('vtkMRMLScalarVolumeNode','DICOM.instanceUIDs')
+    self.volumeSelector.connect('currentNodeChanged(vtkMRMLNode*)',self.onInputChanged)
+    dummyFormLayout.addRow(label, self.volumeSelector)
 
     # Buttons to save/load report using AIM XML serialization
     label = qt.QLabel('Export folder')
@@ -111,20 +125,35 @@ class LabelToDICOMSEGConverterWidget:
     # Add vertical spacer
     self.layout.addStretch(1)
 
-    self.outputDir = None  
+    self.outputDir = self.__exportFolderPicker.directory
 
   def onInputChanged(self,newNode):
     label = self.segmentationSelector.currentNode()
-    if label == None:
+    scalar = self.volumeSelector.currentNode()
+
+    # assuming here the user does the 
+    if label == None or scalar == None:
       self.exportButton.enabled = 0
-      self.__helpLabel.text = 'Select a label associated with a DICOM volume'
       return
 
+    
+    labelImage = label.GetImageData()
+    scalarImage = label.GetImageData()
+    lDim = labelImage.GetDimensions()
+    sDim = scalarImage.GetDimensions()
+    if lDim[0]!=sDim[0] or lDim[1]!=sDim[1] or lDim[2]!=sDim[2]:
+      self.__helpLabel.text = 'Geometries do not match'
+      self.exportButton.enabled = 0
+
+    self.exportButton.enabled = 1
+ 
+    '''
     masterNodeID = label.GetAttribute('AssociatedNodeID')
     if masterNodeID == None or  masterNodeID == '':
       self.exportButton.enabled = 0
       self.__helpLabel.text = 'Selected label does not have an associated volume!'
       return
+    
 
     masterNode = slicer.mrmlScene.GetNodeByID(masterNodeID)
     dicomUIDs = masterNode.GetAttribute('DICOM.instanceUIDs')
@@ -135,6 +164,7 @@ class LabelToDICOMSEGConverterWidget:
     
     self.__helpLabel.text = 'Ready to export the selected label!'
     self.exportButton.enabled = 1
+    '''
   
   def onOutputDirChanged(self, newDir):
     self.outputDir = newDir
@@ -145,15 +175,15 @@ class LabelToDICOMSEGConverterWidget:
     has DICOM.instanceUIDs attribute set
     '''
     label = self.segmentationSelector.currentNode()
-    reportingLogic = slicer.modules.reporting.logic()
-    dirName = self.outputDir
-    
-    if label == None:
-      print('Input label not defined')
-      return
-    
+    scalar = self.volumeSelector.currentNode()
+ 
+    # need to set up the associated node ID
+    label.SetAttribute('AssociatedNodeID', scalar.GetID())
+
     labelCollection = vtk.vtkCollection()
     labelCollection.AddItem(label)
+    reportingLogic = slicer.modules.reporting.logic()
+    dirName = self.outputDir
     reportingLogic.DicomSegWrite(labelCollection, dirName)
 
   def onReload(self,moduleName="LabelToDICOMSEGConverter"):
