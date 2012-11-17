@@ -301,8 +301,7 @@ class qSlicerReportingModuleWidget:
     
   def updateTreeView(self):
     Helper.Debug('updateTreeView')
-    # make the view update
-    self.populateTreeView()
+    self.__markupTreeView.setHeader(self.__rNode)
 
   def onAnnotatedVolumeNodeChanged(self):
     Helper.Debug("onAnnotatedVolumeNodeChanged()")
@@ -624,80 +623,6 @@ class qSlicerReportingModuleWidget:
       self.__editorWidget.editLabelMapsFrame.collapsed = False
       self.__editorWidget.editLabelMapsFrame.setEnabled(True)
 
-  #
-  # Fill in the GUI element with the volume from the report node, 
-  # and it's associated markups
-  #
-  def populateTreeView(self):
-    Helper.Debug('populateTreeView')
-    self.__markupTreeView.setHeader(self.__rNode)
-    return
-    Helper.Debug('populateTreeView')
-    if self.__rNode == None:
-      Helper.Debug('populateTreeView: no report node set!')
-      return
-
-    volumeID = self.__rNode.GetVolumeNodeID()     
-    if volumeID == "":
-      Helper.Debug('populateTreeView: no active volume node id on report ' + self.__rNode.GetName())
-      return
-    volumeNode = Helper.getNodeByID(volumeID)   
-    Helper.Debug('volumeID = ' + volumeID)
-
-    # find displayble nodes that are associated with this volume
-    numDisplayableNodes = slicer.mrmlScene.GetNumberOfNodesByClass("vtkMRMLDisplayableNode")
-    nodeIDList = []
-    for n in range(numDisplayableNodes): 
-      displayableNode = slicer.mrmlScene.GetNthNodeByClass(n, "vtkMRMLDisplayableNode")
-      inReport = self.__logic.IsInReport(displayableNode)
-      if inReport:
-        Helper.Debug('Found node associated with the volume node: ' + displayableNode.GetName())
-        nodeIDList.append(displayableNode.GetID())
-
-    print "Report: " + self.__rNode.GetName()
-    print "Volume: " + volumeNode.GetName()
-
-    row = 0
-    # volume name
-    item = qt.QStandardItem()
-    item.setEditable(False)
-    item.setText(volumeNode.GetName())
-    self.__markupsModel.setItem(row,0,item)
-    self.items.append(item)
-    row += 1
-
-    # get the associated markups
-    for nodeID in nodeIDList:
-       node = Helper.getNodeByID(nodeID)
-       if node != None and node.IsA("vtkMRMLVolumeNode") and node.GetLabelMap() == 1:
-         Helper.Debug('Segmentation: ' + node.GetName())
-         item = qt.QStandardItem()
-         item.setEditable(False)
-         item.setText(node.GetName())
-         self.__markupsModel.setItem(row,0,item)
-         self.items.append(item)
-         row += 1
-       if node != None and node.IsA("vtkMRMLAnnotationNode"):
-         Helper.Debug('Annotation: ' + node.GetName())
-         # annotation name
-         item = qt.QStandardItem()
-         item.setEditable(False)
-         item.setText(node.GetName())
-         self.__markupsModel.setItem(row,0,item)
-         self.items.append(item)
-         # annotation visibility
-         item = qt.QStandardItem()
-         # todo: allow click to toggle visib
-         item.setEditable(False)
-         if node.GetDisplayVisibility() == 1:
-           item.setData(qt.QPixmap(":/Icons/Small/SlicerVisible.png"),qt.Qt.DecorationRole)
-         else:
-           item.setData(qt.QPixmap(":/Icons/Small/SlicerInvisible.png"),qt.Qt.DecorationRole)
-         self.__markupsModel.setItem(row,1,item)
-         self.items.append(item)
-         row += 1
-
-
 #
 # implement Qt code for a table of markups
 #
@@ -712,6 +637,7 @@ class ReportingMarkupWidget(object):
   def setHeader(self,reportNode):
     """Load the table widget with annotations for the report
     """
+    Helper.Debug('setHeader() called')
     self.widget.clearContents()
     self.widget.setColumnCount(2)
     self.widget.setHorizontalHeaderLabels(['Markup','Visibility'])
@@ -721,13 +647,15 @@ class ReportingMarkupWidget(object):
 
     if not reportNode:
       return
-    if reportNode == None:
-      return
     # get the volume node associated with this report
     volumeID = reportNode.GetVolumeNodeID()     
+    Helper.Debug('volumeID = '+volumeID)
+
     if volumeID == "":
       return
     volumeNode = slicer.mrmlScene.GetNodeByID(volumeID)
+    if not volumeNode:
+      return
 
     # get the annotations associated with this report
     # find displayble nodes that are associated with this volume
@@ -736,10 +664,14 @@ class ReportingMarkupWidget(object):
     for n in range(numDisplayableNodes): 
       displayableNode = slicer.mrmlScene.GetNthNodeByClass(n, "vtkMRMLDisplayableNode")
       # how best to get at module widget logic?
+      Helper.Debug('Will check if in report here for '+displayableNode.GetID())
       inReport = slicer.modules.reporting.logic().IsInReport(displayableNode)
+      Helper.Debug('Checked for report')
       if inReport:
         Helper.Debug('Found node associated with the report node: ' + displayableNode.GetName())
         nodeIDList.append(displayableNode.GetID())
+      else:
+        Helper.Debug('Failed to found associated node')
 
     self.widget.setRowCount(len(nodeIDList))
     row = 0

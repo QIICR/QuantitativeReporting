@@ -70,7 +70,7 @@ public:
   void AddVolumeToReport(vtkMRMLVolumeNode *node);
 
   /// Return the active volume ID for the given report, returns NULL on error
-  const char *GetVolumeIDForReportNode(vtkMRMLReportingReportNode *node);
+  std::string GetVolumeIDForReportNode(vtkMRMLReportingReportNode *node);
 
   /// return true if the node has an attribute ReportingReportNodeID that
   /// matches the active report, and an associatedNodeID attribute that
@@ -86,8 +86,8 @@ public:
   bool InitializeDICOMDatabase(std::string dbLocation);
 
   // set/get the currently active parameter node
-  vtkGetStringMacro(ActiveParameterNodeID);
-  vtkSetStringMacro(ActiveParameterNodeID);
+  vtkGetMacro(ActiveParameterNodeID, std::string);
+  vtkSetMacro(ActiveParameterNodeID, std::string);
 
   /// set/get the GUI hidden flag
   vtkGetMacro(GUIHidden, int);
@@ -100,8 +100,8 @@ public:
   bool DicomSegRead(vtkCollection*, const std::string fname, vtkMRMLColorNode* colorNode = NULL);
 
   /// set/get the error string
-  vtkGetStringMacro(ErrorMessage);
-  vtkSetStringMacro(ErrorMessage);
+  vtkGetMacro(ErrorMessage, std::string);
+  vtkSetMacro(ErrorMessage, std::string);
   
   std::string GetFileNameFromUID(std::string uid);
 
@@ -157,7 +157,7 @@ private:
 
   /// the currently active parameter node, contains the active report
   /// node
-  char *ActiveParameterNodeID;
+  std::string ActiveParameterNodeID;
 
   /// is the GUI hidden? When it's hidden/true, don't grab fiducials (but do grab
   /// label volumes if they're associated with the current volume being
@@ -177,7 +177,7 @@ private:
   ctkDICOMDatabase *DICOMDatabase;
 
   /// save an error string to pass to the gui, reset when test passes
-  char *ErrorMessage;
+  std::string ErrorMessage;
 };
 
 #endif

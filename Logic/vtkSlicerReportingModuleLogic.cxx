@@ -82,8 +82,8 @@ vtkStandardNewMacro(vtkSlicerReportingModuleLogic);
 //----------------------------------------------------------------------------
 vtkSlicerReportingModuleLogic::vtkSlicerReportingModuleLogic()
 {
-  this->ActiveParameterNodeID = NULL;
-  this->ErrorMessage = NULL;
+  this->ActiveParameterNodeID = "";
+  this->ErrorMessage = "";
   this->DICOMDatabase = NULL;
   this->GUIHidden = 1;
 
@@ -93,16 +93,6 @@ vtkSlicerReportingModuleLogic::vtkSlicerReportingModuleLogic()
 //----------------------------------------------------------------------------
 vtkSlicerReportingModuleLogic::~vtkSlicerReportingModuleLogic()
 {
-  if (this->ActiveParameterNodeID)
-    {
-    delete [] this->ActiveParameterNodeID;
-    this->ActiveParameterNodeID = NULL;
-    }
-  if (this->ErrorMessage)
-    {
-    delete [] this->ErrorMessage;
-    this->ErrorMessage = NULL;
-    }
 }
 
 //----------------------------------------------------------------------------
@@ -110,8 +100,8 @@ void vtkSlicerReportingModuleLogic::PrintSelf(ostream& os, vtkIndent indent)
 {
   this->Superclass::PrintSelf(os, indent);
 
-  os << indent << "Active Parameter Node ID = " << (this->ActiveParameterNodeID ? this->ActiveParameterNodeID : "null") << std::endl;
-  os << indent << "Error Message " << (this->ErrorMessage ? this->GetErrorMessage() : "none") << "\n";
+  os << indent << "Active Parameter Node ID = " << this->ActiveParameterNodeID << std::endl;
+  os << indent << "Error Message " << this->ErrorMessage << "\n";
   os << indent << "GUI Hidden = " << (this->GUIHidden ? "true" : "false") << "\n";
 
 }
@@ -220,7 +210,7 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     return;
     }
   //  or if there is no volume associated with the report
-  if(!this->GetVolumeIDForReportNode(reportNode))
+  if(this->GetVolumeIDForReportNode(reportNode) == "")
     {
     vtkDebugMacro("No volume is assigned to the report " << reportNode->GetID() << ". Exiting.");
     return;
@@ -295,7 +285,7 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
         }
       vtkDebugMacro(<< errorMessage.c_str());
       // let the GUI know by invoking an event
-      this->SetErrorMessage(userMessage.c_str());
+      this->SetErrorMessage(userMessage);
       vtkDebugMacro("Logic: Invoking ErrorEvent");
       this->InvokeEvent(vtkSlicerReportingModuleLogic::ErrorEvent, (void *)(userMessage.c_str()));
       return;
@@ -328,10 +318,9 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
       {
       vtkDebugMacro("OnMRMLSceneNodeAdded: have a label map volume with associated id of " << associatedNodeID);
       // is that volume under the active report?
-      const char *volumeID = NULL;
-      volumeID = this->GetVolumeIDForReportNode(reportNode);
+      std::string volumeID = this->GetVolumeIDForReportNode(reportNode);
 
-      if (strcmp(volumeID, associatedNodeID) == 0)
+      if (volumeID == associatedNodeID)
         {
         // the new label map is associated with the volume in this report,
         // so set the report node attribute
@@ -640,8 +629,8 @@ bool vtkSlicerReportingModuleLogic::IsInReport(vtkMRMLNode *node)
     // no valid report node
     return false;
     }
-  const char *volumeID = this->GetVolumeIDForReportNode(reportNode);
-  if (!volumeID)
+  std::string volumeID = this->GetVolumeIDForReportNode(reportNode);
+  if (volumeID == "")
     {
     // no volume to be associated with
     return false;
@@ -663,7 +652,7 @@ bool vtkSlicerReportingModuleLogic::IsInReport(vtkMRMLNode *node)
     // not associated with a volume
     return false;
     }
-  if (strcmp(associatedVolumeNode, volumeID) != 0)
+  if (strcmp(associatedVolumeNode, volumeID.c_str()) != 0)
     {
     // associated with a different volume
     return false;
@@ -673,22 +662,14 @@ bool vtkSlicerReportingModuleLogic::IsInReport(vtkMRMLNode *node)
 }
 
 //---------------------------------------------------------------------------
-const char *vtkSlicerReportingModuleLogic::GetVolumeIDForReportNode(vtkMRMLReportingReportNode *node)
+std::string vtkSlicerReportingModuleLogic::GetVolumeIDForReportNode(vtkMRMLReportingReportNode *node)
 {
   if (!node)
     {
     vtkErrorMacro("GetVolumeIDForReportNode: null report node");
-    return NULL;
+    return "";
     }
-  std::string volumeID = node->GetVolumeNodeID();
-  if (volumeID.compare("") == 0)
-    {
-    return NULL;
-    }
-  else
-    {
-    return volumeID.c_str();
-    }
+  return node->GetVolumeNodeID();
 }
 
 //---------------------------------------------------------------------------
@@ -777,8 +758,8 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   vtkMRMLScalarVolumeNode *volumeNode = NULL;
 
   // only one volume is allowed for now, so get the active one
-  const char *volumeID = this->GetVolumeIDForReportNode(reportNode);
-  if (volumeID)
+  std::string volumeID = this->GetVolumeIDForReportNode(reportNode);
+  if (volumeID != "")
     {
     vtkMRMLNode *mrmlVolumeNode = this->GetMRMLScene()->GetNodeByID(volumeID);
     if (!mrmlVolumeNode)
@@ -1513,7 +1494,7 @@ std::string vtkSlicerReportingModuleLogic::getDcmElementAsString(const DcmTag& t
 std::string vtkSlicerReportingModuleLogic::GetActiveReportID()
 {
   std::string reportID = "";
-  if (this->GetActiveParameterNodeID() == NULL)
+  if (this->ActiveParameterNodeID == "")
     {
     vtkDebugMacro("GetActiveReportID: no active parameter node id, returning null");
     return reportID;
