@@ -250,6 +250,8 @@ class ReportingSelfTestTest(unittest.TestCase):
     '''
 
   def cleanupDir(self, d):
+    if not os.path.exists(d):
+      return
     oldFiles = os.listdir(d)
     for f in oldFiles:
       path = d+'/'+f
