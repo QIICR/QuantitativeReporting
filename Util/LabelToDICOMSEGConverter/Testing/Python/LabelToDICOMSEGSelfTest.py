@@ -335,6 +335,7 @@ class LabelToDICOMSEGSelfTestTest(unittest.TestCase):
       thresh.Update()
       labelNode.SetAndObserveImageData(thresh.GetOutput())
       module.segmentationSelector.setCurrentNode(labelNode)
+      module.volumeSelector.setCurrentNode(volume)
 
       self.delayDisplay('Input label initialized')
 
