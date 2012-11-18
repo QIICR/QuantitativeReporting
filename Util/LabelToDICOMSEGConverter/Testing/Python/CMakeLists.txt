@@ -15,8 +15,8 @@ SlicerMacroConfigureGenericPythonModuleTests("${EXTENSION_NAME}" KIT_UNITTEST_SC
 
 slicer_add_python_unittest(
   SCRIPT LabelToDICOMSEGSelfTest.py
-  SLICER_ARGS --disable-cli-modules
-              --additional-module-path "${CMAKE_BINARY_DIR}/${Slicer_QTLOADABLEMODULES_LIB_DIR}"
+  SLICER_ARGS --disable-cli-modules 
+    --additional-module-paths "${CMAKE_BINARY_DIR}/${Slicer_QTLOADABLEMODULES_LIB_DIR} ${CMAKE_BINARY_DIR}/${Slicer_QTSCRIPTEDMODULES_LIB_DIR}"
   )
 
 
