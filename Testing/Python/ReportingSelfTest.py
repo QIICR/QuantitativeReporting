@@ -40,6 +40,7 @@ class ReportingSelfTest:
 
 class ReportingSelfTestWidget:
   def __init__(self, parent = None):
+    print("CTEST_FULL_OUTPUT")
     if not parent:
       self.parent = slicer.qMRMLWidget()
       self.parent.setLayout(qt.QVBoxLayout())
