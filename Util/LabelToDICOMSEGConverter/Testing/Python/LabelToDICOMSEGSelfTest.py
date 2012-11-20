@@ -40,7 +40,6 @@ class LabelToDICOMSEGSelfTest:
 
 class LabelToDICOMSEGSelfTestWidget:
   def __init__(self, parent = None):
-    print("CTEST_FULL_OUTPUT")
     if not parent:
       self.parent = slicer.qMRMLWidget()
       self.parent.setLayout(qt.QVBoxLayout())
@@ -251,6 +250,7 @@ class LabelToDICOMSEGSelfTestTest(unittest.TestCase):
     '''
 
   def test_LabelToDICOMSEGRoundTrip(self):
+    print("CTEST_FULL_OUTPUT")
     """ Load the data using DICOM module
     """
 

@@ -40,7 +40,6 @@ class ReportingSelfTest:
 
 class ReportingSelfTestWidget:
   def __init__(self, parent = None):
-    print("CTEST_FULL_OUTPUT")
     if not parent:
       self.parent = slicer.qMRMLWidget()
       self.parent.setLayout(qt.QVBoxLayout())
@@ -260,6 +259,7 @@ class ReportingSelfTestTest(unittest.TestCase):
         os.unlink(d+'/'+f)
 
   def test_ReportingAIMRoundTrip(self):
+    print("CTEST_FULL_OUTPUT")
     """ Load the data using DICOM module
     """
 
