@@ -20,19 +20,6 @@ class LabelToDICOMSEGConverter:
 """ # replace with organization, grant and thanks.
     self.parent = parent
 
-    # Add this test to the SelfTest module's list for discovery when the module
-    # is created.  Since this module may be discovered before SelfTests itself,
-    # create the list if it doesn't already exist.
-    try:
-      slicer.selfTests
-    except AttributeError:
-      slicer.selfTests = {}
-    slicer.selfTests['LabelToDICOMSEGConverter'] = self.runTest
-
-  def runTest(self):
-    tester = LabelToDICOMSEGConverterTest()
-    tester.runTest()
-
 #
 # qLabelToDICOMSEGConverterWidget
 #
@@ -52,23 +39,6 @@ class LabelToDICOMSEGConverterWidget:
 
   def setup(self):
     # Instantiate and connect widgets ...
-
-    # reload button
-    # (use this during development, but remove it when delivering
-    #  your module to users)
-    #self.reloadButton = qt.QPushButton("Reload")
-    #self.reloadButton.toolTip = "Reload this module."
-    #self.reloadButton.name = "LabelToDICOMSEGConverter Reload"
-    #self.layout.addWidget(self.reloadButton)
-    #self.reloadButton.connect('clicked()', self.onReload)
-
-    # reload and test button
-    # (use this during development, but remove it when delivering
-    #  your module to users)
-    #self.reloadAndTestButton = qt.QPushButton("Reload and Test")
-    #self.reloadAndTestButton.toolTip = "Reload this module and then run the self tests."
-    #self.layout.addWidget(self.reloadAndTestButton)
-    #self.reloadAndTestButton.connect('clicked()', self.onReloadAndTest)
 
     # Collapsible button
     dummyCollapsibleButton = ctk.ctkCollapsibleButton()
@@ -147,25 +117,6 @@ class LabelToDICOMSEGConverterWidget:
 
     self.exportButton.enabled = 1
  
-    '''
-    masterNodeID = label.GetAttribute('AssociatedNodeID')
-    if masterNodeID == None or  masterNodeID == '':
-      self.exportButton.enabled = 0
-      self.__helpLabel.text = 'Selected label does not have an associated volume!'
-      return
-    
-
-    masterNode = slicer.mrmlScene.GetNodeByID(masterNodeID)
-    dicomUIDs = masterNode.GetAttribute('DICOM.instanceUIDs')
-    if dicomUIDs == None or dicomUIDs == '':
-      self.exportButton.enabled = 0
-      self.__helpLabel.text = 'Selected label is not associated with a DICOM volume!'
-      return
-    
-    self.__helpLabel.text = 'Ready to export the selected label!'
-    self.exportButton.enabled = 1
-    '''
-  
   def onOutputDirChanged(self, newDir):
     self.outputDir = newDir
 
@@ -225,12 +176,6 @@ class LabelToDICOMSEGConverterWidget:
         'globals()["%s"].%s(parent)' % (moduleName, widgetName))
     globals()[widgetName.lower()].setup()
 
-  def onReloadAndTest(self,moduleName="LabelToDICOMSEGConverter"):
-    self.onReload()
-    evalString = 'globals()["%s"].%sTest()' % (moduleName, moduleName)
-    tester = eval(evalString)
-    tester.runTest()
-
 #
 # LabelToDICOMSEGConverterLogic
 #
@@ -257,73 +202,3 @@ class LabelToDICOMSEGConverterLogic:
       print('no image data')
       return False
     return True
-
-
-class LabelToDICOMSEGConverterTest(unittest.TestCase):
-  """
-  This is the test case for your scripted module.
-  """
-
-  def delayDisplay(self,message,msec=1000):
-    """This utility method displays a small dialog and waits.
-    This does two things: 1) it lets the event loop catch up
-    to the state of the test so that rendering and widget updates
-    have all taken place before the test continues and 2) it
-    shows the user/developer/tester the state of the test
-    so that we'll know when it breaks.
-    """
-    print(message)
-    self.info = qt.QDialog()
-    self.infoLayout = qt.QVBoxLayout()
-    self.info.setLayout(self.infoLayout)
-    self.label = qt.QLabel(message,self.info)
-    self.infoLayout.addWidget(self.label)
-    qt.QTimer.singleShot(msec, self.info.close)
-    self.info.exec_()
-
-  def setUp(self):
-    """ Do whatever is needed to reset the state - typically a scene clear will be enough.
-    """
-    slicer.mrmlScene.Clear(0)
-
-  def runTest(self):
-    """Run as few or as many tests as needed here.
-    """
-    self.setUp()
-    self.test_LabelToDICOMSEGConverter1()
-
-  def test_LabelToDICOMSEGConverter1(self):
-    """ Ideally you should have several levels of tests.  At the lowest level
-    tests sould exercise the functionality of the logic with different inputs
-    (both valid and invalid).  At higher levels your tests should emulate the
-    way the user would interact with your code and confirm that it still works
-    the way you intended.
-    One of the most important features of the tests is that it should alert other
-    developers when their changes will have an impact on the behavior of your
-    module.  For example, if a developer removes a feature that you depend on,
-    your test should break so they know that the feature is needed.
-    """
-
-    self.delayDisplay("Starting the test")
-    #
-    # first, get some data
-    #
-    import urllib
-    downloads = (
-        ('http://slicer.kitware.com/midas3/download?items=5767', 'FA.nrrd', slicer.util.loadVolume),
-        )
-
-    for url,name,loader in downloads:
-      filePath = slicer.app.temporaryPath + '/' + name
-      if not os.path.exists(filePath) or os.stat(filePath).st_size == 0:
-        print('Requesting download %s from %s...\n' % (name, url))
-        urllib.urlretrieve(url, filePath)
-      if loader:
-        print('Loading %s...\n' % (name,))
-        loader(filePath)
-    self.delayDisplay('Finished with download and loading\n')
-
-    volumeNode = slicer.util.getNode(pattern="FA")
-    logic = LabelToDICOMSEGConverterLogic()
-    self.assertTrue( logic.hasImageData(volumeNode) )
-    self.delayDisplay('Test passed!')

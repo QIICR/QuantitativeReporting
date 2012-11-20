@@ -24,7 +24,7 @@ if(BUILD_TESTING)
 
   # this will regiester the unittest subclass in the main script
   # as a ctest (note that it is also usable as a runtime test).
-  slicer_add_python_unittest(SCRIPT LabelToDICOMSEGConverter.py)
+  # slicer_add_python_unittest(SCRIPT LabelToDICOMSEGConverter.py)
 
   # additional build-time testing goes in here
   add_subdirectory(Testing)
