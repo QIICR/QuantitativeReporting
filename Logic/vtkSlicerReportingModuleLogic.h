@@ -56,6 +56,42 @@ class VTK_SLICER_REPORTING_MODULE_LOGIC_EXPORT vtkSlicerReportingModuleLogic :
 {
 public:
 
+  struct StandardTerm
+    {
+    std::string CodeValue;
+    std::string CodeMeaning;
+    std::string CodingSchemeDesignator;
+
+    StandardTerm(){
+      CodeValue = "";
+      CodeMeaning = "";
+      CodingSchemeDesignator = "";
+    }
+
+    void PrintSelf(ostream &os){
+      os << "Code value: " << CodeValue << " Code meaning: " << CodeMeaning << " Code scheme designator: " << CodingSchemeDesignator << std::endl;
+    }
+    };
+
+  struct ColorLabelCategorization
+    {
+    unsigned LabelValue;
+    StandardTerm SegmentedPropertyCategory;
+    StandardTerm SegmentedPropertyType;
+    StandardTerm SegmentedPropertyTypeModifier;
+
+    void PrintSelf(ostream &os){
+      os << "Label: " << LabelValue << std::endl <<
+        "   Segmented property category: ";
+      SegmentedPropertyCategory.PrintSelf(os);
+        os << "   Segmented property type: ";
+      SegmentedPropertyType.PrintSelf(os);
+        os << "   Segmented property type modifier: ";
+      SegmentedPropertyTypeModifier.PrintSelf(os);
+      os << std::endl;
+    };
+    };
+
   static vtkSlicerReportingModuleLogic *New();
   vtkTypeMacro(vtkSlicerReportingModuleLogic, vtkSlicerModuleLogic);
   void PrintSelf(ostream& os, vtkIndent indent);
@@ -84,6 +120,10 @@ public:
   int SaveReportToAIM(vtkMRMLReportingReportNode *reportNode);
 
   bool InitializeDICOMDatabase(std::string dbLocation);
+  bool InitializeTerminologyMapping(std::string mapFile);
+  bool LookupCategorizationFromLabel(int label, ColorLabelCategorization&);
+  bool LookupLabelFromCategorization(ColorLabelCategorization&, int&);
+  bool PrintCategorizationFromLabel(int label);
 
   // set/get the currently active parameter node
   vtkGetMacro(ActiveParameterNodeID, std::string);
@@ -117,7 +157,8 @@ public:
       ErrorEvent = 0x0000,
       AnnotationAdded,
     };
-  
+
+
 protected:
   vtkSlicerReportingModuleLogic();
   virtual ~vtkSlicerReportingModuleLogic();
@@ -146,6 +187,9 @@ private:
   vtkSlicerReportingModuleLogic(const vtkSlicerReportingModuleLogic&); // Not implemented
   void operator=(const vtkSlicerReportingModuleLogic&);               // Not implemented
 
+  std::string RemoveLeadAndTrailSpaces(std::string);
+  bool ParseTerm(std::string, StandardTerm&);
+
   // copy the content of Dcm tag from one dataset to another, or set to ""
   //  if not available
   void copyDcmElement(const DcmTag&, DcmDataset*, DcmDataset*);
@@ -164,17 +208,11 @@ private:
   /// annotated
   int GUIHidden;
 
-/*
-  struct VocabularyItem 
-    {
-    unsigned LabelValue;
-    std::string CodeValue;
-    std::string CodeMeaning;
-    std::string CodingSchemeDesignator;
-    }
-*/
-
   ctkDICOMDatabase *DICOMDatabase;
+
+  typedef std::map<int,ColorLabelCategorization> ColorCategorizationMapType;
+
+  std::map<std::string, ColorCategorizationMapType> colorCategorizationMaps;
 
   /// save an error string to pass to the gui, reset when test passes
   std::string ErrorMessage;

@@ -54,6 +54,7 @@
 // STD includes
 #include <cassert>
 #include <time.h>
+#include <fstream>
 
 // DCMTK includes
 #include <dcmtk/dcmdata/dcmetinf.h>
@@ -120,6 +121,170 @@ bool vtkSlicerReportingModuleLogic::InitializeDICOMDatabase(std::string dbPath)
 
   this->DICOMDatabase->openDatabase(dbPath.c_str(), "Reporting.Logic");
   return this->DICOMDatabase->isOpen();
+}
+
+//---------------------------------------------------------------------------
+bool vtkSlicerReportingModuleLogic::InitializeTerminologyMapping(std::string mapFileName)
+{
+  std::ifstream mapFile(mapFileName.c_str());
+  bool status = mapFile.is_open();
+  //this->colorCategorizationMaps["GenericAnatomyColors"] = ColorCategorizationMapType;
+
+  if(status){
+    while(!mapFile.eof()){
+      StandardTerm term;
+      ColorLabelCategorization termMapping;
+      std::string lineIn, lineLeft;
+      std::getline(mapFile, lineIn);
+      if(lineIn.length()<30 || lineIn[0] == '#')
+        continue;
+      size_t found;
+      
+      // table format:
+      //   int label, text label, seg property category, seg property type, seg property type modifier
+      // category, type and modifier are encoded as (<code>;<code scheme designator>;<code name>)
+
+      // color number
+
+      found = lineIn.find(",");
+      termMapping.LabelValue = atoi(this->RemoveLeadAndTrailSpaces(lineIn.substr(0,found)).c_str());
+      
+      lineIn = lineIn.substr(found+1,lineIn.length()-found-1);
+
+      // color text -- can skip
+      found = lineIn.find(",");
+      lineIn = lineIn.substr(found+1,lineIn.length()-found-1);
+
+      // segmented property category
+      found = lineIn.find(",");
+      this->ParseTerm(lineIn.substr(0,found), term);
+      lineIn = lineIn.substr(found+1,lineIn.length()-found-1);
+      termMapping.SegmentedPropertyCategory = term;
+
+      // segmented property type
+      found = lineIn.find(",");
+      this->ParseTerm(lineIn.substr(0,found), term);
+      lineIn = lineIn.substr(found+1,lineIn.length()-found-1);
+      termMapping.SegmentedPropertyType = term;
+
+      // segmented property type modifier
+      found = lineIn.find(",");
+      this->ParseTerm(lineIn.substr(0,found), term);
+      lineIn = lineIn.substr(found+1,lineIn.length()-found-1);
+      termMapping.SegmentedPropertyTypeModifier = term;
+
+      this->colorCategorizationMaps["GenericAnatomyColors"][termMapping.LabelValue] = termMapping;
+     }
+   }
+
+   return status;
+}
+
+//---------------------------------------------------------------------------
+bool vtkSlicerReportingModuleLogic::LookupCategorizationFromLabel(int label, ColorLabelCategorization& labelCat){
+  if(this->colorCategorizationMaps.find("GenericAnatomyColors") == this->colorCategorizationMaps.end())
+    return false;
+  if(this->colorCategorizationMaps["GenericAnatomyColors"].find(label) != 
+    this->colorCategorizationMaps["GenericAnatomyColors"].end()){
+    labelCat = this->colorCategorizationMaps["GenericAnatomyColors"][label];
+    return true;
+  }
+  return false;
+}
+
+//---------------------------------------------------------------------------
+bool vtkSlicerReportingModuleLogic::LookupLabelFromCategorization(ColorLabelCategorization& labelCat, int& label){
+  if(this->colorCategorizationMaps.find("GenericAnatomyColors") == this->colorCategorizationMaps.end())
+    return false;
+  int labelFound = -1;
+
+  std::string inputTypeName, inputModifierName;
+  
+  inputTypeName = labelCat.SegmentedPropertyType.CodeMeaning;
+  inputModifierName = labelCat.SegmentedPropertyTypeModifier.CodeMeaning;
+  std::transform(inputTypeName.begin(), inputTypeName.end(), inputTypeName.begin(), ::tolower);
+  std::transform(inputModifierName.begin(), inputModifierName.end(), inputModifierName.begin(), ::tolower);
+
+  ColorCategorizationMapType::const_iterator iter = this->colorCategorizationMaps["GenericAnatomyColors"].begin();
+  ColorCategorizationMapType::const_iterator iterEnd = this->colorCategorizationMaps["GenericAnatomyColors"].end();
+  for(;iter!=iterEnd;iter++){
+    ColorLabelCategorization mapCat = iter->second;
+
+    // fuzzy comparison rules:
+    //  -- property category is ignored
+    //  -- property type must be found in the mapping
+    //  -- if modifier is non-empty, must match as well
+    //  -- capitalization is ignored
+    //  -- look at the meaning, ignore codes and designators
+    std::string mapTypeName, mapModifierName;
+
+    mapTypeName = mapCat.SegmentedPropertyType.CodeMeaning;
+    mapModifierName = mapCat.SegmentedPropertyTypeModifier.CodeMeaning;
+    std::transform(mapTypeName.begin(), mapTypeName.end(), mapTypeName.begin(), ::tolower);
+    std::transform(mapModifierName.begin(), mapModifierName.end(), mapModifierName.begin(), ::tolower);
+
+    if(mapTypeName.find(inputTypeName) != std::string::npos){
+      // found match in category name
+      if(inputModifierName != ""){
+        // modifier is not empty
+        if(mapModifierName.find(inputModifierName) != std::string::npos){
+          labelFound = iter->first;
+          break;
+        }
+      } else {
+        // modifier is empty, and category matches, assume this is the right
+        // term
+        labelFound = iter->first;
+        break;
+      }
+    }
+  }
+
+  if(labelFound != -1){
+    label = labelFound;
+    return true;
+  }
+  return false;
+}
+
+//---------------------------------------------------------------------------
+bool vtkSlicerReportingModuleLogic::PrintCategorizationFromLabel(int label){
+  ColorLabelCategorization labelCat;
+  if(this->colorCategorizationMaps.find("GenericAnatomyColors") == this->colorCategorizationMaps.end())
+    return false;
+  if(this->colorCategorizationMaps["GenericAnatomyColors"].find(label) != 
+    this->colorCategorizationMaps["GenericAnatomyColors"].end()){
+    labelCat = this->colorCategorizationMaps["GenericAnatomyColors"][label];
+    labelCat.PrintSelf(std::cout);
+    return true;
+  }
+  return false;
+}
+
+//---------------------------------------------------------------------------
+std::string vtkSlicerReportingModuleLogic::RemoveLeadAndTrailSpaces(std::string in){
+  size_t i, j;
+  for(i=0;in[i]==' ';i++){};
+  for(j=in.length()-1;in[j]==' ';j--){};
+  return in.substr(i,in.length()-i-(in.length()-j-1));
+}
+
+//---------------------------------------------------------------------------
+bool vtkSlicerReportingModuleLogic::ParseTerm(std::string str, StandardTerm& term){
+  str = this->RemoveLeadAndTrailSpaces(str);
+  if(str.length()<10)
+    return false;
+  // get rid of parentheses
+  str = str.substr(1,str.length()-2);
+  size_t found = str.find(";");
+  term.CodeValue = str.substr(0,found);
+  str = str.substr(found+1,str.length());
+  found = str.find(";");
+  term.CodingSchemeDesignator = str.substr(0,found);
+  str = str.substr(found+1, str.length());
+  term.CodeMeaning = str;
+  //std::cout << "Code: " << term.CodeValue << " Desi: " << term.CodingSchemeDesignator << " Meaning: " << term.CodeMeaning << std::endl;
+  return true;
 }
 
 //---------------------------------------------------------------------------

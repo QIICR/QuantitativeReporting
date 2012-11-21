@@ -262,7 +262,10 @@ class ReportingSelfTestTest(unittest.TestCase):
     print("CTEST_FULL_OUTPUT")
     """ Load the data using DICOM module
     """
-
+    self.delayDisplay('Configure Module')
+    mainWindow = slicer.util.mainWindow()
+    mainWindow.moduleSelector().selectModule('Reporting')
+ 
     import os
     self.delayDisplay("Starting the DICOM test")
     #

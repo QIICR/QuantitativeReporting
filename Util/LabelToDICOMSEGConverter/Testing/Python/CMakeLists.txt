@@ -14,15 +14,15 @@ SlicerMacroConfigureGenericPythonModuleTests("${EXTENSION_NAME}" KIT_UNITTEST_SC
 #endforeach()
 
 slicer_add_python_unittest(
-  SCRIPT LabelToDICOMSEGSelfTest.py
+  SCRIPT LabelToDICOMSEGConverterSelfTest.py
   SLICER_ARGS --disable-cli-modules 
     --additional-module-paths "${CMAKE_BINARY_DIR}/${Slicer_QTLOADABLEMODULES_LIB_DIR} ${CMAKE_BINARY_DIR}/${Slicer_QTSCRIPTEDMODULES_LIB_DIR}"
   )
 
 
 ctkMacroCompilePythonScript(
-  TARGET_NAME LabelToDICOMSEGSelfTest
-  SCRIPTS "LabelToDICOMSEGSelfTest.py"
+  TARGET_NAME LabelToDICOMSEGConverterSelfTest
+  SCRIPTS "LabelToDICOMSEGConverterSelfTest.py"
   RESOURCES ""
   DESTINATION_DIR ${CMAKE_BINARY_DIR}/${Slicer_QTSCRIPTEDMODULES_LIB_DIR}
   INSTALL_DIR ${Slicer_INSTALL_QTSCRIPTEDMODULES_LIB_DIR}
