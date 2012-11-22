@@ -3,12 +3,12 @@ import unittest
 from __main__ import vtk, qt, ctk, slicer
 
 #
-# ReportingSelfTest
+# LabelToDICOMSEGConverterSelfTest
 #
 
-class ReportingSelfTest:
+class LabelToDICOMSEGConverterSelfTest:
   def __init__(self, parent):
-    parent.title = "ReportingSelfTest" # TODO make this more human readable by adding spaces
+    parent.title = "LabelToDICOMSEGConverterSelfTest" # TODO make this more human readable by adding spaces
     parent.categories = ["Work in Progress.Informatics.TestCases"]
     parent.dependencies = []
     parent.contributors = ["Andrey Fedorov (SPL)"] # replace with "Firstname Lastname (Org)"
@@ -27,18 +27,18 @@ class ReportingSelfTest:
       slicer.selfTests
     except AttributeError:
       slicer.selfTests = {}
-    slicer.selfTests['ReportingSelfTest'] = self.runTest
+    slicer.selfTests['LabelToDICOMSEGConverterSelfTest'] = self.runTest
     print slicer.selfTests
 
   def runTest(self):
-    tester = ReportingSelfTestTest()
+    tester = LabelToDICOMSEGConverterSelfTestTest()
     tester.runTest()
 
 #
-# qReportingSelfTestWidget
+# qLabelToDICOMSEGConverterSelfTestWidget
 #
 
-class ReportingSelfTestWidget:
+class LabelToDICOMSEGConverterSelfTestWidget:
   def __init__(self, parent = None):
     if not parent:
       self.parent = slicer.qMRMLWidget()
@@ -59,7 +59,7 @@ class ReportingSelfTestWidget:
     #  your module to users)
     self.reloadButton = qt.QPushButton("Reload")
     self.reloadButton.toolTip = "Reload this module."
-    self.reloadButton.name = "ReportingSelfTest Reload"
+    self.reloadButton.name = "LabelToDICOMSEGConverterSelfTest Reload"
     self.layout.addWidget(self.reloadButton)
     self.reloadButton.connect('clicked()', self.onReload)
 
@@ -80,7 +80,7 @@ class ReportingSelfTestWidget:
     formLayout = qt.QFormLayout(testsCollapsibleButton)
 
     # test buttons
-    tests = ( ("Reporting test 1",self.onReportingTest1),)
+    tests = ( ("LabelToDICOMSEGConverter test 1",self.onReportingTest1),)
     for text,slot in tests:
       testButton = qt.QPushButton(text)
       testButton.toolTip = "Run the test."
@@ -91,10 +91,10 @@ class ReportingSelfTestWidget:
     self.layout.addStretch(1)
 
   def onReportingTest1(self):
-    tester = ReportingSelfTestTest()
+    tester = LabelToDICOMSEGConverterSelfTestTest()
     tester.runTest()
 
-  def onReload(self,moduleName="ReportingSelfTest"):
+  def onReload(self,moduleName="LabelToDICOMSEGConverterSelfTest"):
     """Generic reload method for any scripted module.
     ModuleWizard will subsitute correct default moduleName.
     """
@@ -134,17 +134,17 @@ class ReportingSelfTestWidget:
         'globals()["%s"].%s(parent)' % (moduleName, widgetName))
     globals()[widgetName.lower()].setup()
 
-  def onReloadAndTest(self,moduleName="ReportingSelfTest"):
+  def onReloadAndTest(self,moduleName="LabelToDICOMSEGConverterSelfTest"):
     self.onReload()
     evalString = 'globals()["%s"].%sTest()' % (moduleName, moduleName)
     tester = eval(evalString)
     tester.runTest()
 
 #
-# ReportingSelfTestLogic
+# LabelToDICOMSEGConverterSelfTestLogic
 #
 
-class ReportingSelfTestLogic:
+class LabelToDICOMSEGConverterSelfTestLogic:
   """This class should implement all the actual 
   computation done by your module.  The interface 
   should be such that other python code can import
@@ -168,7 +168,7 @@ class ReportingSelfTestLogic:
     return True
 
 
-class ReportingSelfTestTest(unittest.TestCase):
+class LabelToDICOMSEGConverterSelfTestTest(unittest.TestCase):
   """
   This is the test case for your scripted module.
   """
@@ -242,27 +242,18 @@ class ReportingSelfTestTest(unittest.TestCase):
     """Run as few or as many tests as needed here.
     """
     self.setUp()
-    self.test_ReportingAIMRoundTrip()
+    self.test_LabelToDICOMSEGConverterRoundTrip()
     '''
     self.test_Part2Setup()
     self.test_Part3PlaceMarkups()
     self.restorDICOMDirectory()
     '''
 
-  def cleanupDir(self, d):
-    if not os.path.exists(d):
-      return
-    oldFiles = os.listdir(d)
-    for f in oldFiles:
-      path = d+'/'+f
-      if not os.path.isdir(path):
-        os.unlink(d+'/'+f)
-
-  def test_ReportingAIMRoundTrip(self):
+  def test_LabelToDICOMSEGConverterRoundTrip(self):
     print("CTEST_FULL_OUTPUT")
     """ Load the data using DICOM module
     """
- 
+
     import os
     self.delayDisplay("Starting the DICOM test")
     #
@@ -281,11 +272,9 @@ class ReportingSelfTestTest(unittest.TestCase):
         urllib.urlretrieve(url, filePath)
     self.delayDisplay('Finished with download\n')
 
-    reportingTempDir = slicer.app.temporaryPath+'/Reporting'
-    print('Temporary directory location: '+reportingTempDir)
+    reportingTempDir = slicer.app.temporaryPath+'/LabelToDICOMSEGConverter'
     qt.QDir().mkpath(reportingTempDir)
     dicomFilesDirectory = reportingTempDir + '/dicomFiles'
-    self.cleanupDir(dicomFilesDirectory)
     qt.QDir().mkpath(dicomFilesDirectory)
     slicer.app.applicationLogic().Unzip(filePath, dicomFilesDirectory)
 
@@ -293,7 +282,6 @@ class ReportingSelfTestTest(unittest.TestCase):
       self.delayDisplay("Switching to temp database directory")
       tempDatabaseDirectory = reportingTempDir + '/tempDICOMDatbase'
       qt.QDir().mkpath(tempDatabaseDirectory)
-      self.cleanupDir(tempDatabaseDirectory)
       if slicer.dicomDatabase:
         self.originalDatabaseDirectory = os.path.split(slicer.dicomDatabase.databaseFilename)[0]
       else:
@@ -329,97 +317,63 @@ class ReportingSelfTestTest(unittest.TestCase):
 
       self.delayDisplay('Configure Module')
       mainWindow = slicer.util.mainWindow()
-      mainWindow.moduleSelector().selectModule('Reporting')
+      mainWindow.moduleSelector().selectModule('LabelToDICOMSEGConverter')
   
-      reporting = slicer.modules.reporting.widgetRepresentation().self()
-
-      report = slicer.mrmlScene.CreateNodeByClass('vtkMRMLReportingReportNode')
-      report.SetReferenceCount(report.GetReferenceCount()-1)
-      slicer.mrmlScene.AddNode(report)
-      report.SetFindingLabel(7)
-  
-      reporting.reportSelector.setCurrentNode(report)
-      self.delayDisplay('Setting volume to %s' % volume.GetName())
-      reporting.volumeSelector.setCurrentNode(volume)
-      slicer.app.processEvents()
-
-      # place some markups and add a segmentation label
-
-      # add fiducial
-      fidNode = slicer.vtkMRMLAnnotationFiducialNode()
-      fidName = "AIM Round Trip Test Fiducial"
-      fidNode.SetName(fidName)
-      fidNode.SetSelected(1)
-      fidNode.SetDisplayVisibility(1)
-      fidNode.SetLocked(0)
-      # TODO: ask Nicole where this is assigned in the regular workflow
-      fidNode.SetAttribute('AssociatedNodeID',volume.GetID())
-      print("Calling set fid coords")
-      startCoords = [15.8, 70.8, -126.7]    
-      fidNode.SetFiducialCoordinates(startCoords[0],startCoords[1],startCoords[2])
-      print("Starting fiducial coordinates: "+str(startCoords))
-      slicer.mrmlScene.AddNode(fidNode)
-  
-      # add ruler
-      rulerNode = slicer.vtkMRMLAnnotationRulerNode()
-      rulerNode.SetName('Test Ruler')
-      m = vtk.vtkMatrix4x4()
-      volume.GetIJKToRASMatrix(m)
-      ijk0 = [0,0,1,1]
-      ijk1 = [50,50,1,1]
-      ras0 = m.MultiplyPoint(ijk0)
-      ras1 = m.MultiplyPoint(ijk1)
-      rulerNode.SetPosition1(19.386751174926758, 68.528785705566406, -127.69000244140625)
-      rulerNode.SetPosition2(132.72709655761719, -34.349384307861328, -127.69000244140625)
-      rulerNode.SetAttribute('AssociatedNodeID',volume.GetID())
-      slicer.mrmlScene.AddNode(rulerNode)
-      slicer.app.processEvents()
+      module = slicer.modules.labeltodicomsegconverter.widgetRepresentation().self()
 
       # add label node
       volumesLogic = slicer.modules.volumes.logic()
       labelNode = volumesLogic.CreateAndAddLabelVolume(slicer.mrmlScene, volume, "Segmentation")
+      labelNode.SetAttribute('AssociatedNodeID', volume.GetID())
       labelDisplayNode = labelNode.GetDisplayNode()
       labelDisplayNode.SetAndObserveColorNodeID('vtkMRMLColorTableNodeFileGenericAnatomyColors.txt')
       image = volume.GetImageData()
       thresh = vtk.vtkImageThreshold()
       thresh.SetInput(image)
       thresh.ThresholdBetween(10,400)
-      thresh.SetInValue(report.GetFindingLabel())
+      thresh.SetInValue(10)
       thresh.SetOutValue(0)
       thresh.Update()
       labelNode.SetAndObserveImageData(thresh.GetOutput())
-      reporting.segmentationSelector.setCurrentNode(labelNode)
+      module.segmentationSelector.setCurrentNode(labelNode)
+      module.volumeSelector.setCurrentNode(volume)
+
+      self.delayDisplay('Input label initialized')
+
+      module.outputDir = reportingTempDir+'/Output'
 
       # Save the report
 
       exportDir = reportingTempDir+'/Output'
       qt.QDir().mkpath(exportDir)
-      self.cleanupDir(exportDir)
-      report.SetStorageDirectoryName(exportDir)
-      reportingLogic = slicer.modules.reporting.logic()
-      print("Before saving report")
-      reportingLogic.SaveReportToAIM(report)
+      module.onLabelExport()
 
       self.delayDisplay('Report saved')
       
       slicer.mrmlScene.Clear(0)
+  
+      # try to load back the segmentation from DICOM module
+      dicomWidget.detailsPopup.open()
+      index = dicomWidget.tree.indexAt(qt.QPoint(0,0))
+      dicomWidget.onTreeClicked(index)
 
+      dicomWidget.detailsPopup.loadCheckedLoadables()
+      volumes = slicer.util.getNodes('vtkMRMLScalarVolumeNode*')
+      self.assertTrue(len(volumes) == 2)
+      
+      for name,volume in volumes.items():
+        if volume.GetAttribute('Label') == '1':
+          image = volume.GetImageData()
+          previousImage = thresh.GetOutput()
+          diff = vtk.vtkImageDifference()
+          diff.SetInput(thresh.GetOutput())
+          diff.SetImage(image)
+          diff.Update()
+          if diff.GetThresholdedError() > 1:
+            self.delayDisplay('Reloaded image does not match')
+            self.assertTrue(False)
 
-      # parse on patient level, find segmentation object, load and make sure
-      # it matches the input
-      # close the scene and load the report, check consistency
-
-      # try to load back the saved AIM
-      import glob
-      print glob.glob(exportDir+'/*')      
-      xmlFiles = glob.glob(exportDir+'/*xml')
-      print xmlFiles
-
-      self.assertTrue(len(xmlFiles) == 1)
-      reporting.importAIMFile = xmlFiles[0]
-      reporting.onReportImport()
-
-      self.delayDisplay('Report loaded from AIM! Test passed.')
+      self.delayDisplay('Test passed')
       
       self.delayDisplay("Restoring original database directory")
       if self.originalDatabaseDirectory:
