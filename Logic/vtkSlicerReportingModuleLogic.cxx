@@ -223,10 +223,15 @@ bool vtkSlicerReportingModuleLogic::InitializeTerminologyMappingFromFile(std::st
 
       // segmented property type modifier
       found = lineIn.find(",");
-      this->ParseTerm(lineIn.substr(0,found), term);
-      lineIn = lineIn.substr(found+1,lineIn.length()-found-1);
-      termMapping.SegmentedPropertyTypeModifier = term;
-
+      if(this->ParseTerm(lineIn.substr(0,found), term))
+        {
+        lineIn = lineIn.substr(found+1,lineIn.length()-found-1);
+        termMapping.SegmentedPropertyTypeModifier = term;
+        }
+      else
+        {
+        termMapping.SegmentedPropertyTypeModifier = StandardTerm();
+        }
       this->colorCategorizationMaps[lutName][termMapping.LabelValue] = termMapping;
      }
   }
