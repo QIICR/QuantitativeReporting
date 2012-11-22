@@ -126,9 +126,11 @@ bool vtkSlicerReportingModuleLogic::InitializeDICOMDatabase(std::string dbPath)
 //---------------------------------------------------------------------------
 bool vtkSlicerReportingModuleLogic::InitializeTerminologyMapping(std::string mapFileName)
 {
+  std::cout << "Initializing terminology mapping for map file " << mapFileName << std::endl;
+
   std::ifstream mapFile(mapFileName.c_str());
   bool status = mapFile.is_open();
-  //this->colorCategorizationMaps["GenericAnatomyColors"] = ColorCategorizationMapType;
+  this->colorCategorizationMaps["GenericAnatomyColors"] = ColorCategorizationMapType();
 
   if(status){
     while(!mapFile.eof()){
@@ -174,28 +176,38 @@ bool vtkSlicerReportingModuleLogic::InitializeTerminologyMapping(std::string map
       termMapping.SegmentedPropertyTypeModifier = term;
 
       this->colorCategorizationMaps["GenericAnatomyColors"][termMapping.LabelValue] = termMapping;
+      std::cout << "Label " << termMapping.LabelValue << " added" << std::endl;
      }
-   }
-
-   return status;
+  }
+  std::cout << this->colorCategorizationMaps["GenericAnatomyColors"].size() << " terms were read" << std::endl;
+  return status;
 }
 
 //---------------------------------------------------------------------------
 bool vtkSlicerReportingModuleLogic::LookupCategorizationFromLabel(int label, ColorLabelCategorization& labelCat){
-  if(this->colorCategorizationMaps.find("GenericAnatomyColors") == this->colorCategorizationMaps.end())
-    return false;
-  if(this->colorCategorizationMaps["GenericAnatomyColors"].find(label) != 
-    this->colorCategorizationMaps["GenericAnatomyColors"].end()){
-    labelCat = this->colorCategorizationMaps["GenericAnatomyColors"][label];
-    return true;
-  }
-  return false;
+  bool success = false;
+  std::cout << "Looking up categorization for label " << label << std::endl;
+  if(this->colorCategorizationMaps.find("GenericAnatomyColors") != this->colorCategorizationMaps.end())
+    {
+    if(this->colorCategorizationMaps["GenericAnatomyColors"].find(label) != 
+      this->colorCategorizationMaps["GenericAnatomyColors"].end())
+      {
+      labelCat = this->colorCategorizationMaps["GenericAnatomyColors"][label];
+      labelCat.PrintSelf(std::cout);
+      success = true;
+      }
+    }
+  return success;
 }
 
 //---------------------------------------------------------------------------
 bool vtkSlicerReportingModuleLogic::LookupLabelFromCategorization(ColorLabelCategorization& labelCat, int& label){
   if(this->colorCategorizationMaps.find("GenericAnatomyColors") == this->colorCategorizationMaps.end())
     return false;
+  std::cout << "Looking up label from ";
+  labelCat.PrintSelf(std::cout);
+  std::cout << std::endl;
+
   int labelFound = -1;
 
   std::string inputTypeName, inputModifierName;
@@ -242,9 +254,9 @@ bool vtkSlicerReportingModuleLogic::LookupLabelFromCategorization(ColorLabelCate
 
   if(labelFound != -1){
     label = labelFound;
-    return true;
   }
-  return false;
+  std::cout << "Label found: " << label << std::endl;
+  return (labelFound==-1) ? false: true;
 }
 
 //---------------------------------------------------------------------------
@@ -1975,22 +1987,36 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
   SegmentSequenceItem->putAndInsertString(DCM_SegmentAlgorithmName, "Editor");
 
   // general anatomy mandatory macro
-  SegmentSequenceItem->findOrCreateSequenceItem(DCM_AnatomicRegionSequence, subItem);
-  subItem->putAndInsertString(DCM_CodeValue, labelValueStr.str().c_str());
-  subItem->putAndInsertString(DCM_CodingSchemeDesignator,"3DSlicer");
-  subItem->putAndInsertString(DCM_CodeMeaning, colorNode->GetColorName(labelValue));
+  //  Per discussion with David Clunie, skip AnatomicRegionSequence
+  //SegmentSequenceItem->findOrCreateSequenceItem(DCM_AnatomicRegionSequence, subItem);
+  //subItem->putAndInsertString(DCM_CodeValue, labelValueStr.str().c_str());
+  //subItem->putAndInsertString(DCM_CodingSchemeDesignator,"3DSlicer");
+  //subItem->putAndInsertString(DCM_CodeMeaning, colorNode->GetColorName(labelValue));
+  
+  ColorLabelCategorization labelCat;
+  // if cannot look up the item, fall back to label 1:tissue
+  if(!this->LookupCategorizationFromLabel(labelValue, labelCat))
+      this->LookupCategorizationFromLabel(1, labelCat);
 
   //segmentation properties - category
   SegmentSequenceItem->findOrCreateSequenceItem(DCM_SegmentedPropertyCategoryCodeSequence, subItem);
-  subItem->putAndInsertString(DCM_CodeValue,"T-D0050");
-  subItem->putAndInsertString(DCM_CodingSchemeDesignator,"SRT");
-  subItem->putAndInsertString(DCM_CodeMeaning,"Tissue");
+  subItem->putAndInsertString(DCM_CodeValue,labelCat.SegmentedPropertyCategory.CodeValue.c_str());
+  subItem->putAndInsertString(DCM_CodingSchemeDesignator,labelCat.SegmentedPropertyCategory.CodingSchemeDesignator.c_str());
+  subItem->putAndInsertString(DCM_CodeMeaning,labelCat.SegmentedPropertyCategory.CodeMeaning.c_str());
 
   //segmentation properties - type
   SegmentSequenceItem->findOrCreateSequenceItem(DCM_SegmentedPropertyTypeCodeSequence, subItem);
-  subItem->putAndInsertString(DCM_CodeValue,"M-03010");
-  subItem->putAndInsertString(DCM_CodingSchemeDesignator,"SRT");
-  subItem->putAndInsertString(DCM_CodeMeaning,"Nodule");
+  subItem->putAndInsertString(DCM_CodeValue,labelCat.SegmentedPropertyType.CodeValue.c_str());
+  subItem->putAndInsertString(DCM_CodingSchemeDesignator,labelCat.SegmentedPropertyType.CodingSchemeDesignator.c_str());
+  subItem->putAndInsertString(DCM_CodeMeaning,labelCat.SegmentedPropertyType.CodeMeaning.c_str());
+
+  //add property type modifier sequence, if not empty
+  if(labelCat.SegmentedPropertyTypeModifier.CodeValue != ""){
+    subItem->findOrCreateSequenceItem(DCM_AnatomicRegionModifierSequence, subItem2);
+    subItem2->putAndInsertString(DCM_CodeValue,labelCat.SegmentedPropertyTypeModifier.CodeValue.c_str());
+    subItem2->putAndInsertString(DCM_CodingSchemeDesignator,labelCat.SegmentedPropertyTypeModifier.CodingSchemeDesignator.c_str());
+    subItem2->putAndInsertString(DCM_CodeMeaning,labelCat.SegmentedPropertyTypeModifier.CodeMeaning.c_str());
+  }
 
   //  Multi-frame Functional Groups Module
   //   Shared functional groups sequence
@@ -2282,38 +2308,72 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
 
     // get the label value from SegmentSequence/AnatotmicRegionSequence
     DcmItem *Item = NULL, *subItem = NULL;
-    char tagValue[128];
-    const char* tagValuePtr = &tagValue[0]; 
+    int labelValue = 1; // by default, use label 1, if cannot parse property sequences
+    char tagValue[128], code[128], meaning[128], designator[128];
+    const char *tagValuePtr = &tagValue[0], *codePtr = &code[0], *meaningPtr = &meaning[0], *designatorPtr = &designator[0];
     segDataset->findAndGetSequenceItem(DCM_SegmentSequence, Item);
-    Item->findAndGetSequenceItem(DCM_AnatomicRegionSequence, subItem);
-
-    subItem->findAndGetString(DCM_CodeValue, tagValuePtr);
-    int tmpLabelValue = atoi(tagValuePtr);
-
-
-    // label value is accepted only if the coding scheme designator is
-    // recognized and the color name matches
-    unsigned short labelValue = 1; 
-    subItem->findAndGetString(DCM_CodingSchemeDesignator, tagValuePtr);    
-    if(strcmp(tagValuePtr, "3DSlicer") != 0)
+    status = Item->findAndGetSequenceItem(DCM_AnatomicRegionSequence, subItem);
+    if(status.bad())
       {
-      std::cerr << "WARNING: Coding scheme designator " << tagValuePtr << " is not recognized!" << std::endl;
-      }
-    else
-      {
-      subItem->findAndGetString(DCM_CodeMeaning, tagValuePtr);
-      if(strcmp(tagValuePtr, colorNode->GetColorName(tmpLabelValue)) != 0)
+      DcmItem *categoryItem = NULL, *typeItem = NULL, *modifierItem = NULL;
+      // No anatomic region sequence -- assume that Structure
+      // Category/Type/Modifier are used to encode the label      
+      status = Item->findAndGetSequenceItem(DCM_SegmentedPropertyCategoryCodeSequence, categoryItem);
+      if(status.good())
         {
-        std::cerr << "WARNING: Code meaning " << tagValuePtr << " does not match the expected value for label " <<
-          tmpLabelValue << std::endl;
+        status = Item->findAndGetSequenceItem(DCM_SegmentedPropertyTypeCodeSequence, typeItem);
+        }
+      if(status.good())
+        {
+        status = typeItem->findAndGetSequenceItem(DCM_AnatomicRegionModifierSequence, modifierItem);
+        }
+      // category and type must be available, modifier is optional
+      if(categoryItem && typeItem)
+        {
+        ColorLabelCategorization labelCat;
+        categoryItem->findAndGetString(DCM_CodeMeaning, tagValuePtr);
+        labelCat.SegmentedPropertyCategory.CodeMeaning = std::string(tagValuePtr);
+        typeItem->findAndGetString(DCM_CodeMeaning, tagValuePtr);
+        labelCat.SegmentedPropertyType.CodeMeaning = std::string(tagValuePtr);
+        if(modifierItem)
+          {
+          modifierItem->findAndGetString(DCM_CodeMeaning, tagValuePtr);
+          labelCat.SegmentedPropertyTypeModifier.CodeMeaning = std::string(tagValuePtr);
+          }
+        this->LookupLabelFromCategorization(labelCat, labelValue);
+        }
+      } 
+    else 
+      {
+      // support legacy format -- from the times I was writing Slicer label
+      // value with Slicer as coding scheme designator
+
+      subItem->findAndGetString(DCM_CodeValue, tagValuePtr);
+      int tmpLabelValue = atoi(tagValuePtr);
+
+      // label value is accepted only if the coding scheme designator is
+      // recognized and the color name matches
+      subItem->findAndGetString(DCM_CodingSchemeDesignator, tagValuePtr);    
+      if(strcmp(tagValuePtr, "3DSlicer") != 0)
+        {
+        std::cerr << "WARNING: Coding scheme designator " << tagValuePtr << " is not recognized!" << std::endl;
         }
       else
         {
-        // use the tag value only if the coding scheme designator and color
-        // name match!        
-        labelValue = tmpLabelValue;
+        subItem->findAndGetString(DCM_CodeMeaning, tagValuePtr);
+        if(strcmp(tagValuePtr, colorNode->GetColorName(tmpLabelValue)) != 0)
+          {
+          std::cerr << "WARNING: Code meaning " << tagValuePtr << " does not match the expected value for label " <<
+            tmpLabelValue << std::endl;
+          }
+        else
+          {
+          // use the tag value only if the coding scheme designator and color
+          // name match!        
+          labelValue = tmpLabelValue;
+          }
         }
-      }
+    }
 
     vtkImageData *imageData = vNode->GetImageData();
 
