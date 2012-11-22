@@ -44,7 +44,7 @@ class qSlicerReportingModuleWidget:
       else:
         Helper.Error('Failed to initialize DICOM database at '+self.__dbFileName)
 
-    self.__logic.InitializeTerminologyMapping('/Users/fedorov/github/Reporting/Resources/StandardTerminology/GeneralAnatomy-SNOMED.csv')
+    # self.__logic.InitializeTerminologyMapping('/Users/fedorov/github/Reporting/Resources/StandardTerminology/GeneralAnatomy-SNOMED.csv')
 
     if not self.__logic.GetMRMLScene():
       # set the logic's mrml scene

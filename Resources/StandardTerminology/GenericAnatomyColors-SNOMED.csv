@@ -1,4 +1,5 @@
 # Integer Label,Text Label,Segmented Property Category -- CID 7150++,Segmented Property Type,Segmented Property Type Modifier,Color
+SlicerLUT=GenericAnatomyColors
 1,        tissue  , (T-D0050;SRT;Tissue), (T-D0050;SRT;Tissue),, rgb(128;174;128)  
 2,        bone  , (T-D0050;SRT;Tissue) ,(T-D016E;SRT;Bone),, rgb(241;214;145)  
 3,        skin  , (T-D0050;SRT;Tissue) ,(T-01000;SRT;Skin),, rgb(177;122;101)  

@@ -120,7 +120,8 @@ public:
   int SaveReportToAIM(vtkMRMLReportingReportNode *reportNode);
 
   bool InitializeDICOMDatabase(std::string dbLocation);
-  bool InitializeTerminologyMapping(std::string mapFile);
+  bool InitializeTerminologyMapping();
+  bool InitializeTerminologyMappingFromFile(std::string mapFile);
   bool LookupCategorizationFromLabel(int label, ColorLabelCategorization&);
   bool LookupLabelFromCategorization(ColorLabelCategorization&, int&);
   bool PrintCategorizationFromLabel(int label);

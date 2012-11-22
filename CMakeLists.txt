@@ -110,7 +110,6 @@ file(GLOB TMFILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "Resources/StandardTermin
 message("Globbed files: ${TMFILES}")
 
 foreach(TMFILE ${TMFILES})
-  message("Configuring ${TMFILE}")
   configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/${TMFILE}
     ${CMAKE_BINARY_DIR}/${Slicer_QTLOADABLEMODULES_SHARE_DIR}/${MODULE_NAME}/${TMFILE}

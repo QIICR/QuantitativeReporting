@@ -132,6 +132,13 @@ void qSlicerReportingModule::setup()
                             QString("Reporting"), QString("AIMXML"),
                             QStringList() << "vtkMRMLReportingReportNode", this));
   std::cout << "Registered Reporting IO with the mrml report node" << std::endl;
+
+  vtkSlicerReportingModuleLogic *logic = 
+    vtkSlicerReportingModuleLogic::SafeDownCast(this->logic());
+  if(logic)
+    {
+    logic->InitializeTerminologyMapping();
+    }
 }
 
 //-----------------------------------------------------------------------------

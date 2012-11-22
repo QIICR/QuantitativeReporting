@@ -39,6 +39,7 @@
 #include <vtkPointData.h>
 #include <vtkImageCast.h>
 #include <vtkImageThreshold.h>
+#include <vtkDirectory.h>
 
 // Qt includes
 #include <QDomDocument>
@@ -124,15 +125,66 @@ bool vtkSlicerReportingModuleLogic::InitializeDICOMDatabase(std::string dbPath)
 }
 
 //---------------------------------------------------------------------------
-bool vtkSlicerReportingModuleLogic::InitializeTerminologyMapping(std::string mapFileName)
+bool vtkSlicerReportingModuleLogic::InitializeTerminologyMapping()
+{
+  bool status = false; // failed
+  if(!this->GetModuleShareDirectory().empty())
+    {
+    // list all map files in StandardTerminology directory
+    // initialize a map for each one
+    vtkSmartPointer<vtkDirectory> dir = vtkSmartPointer<vtkDirectory>::New();
+    std::string dirName = this->GetModuleShareDirectory()+"/Resources/StandardTerminology";
+    if(dir->Open(dirName.c_str()))
+      {
+      status = true;
+      for(int i=0;i<dir->GetNumberOfFiles();i++)
+        {
+        std::string ext = vtksys::SystemTools::GetFilenameLastExtension(dir->GetFile(i));
+        if(strcmp(ext.c_str(),".csv"))
+          {
+          continue;
+          }
+        std::cout << "Initializing mapping for file " << dir->GetFile(i) << std::endl;
+        this->InitializeTerminologyMappingFromFile(dirName+"/"+dir->GetFile(i));
+        }
+      }
+    else
+      {
+      std::cerr << "Failed to open shared directory" << dirName<< std::endl;
+      }
+    }
+  else
+    {
+    std::cerr << "Reporting shared directory is empty!" << std::endl;
+    }
+  return status;
+}
+
+//---------------------------------------------------------------------------
+bool vtkSlicerReportingModuleLogic::InitializeTerminologyMappingFromFile(std::string mapFileName)
 {
   std::cout << "Initializing terminology mapping for map file " << mapFileName << std::endl;
 
   std::ifstream mapFile(mapFileName.c_str());
   bool status = mapFile.is_open();
-  this->colorCategorizationMaps["GenericAnatomyColors"] = ColorCategorizationMapType();
+  std::string lutName = "";
 
   if(status){
+  
+    while(!mapFile.eof())
+      {
+      std::string lineIn;
+      std::getline(mapFile, lineIn);
+      if(lineIn[0] == '#')
+        continue;
+      if(lineIn.find("SlicerLUT=") == std::string::npos)
+        continue;
+      size_t delim = lineIn.find("=");
+      lutName = lineIn.substr(delim+1,lineIn.length()-delim);
+      this->colorCategorizationMaps[lutName] = ColorCategorizationMapType();
+      break;
+      }
+
     while(!mapFile.eof()){
       StandardTerm term;
       ColorLabelCategorization termMapping;
@@ -175,11 +227,10 @@ bool vtkSlicerReportingModuleLogic::InitializeTerminologyMapping(std::string map
       lineIn = lineIn.substr(found+1,lineIn.length()-found-1);
       termMapping.SegmentedPropertyTypeModifier = term;
 
-      this->colorCategorizationMaps["GenericAnatomyColors"][termMapping.LabelValue] = termMapping;
-      std::cout << "Label " << termMapping.LabelValue << " added" << std::endl;
+      this->colorCategorizationMaps[lutName][termMapping.LabelValue] = termMapping;
      }
   }
-  std::cout << this->colorCategorizationMaps["GenericAnatomyColors"].size() << " terms were read" << std::endl;
+  std::cout << this->colorCategorizationMaps[lutName].size() << " terms were read for Slicer LUT " << lutName << std::endl;
   return status;
 }
 
@@ -204,7 +255,7 @@ bool vtkSlicerReportingModuleLogic::LookupCategorizationFromLabel(int label, Col
 bool vtkSlicerReportingModuleLogic::LookupLabelFromCategorization(ColorLabelCategorization& labelCat, int& label){
   if(this->colorCategorizationMaps.find("GenericAnatomyColors") == this->colorCategorizationMaps.end())
     return false;
-  std::cout << "Looking up label from ";
+  std::cout << "Looking up label from " << std::endl;
   labelCat.PrintSelf(std::cout);
   std::cout << std::endl;
 

@@ -285,6 +285,7 @@ class ReportingSelfTestTest(unittest.TestCase):
     self.delayDisplay('Finished with download\n')
 
     reportingTempDir = slicer.app.temporaryPath+'/Reporting'
+    print('Temporary directory location: '+reportingTempDir)
     qt.QDir().mkpath(reportingTempDir)
     dicomFilesDirectory = reportingTempDir + '/dicomFiles'
     self.cleanupDir(dicomFilesDirectory)
