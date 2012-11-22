@@ -262,9 +262,6 @@ class ReportingSelfTestTest(unittest.TestCase):
     print("CTEST_FULL_OUTPUT")
     """ Load the data using DICOM module
     """
-    self.delayDisplay('Configure Module')
-    mainWindow = slicer.util.mainWindow()
-    mainWindow.moduleSelector().selectModule('Reporting')
  
     import os
     self.delayDisplay("Starting the DICOM test")
@@ -400,11 +397,13 @@ class ReportingSelfTestTest(unittest.TestCase):
       self.cleanupDir(exportDir)
       report.SetStorageDirectoryName(exportDir)
       reportingLogic = slicer.modules.reporting.logic()
+      print("Before saving report")
       reportingLogic.SaveReportToAIM(report)
 
       self.delayDisplay('Report saved')
       
       slicer.mrmlScene.Clear(0)
+
 
       # parse on patient level, find segmentation object, load and make sure
       # it matches the input
