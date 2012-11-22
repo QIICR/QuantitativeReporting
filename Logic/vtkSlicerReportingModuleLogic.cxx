@@ -56,6 +56,7 @@
 #include <cassert>
 #include <time.h>
 #include <fstream>
+#include <algorithm>
 
 // DCMTK includes
 #include <dcmtk/dcmdata/dcmetinf.h>
