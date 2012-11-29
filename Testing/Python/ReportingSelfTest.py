@@ -426,6 +426,8 @@ class ReportingSelfTestTest(unittest.TestCase):
         dicomWidget.onDatabaseDirectoryChanged(self.originalDatabaseDirectory)
 
     except Exception, e:
+      if self.originalDatabaseDirectory:
+        dicomWidget.onDatabaseDirectoryChanged(self.originalDatabaseDirectory)
       import traceback
       traceback.print_exc()
       self.delayDisplay('Test caused exception!\n' + str(e))

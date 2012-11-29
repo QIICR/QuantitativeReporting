@@ -10,7 +10,7 @@ class LabelToDICOMSEGConverterSelfTest:
   def __init__(self, parent):
     parent.title = "LabelToDICOMSEGConverterSelfTest" # TODO make this more human readable by adding spaces
     parent.categories = ["Work in Progress.Informatics.TestCases"]
-    parent.dependencies = []
+    parent.dependencies = ['Reporting','DICOM','Volumes']
     parent.contributors = ["Andrey Fedorov (SPL)"] # replace with "Firstname Lastname (Org)"
     parent.helpText = """
     Self-test for the Reporting module
@@ -251,6 +251,9 @@ class LabelToDICOMSEGConverterSelfTestTest(unittest.TestCase):
 
   def test_LabelToDICOMSEGConverterRoundTrip(self):
     print("CTEST_FULL_OUTPUT")
+
+    dir(slicer.modules)
+
     """ Load the data using DICOM module
     """
 
@@ -275,6 +278,7 @@ class LabelToDICOMSEGConverterSelfTestTest(unittest.TestCase):
     reportingTempDir = slicer.app.temporaryPath+'/LabelToDICOMSEGConverter'
     qt.QDir().mkpath(reportingTempDir)
     dicomFilesDirectory = reportingTempDir + '/dicomFiles'
+    self.cleanupDir(dicomFilesDirectory)
     qt.QDir().mkpath(dicomFilesDirectory)
     slicer.app.applicationLogic().Unzip(filePath, dicomFilesDirectory)
 
@@ -282,6 +286,7 @@ class LabelToDICOMSEGConverterSelfTestTest(unittest.TestCase):
       self.delayDisplay("Switching to temp database directory")
       tempDatabaseDirectory = reportingTempDir + '/tempDICOMDatbase'
       qt.QDir().mkpath(tempDatabaseDirectory)
+      self.cleanupDir(tempDatabaseDirectory)
       if slicer.dicomDatabase:
         self.originalDatabaseDirectory = os.path.split(slicer.dicomDatabase.databaseFilename)[0]
       else:
@@ -346,6 +351,7 @@ class LabelToDICOMSEGConverterSelfTestTest(unittest.TestCase):
 
       exportDir = reportingTempDir+'/Output'
       qt.QDir().mkpath(exportDir)
+      self.cleanupDir(exportDir)
       module.onLabelExport()
 
       self.delayDisplay('Report saved')
@@ -359,6 +365,8 @@ class LabelToDICOMSEGConverterSelfTestTest(unittest.TestCase):
 
       dicomWidget.detailsPopup.loadCheckedLoadables()
       volumes = slicer.util.getNodes('vtkMRMLScalarVolumeNode*')
+      for v in volumes:
+        print('Volume found: '+v.GetID())
       self.assertTrue(len(volumes) == 2)
       
       for name,volume in volumes.items():
@@ -380,7 +388,20 @@ class LabelToDICOMSEGConverterSelfTestTest(unittest.TestCase):
         dicomWidget.onDatabaseDirectoryChanged(self.originalDatabaseDirectory)
 
     except Exception, e:
+      if self.originalDatabaseDirectory:
+        dicomWidget.onDatabaseDirectoryChanged(self.originalDatabaseDirectory)
       import traceback
       traceback.print_exc()
       self.delayDisplay('Test caused exception!\n' + str(e))
       self.assertTrue(False)
+      
+  def cleanupDir(self, d):
+    if not os.path.exists(d):
+      return
+    oldFiles = os.listdir(d)
+    for f in oldFiles:
+      path = d+'/'+f
+      if not os.path.isdir(path):
+        os.unlink(d+'/'+f)
+
+
