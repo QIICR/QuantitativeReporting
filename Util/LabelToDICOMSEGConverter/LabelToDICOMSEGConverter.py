@@ -13,11 +13,14 @@ class LabelToDICOMSEGConverter:
     parent.dependencies = ["Reporting", "DICOM", "Volumes"]
     parent.contributors = ["Andrey Fedorov (Surgical Planning Lab)"] # replace with "Firstname Lastname (Org)"
     parent.helpText = """
-    Module to convert a Slicer label map into a DICOM SEG object.
+    Module to convert a Slicer label map into a DICOM SEG object. 
+    <a href=\"http://wiki.slicer.org/slicerWiki/index.php/Documentation/4.2/Extensions/LabelToDICOMSEGConverter\">
+    Usage instructions</a>;
     """
     parent.acknowledgementText = """
-    This file was originally developed by Andrey Fedorov, supported by  ...
-""" # replace with organization, grant and thanks.
+    This file was originally developed by Andrey Fedorov, supported by  a
+    supplement to NCI U01CA151261 (PI Fiona Fennessy).
+    """
     self.parent = parent
 
 #
@@ -47,10 +50,6 @@ class LabelToDICOMSEGConverterWidget:
 
     # Layout within the dummy collapsible button
     dummyFormLayout = qt.QFormLayout(dummyCollapsibleButton)
-
-    # Input hint
-    self.__helpLabel = qt.QLabel('Select a label associated with a DICOM volume')
-    dummyFormLayout.addRow(self.__helpLabel)
 
     # Input label node
     label = qt.QLabel('Input label: ')
@@ -90,7 +89,11 @@ class LabelToDICOMSEGConverterWidget:
     dummyFormLayout.addRow(label, self.__exportFolderPicker)
     dummyFormLayout.addRow(self.exportButton)
     self.exportButton.connect('clicked()', self.onLabelExport)
-    self.exportButton.enabled = 0
+    self.exportButton.enabled = 1
+
+    # Input hint
+    self.__helpLabel = qt.QLabel('Select a label associated with a DICOM volume')
+    dummyFormLayout.addRow(self.__helpLabel)
 
     # Add vertical spacer
     self.layout.addStretch(1)
@@ -98,25 +101,8 @@ class LabelToDICOMSEGConverterWidget:
     self.outputDir = self.__exportFolderPicker.directory
 
   def onInputChanged(self,newNode):
-    label = self.segmentationSelector.currentNode()
-    scalar = self.volumeSelector.currentNode()
+    pass
 
-    # assuming here the user does the 
-    if label == None or scalar == None:
-      self.exportButton.enabled = 0
-      return
-
-    
-    labelImage = label.GetImageData()
-    scalarImage = label.GetImageData()
-    lDim = labelImage.GetDimensions()
-    sDim = scalarImage.GetDimensions()
-    if lDim[0]!=sDim[0] or lDim[1]!=sDim[1] or lDim[2]!=sDim[2]:
-      self.__helpLabel.text = 'Geometries do not match'
-      self.exportButton.enabled = 0
-
-    self.exportButton.enabled = 1
- 
   def onOutputDirChanged(self, newDir):
     self.outputDir = newDir
 
@@ -125,6 +111,23 @@ class LabelToDICOMSEGConverterWidget:
     TODO: add a check that the selected label is associated with a volume that
     has DICOM.instanceUIDs attribute set
     '''
+    
+    label = self.segmentationSelector.currentNode()
+    scalar = self.volumeSelector.currentNode()
+
+    # assuming here the user does the 
+    if label == None or scalar == None:
+      self.exportButton.enabled = 0
+      return
+    
+    labelImage = label.GetImageData()
+    scalarImage = label.GetImageData()
+    lDim = labelImage.GetDimensions()
+    sDim = scalarImage.GetDimensions()
+    if lDim[0]!=sDim[0] or lDim[1]!=sDim[1] or lDim[2]!=sDim[2]:
+      self.__helpLabel.text = 'Geometries do not match'
+      return
+
     label = self.segmentationSelector.currentNode()
     scalar = self.volumeSelector.currentNode()
  
@@ -135,7 +138,12 @@ class LabelToDICOMSEGConverterWidget:
     labelCollection.AddItem(label)
     reportingLogic = slicer.modules.reporting.logic()
     dirName = self.outputDir
-    reportingLogic.DicomSegWrite(labelCollection, dirName)
+    fileName = reportingLogic.DicomSegWrite(labelCollection, dirName)
+
+    if fileName == '':
+      self.__helpLabel.text = 'Error!'
+    else:
+      self.__helpLabel.text = 'Exported to '+fileName.split('/')[-1]
 
   def onReload(self,moduleName="LabelToDICOMSEGConverter"):
     """Generic reload method for any scripted module.

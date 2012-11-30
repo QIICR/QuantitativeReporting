@@ -78,7 +78,7 @@ QString qSlicerReportingModule::helpText()const
     "some support of AIM import/export.<br>"
     "Select a markup and right click to jump slice viewers to that location.<br>"
     "This is a work in progress (revision " + QString(Reporting_WC_REVISION)+
-    "). <a href=\"http://wiki.slicer.org/slicerWiki/index.php/Documentation/4.1/Extensions/Reporting\">"
+    "). <a href=\"http://wiki.slicer.org/slicerWiki/index.php/Documentation/4.2/Extensions/Reporting\">"
     "Usage instructions</a>.";
 }
 
