@@ -299,11 +299,16 @@ class LabelToDICOMSEGConverterSelfTestTest(unittest.TestCase):
       self.delayDisplay('Importing DICOM')
       mainWindow = slicer.util.mainWindow()
       mainWindow.moduleSelector().selectModule('DICOM')
+
+      self.importDICOM(slicer.dicomDatabase, dicomFilesDirectory)
+      '''
       dicomWidget.dicomApp.suspendModel()
       indexer = ctk.ctkDICOMIndexer()
       indexer.addDirectory(slicer.dicomDatabase, dicomFilesDirectory, None)
       indexer.waitForImportFinished()
       dicomWidget.dicomApp.resumeModel()
+      '''
+
       dicomWidget.detailsPopup.open()
       # click on the first row of the tree
       index = dicomWidget.tree.indexAt(qt.QPoint(0,0))
@@ -355,6 +360,8 @@ class LabelToDICOMSEGConverterSelfTestTest(unittest.TestCase):
       module.onLabelExport()
 
       self.delayDisplay('Report saved')
+
+      self.importDICOM(slicer.dicomDatabase, exportDir)
       
       slicer.mrmlScene.Clear(0)
   
@@ -363,9 +370,11 @@ class LabelToDICOMSEGConverterSelfTestTest(unittest.TestCase):
       index = dicomWidget.tree.indexAt(qt.QPoint(0,0))
       dicomWidget.onTreeClicked(index)
 
+      self.delayDisplay('Wait',10000)
+
       dicomWidget.detailsPopup.loadCheckedLoadables()
       volumes = slicer.util.getNodes('vtkMRMLScalarVolumeNode*')
-      for v in volumes:
+      for n,v in volumes.items():
         print('Volume found: '+v.GetID())
       self.assertTrue(len(volumes) == 2)
       
@@ -404,4 +413,10 @@ class LabelToDICOMSEGConverterSelfTestTest(unittest.TestCase):
       if not os.path.isdir(path):
         os.unlink(d+'/'+f)
 
-
+  def importDICOM(self, dicomDatabase, dicomFilesDirectory):
+    dicomWidget = slicer.modules.dicom.widgetRepresentation().self()
+    dicomWidget.dicomApp.suspendModel()
+    indexer = ctk.ctkDICOMIndexer()
+    indexer.addDirectory(dicomDatabase, dicomFilesDirectory, None)
+    indexer.waitForImportFinished()
+    dicomWidget.dicomApp.resumeModel()
