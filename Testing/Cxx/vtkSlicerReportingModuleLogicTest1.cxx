@@ -13,6 +13,11 @@
 #include <vtkMRMLCoreTestingMacros.h>
 #include <vtkMRMLScalarVolumeNode.h>
 
+// Qt includes
+#include <QString>
+#include <QDomDocument>
+#include <QDomElement>
+
 bool testUID(std::string uid)
 {
   if (uid.compare("") == 0)
@@ -131,6 +136,29 @@ int vtkSlicerReportingModuleLogicTest1(int , char * [] )
     }
   std::cout << "Got expected uid of " << uid << " with ruler end points on different slices " << std::endl;
 
+  // test the ruler length print out
+  QDomDocument doc;
+  QDomProcessingInstruction xmlDecl = doc.createProcessingInstruction("xml","version=\"1.0\"");
+  doc.appendChild(xmlDecl);
+  QDomElement root = doc.createElement("ImageAnnotation");
+  // add a few attributes
+  root.setAttribute("xmlns","gme://caCORE.caCORE/3.2/edu.northwestern.radiology.AIM");
+  root.setAttribute("aimVersion","3.0");
+  root.setAttribute("cagridId","0");
+  doc.appendChild(root);
+  
+  double pos1[4], pos2[4];
+  rnode1->GetPositionWorldCoordinates1(pos1);
+  rnode1->GetPositionWorldCoordinates2(pos2);
+  double distanceMeasurement = sqrt(vtkMath::Distance2BetweenPoints(pos1,pos2));
+  QString rulerLength;
+  rulerLength.sprintf("%g", distanceMeasurement);
+  QString uidStr = "1.2.3.4.5.5.6";
+  node2->AddCalculationCollectionElement(doc, root, rulerLength, uidStr);
+  QString xml = doc.toString();
+  std::cout << "Adding distance measurement of " << qPrintable(rulerLength) << " to a CalculationCollection:" << std::endl;
+  std::cout << qPrintable(xml);
+  
   return EXIT_SUCCESS;
 }
 

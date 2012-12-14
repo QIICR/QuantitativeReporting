@@ -159,7 +159,10 @@ public:
       AnnotationAdded,
     };
 
-
+  /// Add the length of the ruler to the document as a CalculationData
+  /// keeping this public for testing/verification
+  int AddCalculationCollectionElement(QDomDocument &doc, QDomElement &parent, QString &rulerLength, QString &sliceUID);
+  
 protected:
   vtkSlicerReportingModuleLogic();
   virtual ~vtkSlicerReportingModuleLogic();
@@ -182,6 +185,7 @@ protected:
   std::string GetActiveReportID();
   
   int AddSpatialCoordinateCollectionElement(QDomDocument&, QDomElement&, QStringList&, QString&);
+//  int AddCalculationCollectionElement(QDomDocument &doc, QDomElement &parent, QString &rulerLength, QString &sliceUID);
 
 private:
 

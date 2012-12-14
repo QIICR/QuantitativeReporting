@@ -32,6 +32,7 @@
 
 // VTK includes
 #include <vtkImageData.h>
+#include <vtkMath.h>
 #include <vtkMatrix4x4.h>
 #include <vtkNew.h>
 #include <vtkSmartPointer.h>
@@ -1393,6 +1394,16 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
         // Procedure for saving the list of points should be the same for
         // all markup elements
         this->AddSpatialCoordinateCollectionElement(doc, gs, coordStr, referencedUIDList[i]);
+        if (rulerNode)
+          {
+          double pos1[4], pos2[4];
+          rulerNode->GetPositionWorldCoordinates1(pos1);
+          rulerNode->GetPositionWorldCoordinates2(pos2);
+          double distanceMeasurement = sqrt(vtkMath::Distance2BetweenPoints(pos1,pos2));
+          QString rulerLength;
+          rulerLength.sprintf("%g", distanceMeasurement);
+          this->AddCalculationCollectionElement(doc, root, rulerLength, referencedUIDList[i]);
+          }
         gsc.appendChild(gs);
         }
       else
@@ -1496,6 +1507,76 @@ int vtkSlicerReportingModuleLogic::AddSpatialCoordinateCollectionElement(QDomDoc
     sc.setAttribute("y", coordList[i+1]);
     }
 
+  return EXIT_SUCCESS;
+}
+
+//---------------------------------------------------------------------------
+int vtkSlicerReportingModuleLogic::AddCalculationCollectionElement(QDomDocument &doc, QDomElement &parent,
+                                                                         QString &rulerLength, QString &sliceUID)
+{
+  QDomElement rulerC = doc.createElement("calculationCollection");
+  parent.appendChild(rulerC);
+
+  QDomElement calculation = doc.createElement("Calculation");
+  rulerC.appendChild(calculation);
+
+  calculation.setAttribute("cagridId","0");
+  calculation.setAttribute("codeMeaning", "Length");
+  calculation.setAttribute("codeValue", "G-A22A");
+  calculation.setAttribute("codingSchemeDesignator","SRT");
+  calculation.setAttribute("description","Length");
+  calculation.setAttribute("uid",sliceUID);
+
+  QDomElement referencedCalculationCollection = doc.createElement("referencedCalculationCollection");
+  calculation.appendChild(referencedCalculationCollection);
+  
+  QDomElement calculationResultCollection = doc.createElement("calculationResultCollection");
+  calculation.appendChild(calculationResultCollection);
+
+  QDomElement calculationResult = doc.createElement("CalculationResult");
+  calculationResult.setAttribute("cagridId","0");
+  calculationResult.setAttribute("numberOfDimensions","1");
+  calculationResult.setAttribute("type","Scalar");
+  calculationResult.setAttribute("unitOfMeasure","mm");
+  calculationResultCollection.appendChild(calculationResult);
+
+  QDomElement calculationDataCollection = doc.createElement("calculationDataCollection");
+  calculationResult.appendChild(calculationDataCollection);
+
+  // now print out the ruler length
+  QDomElement calculationData = doc.createElement("CalculationData");
+  calculationData.setAttribute("cagridId","0");
+  calculationData.setAttribute("value",rulerLength);
+  calculationDataCollection.appendChild(calculationData);
+  
+  QDomElement coordinateCollection = doc.createElement("coordinateCollection");
+  calculationData.appendChild(coordinateCollection);
+
+  QDomElement coordinate = doc.createElement("Coordinate");
+  coordinate.setAttribute("cagridId","0");
+  coordinate.setAttribute("dimensionIndex","0");
+  coordinate.setAttribute("position","0");
+  coordinateCollection.appendChild(coordinate);
+
+  QDomElement dimensionCollection = doc.createElement("dimensionCollection");
+  calculationResult.appendChild(dimensionCollection);
+
+  QDomElement dimension = doc.createElement("Dimension");
+  dimension.setAttribute("cagridId","0");
+  dimension.setAttribute("index","0");
+  dimension.setAttribute("label","Value");
+  dimension.setAttribute("size","1");
+  dimensionCollection.appendChild(dimension);
+
+  QDomElement referencedGeometricShapeCollection = doc.createElement("referencedGeometricShapeCollection");
+  calculation.appendChild(referencedGeometricShapeCollection);
+
+  QDomElement referencedGeometricShape = doc.createElement("ReferencedGeometricShape");
+  referencedGeometricShape.setAttribute("cagridId","0");
+  // TODO: figure out if this needs to be non zero
+  referencedGeometricShape.setAttribute("referencedShapeIdentifier","0");
+  referencedGeometricShapeCollection.appendChild(referencedGeometricShape);
+  
   return EXIT_SUCCESS;
 }
 
@@ -2292,8 +2373,10 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
     // get the label value from SegmentSequence/AnatotmicRegionSequence
     DcmItem *Item = NULL, *subItem = NULL;
     int labelValue = 1; // by default, use label 1, if cannot parse property sequences
-    char tagValue[128], code[128], meaning[128], designator[128];
-    const char *tagValuePtr = &tagValue[0], *codePtr = &code[0], *meaningPtr = &meaning[0], *designatorPtr = &designator[0];
+    char tagValue[128];
+    //code[128], meaning[128], designator[128];
+    const char *tagValuePtr = &tagValue[0];
+    //*codePtr = &code[0], *meaningPtr = &meaning[0], *designatorPtr = &designator[0];
     segDataset->findAndGetSequenceItem(DCM_SegmentSequence, Item);
     status = Item->findAndGetSequenceItem(DCM_AnatomicRegionSequence, subItem);
     if(status.bad())
