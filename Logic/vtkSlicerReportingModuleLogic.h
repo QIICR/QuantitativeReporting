@@ -161,7 +161,7 @@ public:
 
   /// Add the length of the ruler to the document as a CalculationData
   /// keeping this public for testing/verification
-  int AddCalculationCollectionElement(QDomDocument &doc, QDomElement &parent, QString &rulerLength, QString &sliceUID);
+  int AddCalculationCollectionElement(QDomDocument &doc, QDomElement &parent, QString &rulerLength, QString &shapeIdentifier, QString &sliceUID);
   
 protected:
   vtkSlicerReportingModuleLogic();

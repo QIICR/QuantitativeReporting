@@ -154,7 +154,9 @@ int vtkSlicerReportingModuleLogicTest1(int , char * [] )
   QString rulerLength;
   rulerLength.sprintf("%g", distanceMeasurement);
   QString uidStr = "1.2.3.4.5.5.6";
-  node2->AddCalculationCollectionElement(doc, root, rulerLength, uidStr);
+  rnode1->SetAttribute("ShapeIdentifier","889977");
+  QString shapeID = rnode1->GetAttribute("ShapeIdentifier");
+  node2->AddCalculationCollectionElement(doc, root, rulerLength, shapeID, uidStr);
   QString xml = doc.toString();
   std::cout << "Adding distance measurement of " << qPrintable(rulerLength) << " to a CalculationCollection:" << std::endl;
   std::cout << qPrintable(xml);

@@ -1386,6 +1386,11 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
             }
           
           gs.setAttribute("xsi:type","MultiPoint");
+          // save the shape identifier, before it's incremented, to the node so that can print out the
+          // ruler length associated with these points
+          std::ostringstream os;
+          os << shapeId;
+          rulerNode->SetAttribute("ShapeIdentifier", os.str().c_str());
           gs.setAttribute("shapeIdentifier",shapeId++);
           gs.setAttribute("includeFlag", "true");
           gs.setAttribute("cagridId","0");
@@ -1402,7 +1407,13 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
           double distanceMeasurement = sqrt(vtkMath::Distance2BetweenPoints(pos1,pos2));
           QString rulerLength;
           rulerLength.sprintf("%g", distanceMeasurement);
-          this->AddCalculationCollectionElement(doc, root, rulerLength, referencedUIDList[i]);
+          const char *shapeID = rulerNode->GetAttribute("ShapeIdentifier");
+          QString shapeIDString;
+          if (shapeID != NULL)
+            {
+            shapeIDString = QString(shapeID);
+            }
+          this->AddCalculationCollectionElement(doc, root, rulerLength, shapeIDString, referencedUIDList[i]);
           }
         gsc.appendChild(gs);
         }
@@ -1512,7 +1523,7 @@ int vtkSlicerReportingModuleLogic::AddSpatialCoordinateCollectionElement(QDomDoc
 
 //---------------------------------------------------------------------------
 int vtkSlicerReportingModuleLogic::AddCalculationCollectionElement(QDomDocument &doc, QDomElement &parent,
-                                                                         QString &rulerLength, QString &sliceUID)
+                                                                   QString &rulerLength, QString &shapeIdentifier, QString &sliceUID)
 {
   QDomElement rulerC = doc.createElement("calculationCollection");
   parent.appendChild(rulerC);
@@ -1573,8 +1584,17 @@ int vtkSlicerReportingModuleLogic::AddCalculationCollectionElement(QDomDocument 
 
   QDomElement referencedGeometricShape = doc.createElement("ReferencedGeometricShape");
   referencedGeometricShape.setAttribute("cagridId","0");
-  // TODO: figure out if this needs to be non zero
-  referencedGeometricShape.setAttribute("referencedShapeIdentifier","0");
+  // associate this calculation with the shape from which it was calculated
+  if (shapeIdentifier.length() != 0)
+    {
+    referencedGeometricShape.setAttribute("referencedShapeIdentifier",shapeIdentifier);
+    }
+  else
+    {
+    // default to 0
+    vtkErrorMacro("AddCalculationCollectionElement: no shape identifier given for ruler length " << qPrintable(rulerLength) << ", using 0");
+    referencedGeometricShape.setAttribute("referencedShapeIdentifier","0");
+    }
   referencedGeometricShapeCollection.appendChild(referencedGeometricShape);
   
   return EXIT_SUCCESS;
