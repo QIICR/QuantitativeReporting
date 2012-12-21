@@ -159,9 +159,9 @@ public:
       AnnotationAdded,
     };
 
-  /// Add the length of the ruler to the document as a CalculationData
+  /// Add the calculated values of annotations to the document as a CalculationData
   /// keeping this public for testing/verification
-  int AddCalculationCollectionElement(QDomDocument &doc, QDomElement &parent, QString &rulerLength, QString &shapeIdentifier, QString &sliceUID);
+  int AddCalculationCollectionElement(QDomDocument &doc, QDomElement &parent, QString &codeMeaning, QString &codeValue, QString &description, QString &unitOfMeasure, QString &value, QString &shapeIdentifier, QString &UID);
   
 protected:
   vtkSlicerReportingModuleLogic();

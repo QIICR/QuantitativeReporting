@@ -76,7 +76,7 @@
 
 // SlicerApp includes
 #include "qSlicerApplication.h"
-
+#include "qSlicerPythonManager.h"
 #include "vtkReportingVersionConfigure.h"
 
 
@@ -1145,11 +1145,21 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
       allInstanceUIDs << QString(sliceUID.c_str());
       }
     }
-  
-  if(labelNodeCollection->GetNumberOfItems())
+
+  // a calculation collection
+  QDomElement calculationCollection = doc.createElement("calculationCollection");
+  if (numAnnotationNodes > 0 ||
+      labelNodeCollection->GetNumberOfItems() > 0)
     {
-    // save the SEG object, add it to the database, get the UIDs
-    //   and initialize the corresponding element in AIM
+    // the calculation collections seem to have to come first in on the root in order to validate
+    root.insertBefore(calculationCollection, root.firstChild());
+    //root.appendChild(calculationCollection);
+    }
+  
+  if (labelNodeCollection->GetNumberOfItems())
+    {
+    // save the SEG object, add it to the database, calculate label
+    // statistics, get the UIDs and initialize the corresponding element in AIM
     QSettings settings;
     std::string dbFileName = reportNode->GetDICOMDatabaseFileName();
     
@@ -1190,6 +1200,53 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
             this->getDcmElementAsString(DCM_ReferencedSOPInstanceUID, segDcm).c_str());
           segDom.setAttribute("segmentNumber","1");
           scDom.appendChild(segDom);
+
+          // now calculate label statistics: assumes one label value, one grey
+          // scale
+          vtkMRMLNode *labelNode = vtkMRMLNode::SafeDownCast(labelNodeCollection->GetItemAsObject(0));
+          if (labelNode != NULL)
+            {
+            std::cout << "Calculating label stats on label volume id = " << labelNode->GetID() << " and greyscale volume id = " << volumeNode->GetID() << std::endl;
+            qSlicerPythonManager *py = qSlicerApplication::application()->pythonManager();
+
+            py->executeString(QString("labelNode = getNode('%1')").arg(labelNode->GetID()));
+            py->executeString(QString("greyNode = getNode('%1')").arg(volumeNode->GetID()));
+            py->executeString(QString("labelStatisticsLogic = LabelStatisticsLogic(greyNode, labelNode)"));
+            int labelIndex = reportNode->GetFindingLabel();
+            py->executeString(QString("labelNode.SetAttribute('LabelStatisticsVolume', str(labelStatisticsLogic.labelStats[%1,'Volume cc']))").arg(labelIndex));
+            py->executeString(QString("labelNode.SetAttribute('LabelStatisticsMean', str(labelStatisticsLogic.labelStats[%1,'Mean']))").arg(labelIndex));
+            py->executeString(QString("labelNode.SetAttribute('LabelStatisticsMin', str(labelStatisticsLogic.labelStats[%1,'Min']))").arg(labelIndex));
+            py->executeString(QString("labelNode.SetAttribute('LabelStatisticsMax', str(labelStatisticsLogic.labelStats[%1,'Max']))").arg(labelIndex));
+            py->executeString(QString("labelNode.SetAttribute('LabelStatisticsStdDev', str(labelStatisticsLogic.labelStats[%1,'StdDev']))").arg(labelIndex));
+            py->executeString(QString("labelNode.SetAttribute('LabelStatisticsCount', str(labelStatisticsLogic.labelStats[%1,'Count']))").arg(labelIndex));
+            // now add the values of interest to the doc
+            // todo: figure out what shape id strings mean for the
+            // segmentation volume
+            // Volume
+            QString volume = labelNode->GetAttribute("LabelStatisticsVolume");
+            QString shapeIDString;
+            QString codeMeaning = QString("Volume");
+            QString codeValue = QString("");
+            QString description = QString("Volume");
+            QString unitOfMeasure = QString("cc");
+            QString segUID = QString(instanceUID.c_str());
+            this->AddCalculationCollectionElement(doc, calculationCollection, codeMeaning, codeValue, description, unitOfMeasure, volume, shapeIDString, segUID);
+            // Mean
+            QString mean = labelNode->GetAttribute("LabelStatisticsMean");
+            codeMeaning = QString("Mean");
+            codeValue = QString("R-00317");
+            description = QString("Mean");
+            unitOfMeasure = QString("1");
+            segUID = QString(instanceUID.c_str());
+            this->AddCalculationCollectionElement(doc, calculationCollection, codeMeaning, codeValue, description, unitOfMeasure, mean, shapeIDString, segUID);
+            // Standard Deviation
+            QString stdev =  labelNode->GetAttribute("LabelStatisticsStdDev");
+            codeMeaning = QString("Standard Deviation");
+            codeValue = QString("R-10047");
+            description = QString("Standard Deviation");
+            unitOfMeasure =  QString("1");
+            this->AddCalculationCollectionElement(doc, calculationCollection, codeMeaning, codeValue, description, unitOfMeasure, stdev, shapeIDString, segUID);
+            }
           }
         else
           {
@@ -1275,8 +1332,12 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     }
 
   QDomElement irc = doc.createElement("imageReferenceCollection");
-  root.appendChild(irc);
-
+  if (studyToSeriesList.size() > 0)
+    {
+    // don't add a collection unless there's an image reference
+    root.appendChild(irc);
+    }
+  
   for(std::map<QString,QStringList>::const_iterator mIt=studyToSeriesList.begin();
       mIt!=studyToSeriesList.end();++mIt)
     {
@@ -1337,8 +1398,12 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   // referenced, but since one AIM file is for one volume, we don't really
   // need to do this.
   QDomElement gsc = doc.createElement("geometricShapeCollection");
-  root.appendChild(gsc);
-
+  if (annotationNodeCollection->GetNumberOfItems() > 0)
+    {
+    // only add the collection if there are shapes
+    root.appendChild(gsc);
+    }
+  
   // get the associated markups and print them
   for (int i = 0; i < annotationNodeCollection->GetNumberOfItems(); ++i)
     {
@@ -1413,7 +1478,11 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
             {
             shapeIDString = QString(shapeID);
             }
-          this->AddCalculationCollectionElement(doc, root, rulerLength, shapeIDString, referencedUIDList[i]);
+          QString codeMeaning = QString("Length");
+          QString codeValue = QString("G-A22A");
+          QString description = QString("Length");
+          QString unitOfMeasure = QString("mm");
+          this->AddCalculationCollectionElement(doc, calculationCollection, codeMeaning, codeValue, description, unitOfMeasure, rulerLength, shapeIDString, referencedUIDList[i]);
           }
         gsc.appendChild(gs);
         }
@@ -1523,20 +1592,18 @@ int vtkSlicerReportingModuleLogic::AddSpatialCoordinateCollectionElement(QDomDoc
 
 //---------------------------------------------------------------------------
 int vtkSlicerReportingModuleLogic::AddCalculationCollectionElement(QDomDocument &doc, QDomElement &parent,
-                                                                   QString &rulerLength, QString &shapeIdentifier, QString &sliceUID)
-{
-  QDomElement rulerC = doc.createElement("calculationCollection");
-  parent.appendChild(rulerC);
-
+                                                                   QString &codeMeaning, QString &codeValue, QString &description, QString &unitOfMeasure,
+                                                                   QString &value, QString &shapeIdentifier, QString &UID)
+{  
   QDomElement calculation = doc.createElement("Calculation");
-  rulerC.appendChild(calculation);
+  parent.appendChild(calculation);
 
   calculation.setAttribute("cagridId","0");
-  calculation.setAttribute("codeMeaning", "Length");
-  calculation.setAttribute("codeValue", "G-A22A");
+  calculation.setAttribute("codeMeaning", codeMeaning);
+  calculation.setAttribute("codeValue", codeValue);
   calculation.setAttribute("codingSchemeDesignator","SRT");
-  calculation.setAttribute("description","Length");
-  calculation.setAttribute("uid",sliceUID);
+  calculation.setAttribute("description",description);
+  calculation.setAttribute("uid",UID);
 
   QDomElement referencedCalculationCollection = doc.createElement("referencedCalculationCollection");
   calculation.appendChild(referencedCalculationCollection);
@@ -1548,16 +1615,16 @@ int vtkSlicerReportingModuleLogic::AddCalculationCollectionElement(QDomDocument 
   calculationResult.setAttribute("cagridId","0");
   calculationResult.setAttribute("numberOfDimensions","1");
   calculationResult.setAttribute("type","Scalar");
-  calculationResult.setAttribute("unitOfMeasure","mm");
+  calculationResult.setAttribute("unitOfMeasure",unitOfMeasure);
   calculationResultCollection.appendChild(calculationResult);
 
   QDomElement calculationDataCollection = doc.createElement("calculationDataCollection");
   calculationResult.appendChild(calculationDataCollection);
 
-  // now print out the ruler length
+  // now print out the passed in calculation value
   QDomElement calculationData = doc.createElement("CalculationData");
   calculationData.setAttribute("cagridId","0");
-  calculationData.setAttribute("value",rulerLength);
+  calculationData.setAttribute("value",value);
   calculationDataCollection.appendChild(calculationData);
   
   QDomElement coordinateCollection = doc.createElement("coordinateCollection");
@@ -1592,7 +1659,7 @@ int vtkSlicerReportingModuleLogic::AddCalculationCollectionElement(QDomDocument 
   else
     {
     // default to 0
-    vtkErrorMacro("AddCalculationCollectionElement: no shape identifier given for ruler length " << qPrintable(rulerLength) << ", using 0");
+    vtkErrorMacro("AddCalculationCollectionElement: no shape identifier given for calculation " << qPrintable(value) << ", using 0");
     referencedGeometricShape.setAttribute("referencedShapeIdentifier","0");
     }
   referencedGeometricShapeCollection.appendChild(referencedGeometricShape);
