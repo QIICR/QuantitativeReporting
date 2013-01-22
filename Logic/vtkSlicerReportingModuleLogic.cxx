@@ -1213,7 +1213,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
             py->executeString(QString("greyNode = getNode('%1')").arg(volumeNode->GetID()));
             py->executeString(QString("labelStatisticsLogic = LabelStatisticsLogic(greyNode, labelNode)"));
             int labelIndex = reportNode->GetFindingLabel();
-            py->executeString(QString("labelNode.SetAttribute('LabelStatisticsVolume', str(labelStatisticsLogic.labelStats[%1,'Volume cc']))").arg(labelIndex));
+            py->executeString(QString("labelNode.SetAttribute('LabelStatisticsVolume', str(labelStatisticsLogic.labelStats[%1,'Volume mm^3']))").arg(labelIndex));
             py->executeString(QString("labelNode.SetAttribute('LabelStatisticsMean', str(labelStatisticsLogic.labelStats[%1,'Mean']))").arg(labelIndex));
             py->executeString(QString("labelNode.SetAttribute('LabelStatisticsMin', str(labelStatisticsLogic.labelStats[%1,'Min']))").arg(labelIndex));
             py->executeString(QString("labelNode.SetAttribute('LabelStatisticsMax', str(labelStatisticsLogic.labelStats[%1,'Max']))").arg(labelIndex));
@@ -1226,9 +1226,9 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
             QString volume = labelNode->GetAttribute("LabelStatisticsVolume");
             QString shapeIDString;
             QString codeMeaning = QString("Volume");
-            QString codeValue = QString("");
+            QString codeValue = QString("G-D705");
             QString description = QString("Volume");
-            QString unitOfMeasure = QString("cc");
+            QString unitOfMeasure = QString("mm3");
             QString segUID = QString(instanceUID.c_str());
             this->AddCalculationCollectionElement(doc, calculationCollection, codeMeaning, codeValue, description, unitOfMeasure, volume, shapeIDString, segUID);
             // Mean
