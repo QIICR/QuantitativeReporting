@@ -305,7 +305,7 @@ class LabelToDICOMSEGConverterSelfTestTest(unittest.TestCase):
       dicomWidget.dicomApp.suspendModel()
       indexer = ctk.ctkDICOMIndexer()
       indexer.addDirectory(slicer.dicomDatabase, dicomFilesDirectory, None)
-      indexer.waitForImportFinished()
+      # indexer.waitForImportFinished()
       dicomWidget.dicomApp.resumeModel()
       '''
 
@@ -418,5 +418,5 @@ class LabelToDICOMSEGConverterSelfTestTest(unittest.TestCase):
     dicomWidget.dicomApp.suspendModel()
     indexer = ctk.ctkDICOMIndexer()
     indexer.addDirectory(dicomDatabase, dicomFilesDirectory, None)
-    indexer.waitForImportFinished()
+    # indexer.waitForImportFinished()
     dicomWidget.dicomApp.resumeModel()
