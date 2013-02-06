@@ -27,8 +27,11 @@
 # assigned the same label ID!
 #
 # It is recommended to pick a label value that corresponds to the segmented
-# structure, as this information will be encoded in the DICOM SEG object
-
+# structure, as this information will be encoded in the DICOM SEG object. See
+# the list of available labels in the Reporting extension wiki documentation
+# page here:
+#  http://wiki.slicer.org/slicerWiki/index.php/Documentation/Nightly/Extensions/Reporting
+#
 # == Support ==
 #
 # fedorov@bwh.harvard.edu
