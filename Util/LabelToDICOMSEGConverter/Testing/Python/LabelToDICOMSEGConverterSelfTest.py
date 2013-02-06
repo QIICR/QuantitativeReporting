@@ -301,13 +301,6 @@ class LabelToDICOMSEGConverterSelfTestTest(unittest.TestCase):
       mainWindow.moduleSelector().selectModule('DICOM')
 
       self.importDICOM(slicer.dicomDatabase, dicomFilesDirectory)
-      '''
-      dicomWidget.dicomApp.suspendModel()
-      indexer = ctk.ctkDICOMIndexer()
-      indexer.addDirectory(slicer.dicomDatabase, dicomFilesDirectory, None)
-      # indexer.waitForImportFinished()
-      dicomWidget.dicomApp.resumeModel()
-      '''
 
       dicomWidget.detailsPopup.open()
       # click on the first row of the tree
@@ -418,5 +411,5 @@ class LabelToDICOMSEGConverterSelfTestTest(unittest.TestCase):
     dicomWidget.dicomApp.suspendModel()
     indexer = ctk.ctkDICOMIndexer()
     indexer.addDirectory(dicomDatabase, dicomFilesDirectory, None)
-    # indexer.waitForImportFinished()
+    indexer.waitForImportFinished()
     dicomWidget.dicomApp.resumeModel()

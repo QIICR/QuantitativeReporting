@@ -309,7 +309,7 @@ class ReportingSelfTestTest(unittest.TestCase):
       dicomWidget.dicomApp.suspendModel()
       indexer = ctk.ctkDICOMIndexer()
       indexer.addDirectory(slicer.dicomDatabase, dicomFilesDirectory, None)
-      # indexer.waitForImportFinished()
+      indexer.waitForImportFinished()
       dicomWidget.dicomApp.resumeModel()
       dicomWidget.detailsPopup.open()
       # click on the first row of the tree
