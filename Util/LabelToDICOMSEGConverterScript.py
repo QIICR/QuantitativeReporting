@@ -94,18 +94,6 @@ def DoIt(inputDir, labelFile, outputDir):
     sNode.ReadData(labelVolume)
     labelVolume.LabelMapOn()
 
-
-    '''
-    sNode = slicer.vtkMRMLVolumeArchetypeStorageNode()
-    sNode.ResetFileNameList()
-    for f in rgbRenamedList:
-      sNode.AddFileName(f)
-    sNode.SetFileName(rgbRenamedList[0])
-    sNode.SetSingleFile(0)
-    inputRGBVolume = slicer.vtkMRMLVectorVolumeNode()
-    sNode.ReadData(inputRGBVolume)
-    '''
-
     reportingLogic = slicer.modules.reporting.logic()
 
     displayNode = slicer.vtkMRMLLabelMapVolumeDisplayNode()
