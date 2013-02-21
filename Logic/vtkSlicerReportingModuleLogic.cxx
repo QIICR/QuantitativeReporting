@@ -2537,7 +2537,7 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
       cast->SetOutputScalarTypeToShort();
       cast->Update();
       vNode->SetAndObserveImageData(cast->GetOutput());
-      imageData = cast->GetOutput();
+      imageData->DeepCopy(cast->GetOutput());
       cast->Delete();
       }
 
@@ -2566,6 +2566,8 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
         }
       }
 
+    vNode->RemoveAllDisplayNodeIDs();
+    vNode->SetAndObserveStorageNodeID(NULL);
     vNode->LabelMapOn();
     vNode->SetAttribute("DICOM.instanceUIDs", instanceUID.c_str());
 
