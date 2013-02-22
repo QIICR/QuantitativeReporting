@@ -113,15 +113,6 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
     defaultColorNode = reportingLogic.GetDefaultColorNode()
     for i in range(labelNodes.GetNumberOfItems()):
-
-      labelNode = labelNodes.GetItemAsObject(i)
-      newLabel = slicer.modules.volumes.logic().CreateAndAddLabelVolume(slicer.mrmlScene, labelNode, loadable.name)
-      newImage = vtk.vtkImageData()
-      oldImage = labelNode.GetImageData()
-      newImage.DeepCopy(oldImage)
-      newLabel.SetAndObserveImageData(newImage)
-
-      '''
       # create and initialize the display node to use default color node
       displayNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLLabelMapVolumeDisplayNode')
       displayNode.SetReferenceCount(displayNode.GetReferenceCount()-1)
@@ -131,12 +122,9 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
       # assign it to the label node
       # this is done here as opposed to Reporting logic to minimize the
       # dependencies of the DICOM SEG functionality in the Slicer internals
-      labelNode.RemoveAllDisplayNodeIDs()
+      labelNode = labelNodes.GetItemAsObject(i)
       labelNode.SetAndObserveDisplayNodeID(displayNode.GetID())
-      '''
-
       slicer.mrmlScene.AddNode(labelNode)
-      
 
     return True
 
