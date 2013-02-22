@@ -2536,8 +2536,8 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
       cast->SetInput(imageData);
       cast->SetOutputScalarTypeToShort();
       cast->Update();
-      vNode->SetAndObserveImageData(cast->GetOutput());
-      imageData = cast->GetOutput();
+      imageData->DeepCopy(cast->GetOutput());
+      vNode->SetAndObserveImageData(imageData);
       cast->Delete();
       }
 
