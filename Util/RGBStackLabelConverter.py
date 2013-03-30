@@ -148,6 +148,10 @@ def DoIt(inputDir, rgbDir):
       rgbIdx = rgbIdx+1
 
     # remove the matched DICOM file from the list
+    if rgbIdx == len(rgbList):
+      print('ERROR: failed to find matching label file for DICOM file '+dcm)
+      return
+
     del rgbList[rgbIdx]
     dcmIdx = dcmIdx+1
 
