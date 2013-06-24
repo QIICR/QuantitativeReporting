@@ -10,7 +10,7 @@
 # 
 # == Usage ==
 #
-# This script takes on input two arguments:
+# This script takes on input three arguments:
 #  1) directory that contains reference DICOM series
 #  2) input label (geometry is expected to match the one of the volume read
 #  from DICOM)
