@@ -2,8 +2,8 @@
 #
 # Install test data
 #
-message("Module source dir is ${MODULE_SOURCE_DIR}")
-set(TEST_DATA_DIR ${MODULE_SOURCE_DIR}/Prototype/TestData/DICOM.CT)
+message("Module source dir is ${${MODULE_NAME}_SOURCE_DIR}")
+set(TEST_DATA_DIR ${${MODULE_NAME}_SOURCE_DIR}/Prototype/TestData/DICOM.CT)
 set(TEMP "${CMAKE_BINARY_DIR}/Testing/Temporary/DICOM.CT")
 MESSAGE(STATUS "Reporting: copying files from ${TEST_DATA_DIR} to ${TEMP}")
 configure_file(

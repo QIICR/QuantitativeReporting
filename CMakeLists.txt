@@ -22,11 +22,6 @@ set(MODULE_TITLE ${MODULE_NAME})
 string(TOUPPER ${MODULE_NAME} MODULE_NAME_UPPER)
 
 #-----------------------------------------------------------------------------
-set(MODULE_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-set(MODULE_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
-message("Module source dir in main cmake is ${MODULE_SOURCE_DIR}")
-
-#-----------------------------------------------------------------------------
 SlicerMacroExtractRepositoryInfo(VAR_PREFIX ${MODULE_NAME})
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/CMake/vtk${MODULE_NAME}VersionConfigure.h.in
