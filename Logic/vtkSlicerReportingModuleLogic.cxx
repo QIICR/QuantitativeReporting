@@ -35,6 +35,7 @@
 #include <vtkMath.h>
 #include <vtkMatrix4x4.h>
 #include <vtkNew.h>
+#include <vtkObjectFactory.h>
 #include <vtkSmartPointer.h>
 #include <vtksys/SystemTools.hxx>
 #include <vtkPointData.h>
