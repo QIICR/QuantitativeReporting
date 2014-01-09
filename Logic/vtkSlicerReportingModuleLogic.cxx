@@ -28,6 +28,7 @@
 #include <vtkMRMLDisplayNode.h>
 #include <vtkMRMLReportingReportNode.h>
 #include <vtkMRMLScalarVolumeNode.h>
+#include <vtkMRMLScene.h>
 #include <vtkMRMLScriptedModuleNode.h>
 
 // VTK includes

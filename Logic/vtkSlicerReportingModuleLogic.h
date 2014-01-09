@@ -39,6 +39,7 @@ class vtkMRMLColorNode;
 class vtkMRMLVolumeNode;
 class vtkMRMLReportingReportNode;
 class vtkMRMLScalarVolumeNode;
+class vtkMRMLScene;
 
 class QDomDocument;
 class QDomElement;
