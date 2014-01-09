@@ -26,6 +26,7 @@
 
 // Slicer includes
 #include "vtkSlicerModuleLogic.h"
+#include <vtkStdString.h>
 
 // MRML includes
 
@@ -142,8 +143,8 @@ public:
   bool DicomSegRead(vtkCollection*, const std::string fname, vtkMRMLColorNode* colorNode = NULL);
 
   /// set/get the error string
-  vtkGetMacro(ErrorMessage, std::string);
-  vtkSetMacro(ErrorMessage, std::string);
+  vtkGetMacro(ErrorMessage, vtkStdString);
+  vtkSetMacro(ErrorMessage, vtkStdString);
   
   std::string GetFileNameFromUID(std::string uid);
 
@@ -221,7 +222,7 @@ private:
   std::map<std::string, ColorCategorizationMapType> colorCategorizationMaps;
 
   /// save an error string to pass to the gui, reset when test passes
-  std::string ErrorMessage;
+  vtkStdString ErrorMessage;
 };
 
 #endif
