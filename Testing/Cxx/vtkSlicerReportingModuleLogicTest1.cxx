@@ -12,6 +12,7 @@
 // MRML includes
 #include <vtkMRMLCoreTestingMacros.h>
 #include <vtkMRMLScalarVolumeNode.h>
+#include <vtkMRMLScene.h>
 
 // Qt includes
 #include <QString>
