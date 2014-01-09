@@ -302,11 +302,15 @@ class LabelToDICOMSEGConverterSelfTestTest(unittest.TestCase):
 
       self.importDICOM(slicer.dicomDatabase, dicomFilesDirectory)
 
-      dicomWidget.detailsPopup.open()
-      # click on the first row of the tree
-      index = dicomWidget.tree.indexAt(qt.QPoint(0,0))
-      dicomWidget.onTreeClicked(index)
+      patient = slicer.dicomDatabase.patients()[0]
+      studies = slicer.dicomDatabase.studiesForPatient(patient)
+      series = [slicer.dicomDatabase.seriesForStudy(study) for study in studies]
+      seriesUIDs = [uid for uidList in series for uid in uidList]
+      dicomWidget.detailsPopup.offerLoadables(seriesUIDs, 'SeriesUIDList')
+      dicomWidget.detailsPopup.examineForLoading()
 
+      loadablesByPlugin = dicomWidget.detailsPopup.loadablesByPlugin
+ 
       self.delayDisplay('Loading Selection')
       dicomWidget.detailsPopup.loadCheckedLoadables()
 
@@ -358,10 +362,14 @@ class LabelToDICOMSEGConverterSelfTestTest(unittest.TestCase):
       
       slicer.mrmlScene.Clear(0)
   
-      # try to load back the segmentation from DICOM module
-      dicomWidget.detailsPopup.open()
-      index = dicomWidget.tree.indexAt(qt.QPoint(0,0))
-      dicomWidget.onTreeClicked(index)
+      patient = slicer.dicomDatabase.patients()[0]
+      studies = slicer.dicomDatabase.studiesForPatient(patient)
+      series = [slicer.dicomDatabase.seriesForStudy(study) for study in studies]
+      seriesUIDs = [uid for uidList in series for uid in uidList]
+      dicomWidget.detailsPopup.offerLoadables(seriesUIDs, 'SeriesUIDList')
+      dicomWidget.detailsPopup.examineForLoading()
+
+      loadablesByPlugin = dicomWidget.detailsPopup.loadablesByPlugin
 
       self.delayDisplay('Wait',10000)
 
@@ -408,8 +416,6 @@ class LabelToDICOMSEGConverterSelfTestTest(unittest.TestCase):
 
   def importDICOM(self, dicomDatabase, dicomFilesDirectory):
     dicomWidget = slicer.modules.dicom.widgetRepresentation().self()
-    dicomWidget.dicomApp.suspendModel()
     indexer = ctk.ctkDICOMIndexer()
     indexer.addDirectory(dicomDatabase, dicomFilesDirectory, None)
     indexer.waitForImportFinished()
-    dicomWidget.dicomApp.resumeModel()

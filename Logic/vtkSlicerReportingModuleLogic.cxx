@@ -60,6 +60,7 @@
 #include <time.h>
 #include <fstream>
 #include <algorithm>
+//#include <string>
 
 // DCMTK includes
 #include <dcmtk/dcmdata/dcmetinf.h>

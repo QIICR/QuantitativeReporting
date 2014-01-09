@@ -306,15 +306,19 @@ class ReportingSelfTestTest(unittest.TestCase):
       self.delayDisplay('Importing DICOM')
       mainWindow = slicer.util.mainWindow()
       mainWindow.moduleSelector().selectModule('DICOM')
-      dicomWidget.dicomApp.suspendModel()
+      #dicomWidget.dicomApp.suspendModel()
       indexer = ctk.ctkDICOMIndexer()
       indexer.addDirectory(slicer.dicomDatabase, dicomFilesDirectory, None)
       indexer.waitForImportFinished()
-      dicomWidget.dicomApp.resumeModel()
-      dicomWidget.detailsPopup.open()
-      # click on the first row of the tree
-      index = dicomWidget.tree.indexAt(qt.QPoint(0,0))
-      dicomWidget.onTreeClicked(index)
+
+      patient = slicer.dicomDatabase.patients()[0]
+      studies = slicer.dicomDatabase.studiesForPatient(patient)
+      series = [slicer.dicomDatabase.seriesForStudy(study) for study in studies]
+      seriesUIDs = [uid for uidList in series for uid in uidList]
+      dicomWidget.detailsPopup.offerLoadables(seriesUIDs, 'SeriesUIDList')
+      dicomWidget.detailsPopup.examineForLoading()
+
+      loadablesByPlugin = dicomWidget.detailsPopup.loadablesByPlugin
 
       self.delayDisplay('Loading Selection')
       dicomWidget.detailsPopup.loadCheckedLoadables()
