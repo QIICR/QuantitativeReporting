@@ -60,6 +60,9 @@
 #include <time.h>
 #include <fstream>
 #include <algorithm>
+#include <functional>
+#include <cctype>
+#include <locale>
 //#include <string>
 
 // DCMTK includes
@@ -180,6 +183,7 @@ bool vtkSlicerReportingModuleLogic::InitializeTerminologyMappingFromFile(std::st
       {
       std::string lineIn;
       std::getline(mapFile, lineIn);
+
       if(lineIn[0] == '#')
         continue;
       if(lineIn.find("SlicerLUT=") == std::string::npos)
@@ -187,9 +191,10 @@ bool vtkSlicerReportingModuleLogic::InitializeTerminologyMappingFromFile(std::st
       size_t delim = lineIn.find("=");
       lutName = lineIn.substr(delim+1,lineIn.length()-delim);
       this->colorCategorizationMaps[lutName] = ColorCategorizationMapType();
+
       break;
       }
-
+    
     while(!mapFile.eof()){
       StandardTerm term;
       ColorLabelCategorization termMapping;
@@ -315,10 +320,12 @@ bool vtkSlicerReportingModuleLogic::PrintCategorizationFromLabel(int label){
 
 //---------------------------------------------------------------------------
 std::string vtkSlicerReportingModuleLogic::RemoveLeadAndTrailSpaces(std::string in){
-  size_t i, j;
-  for(i=0;in[i]==' ';i++){};
-  for(j=in.length()-1;in[j]==' ';j--){};
-  return in.substr(i,in.length()-i-(in.length()-j-1));
+  std::string ret = in;
+  ret.erase(ret.begin(), std::find_if(ret.begin(),ret.end(),
+    std::not1(std::ptr_fun<int,int>(std::isspace))));
+  ret.erase(std::find_if(ret.rbegin(),ret.rend(),
+    std::not1(std::ptr_fun<int,int>(std::isspace))).base(), ret.end());
+  return ret;
 }
 
 //---------------------------------------------------------------------------
@@ -335,7 +342,6 @@ bool vtkSlicerReportingModuleLogic::ParseTerm(std::string str, StandardTerm& ter
   term.CodingSchemeDesignator = str.substr(0,found);
   str = str.substr(found+1, str.length());
   term.CodeMeaning = str;
-  //std::cout << "Code: " << term.CodeValue << " Desi: " << term.CodingSchemeDesignator << " Meaning: " << term.CodeMeaning << std::endl;
   return true;
 }
 
