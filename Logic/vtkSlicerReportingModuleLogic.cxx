@@ -201,10 +201,8 @@ bool vtkSlicerReportingModuleLogic::InitializeTerminologyMappingFromFile(std::st
       std::vector<std::string> tokens;
       std::stringstream ss(lineIn);
       std::string item;
-      std::cout << "Tokens: ";
       while(std::getline(ss,item,',')){
         tokens.push_back(item);
-        std::cout << item << " ";
       }
 
       termMapping.LabelValue = atoi(tokens[0].c_str());
@@ -218,9 +216,6 @@ bool vtkSlicerReportingModuleLogic::InitializeTerminologyMappingFromFile(std::st
       termMapping.SegmentedPropertyTypeModifier = term;
 
       this->colorCategorizationMaps[lutName][termMapping.LabelValue] = termMapping;
-
-      std::cout << "Term parsed: ";
-      termMapping.PrintSelf(std::cout);
 
      }
   }
