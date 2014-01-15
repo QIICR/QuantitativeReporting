@@ -2157,6 +2157,47 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
     subItem2->putAndInsertString(DCM_CodeMeaning,labelCat.SegmentedPropertyTypeModifier.CodeMeaning.c_str());
   }
 
+  // Common Instance Reference Module
+  {
+    DcmElement *element;
+    char *str, *classUID, *studyInstanceUID;
+
+    // get the common pieces we will need from the source series
+    dcmDatasetVector[0]->findAndGetElement(DCM_SeriesInstanceUID, element);
+    element->getString(str);
+    dcmDatasetVector[0]->findAndGetElement(DCM_SOPClassUID, element);
+    element->getString(classUID);
+    dcmDatasetVector[0]->findAndGetElement(DCM_StudyInstanceUID, element);
+    element->getString(studyInstanceUID);
+
+    // Referenced Series Sequence
+    dataset->findOrCreateSequenceItem(DCM_ReferencedSeriesSequence, Item);
+    Item->putAndInsertString(DCM_SeriesInstanceUID, str);
+    for(int i=0;i<dcmDatasetVector.size();i++){
+      dcmDatasetVector[i]->findAndGetElement(DCM_SOPInstanceUID, element);
+      element->getString(str);
+      //std::cout << "Adding instance UID " << str << std::endl;
+      Item->findOrCreateSequenceItem(DCM_ReferencedInstanceSequence, subItem, i);
+      subItem->putAndInsertString(DCM_ReferencedSOPClassUID, classUID);
+      subItem->putAndInsertString(DCM_ReferencedSOPInstanceUID, str);
+    }
+
+    // Studies Containing Other Referenced Instances Sequence
+    Item->findOrCreateSequenceItem(DCM_StudiesContainingOtherReferencedInstancesSequence, subItem);
+    subItem->putAndInsertString(DCM_StudyInstanceUID, studyInstanceUID);
+    subItem->findOrCreateSequenceItem(DCM_ReferencedSeriesSequence, subItem2);
+    subItem2->putAndInsertString(DCM_SeriesInstanceUID, str);
+
+    for(int i=0;i<dcmDatasetVector.size();i++){
+      DcmItem *subItem3;
+      dcmDatasetVector[i]->findAndGetElement(DCM_SOPInstanceUID, element);
+      element->getString(str);
+      subItem2->findOrCreateSequenceItem(DCM_ReferencedInstanceSequence, subItem3, i);
+      subItem3->putAndInsertString(DCM_ReferencedSOPClassUID, classUID);
+      subItem3->putAndInsertString(DCM_ReferencedSOPInstanceUID, str);
+    }
+  }
+
   //  Multi-frame Functional Groups Module
   //   Shared functional groups sequence
   std::cout << "Before initializing SharedFunctionalGroupsSequence" << std::endl;
