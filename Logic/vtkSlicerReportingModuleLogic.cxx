@@ -197,47 +197,31 @@ bool vtkSlicerReportingModuleLogic::InitializeTerminologyMappingFromFile(std::st
       std::getline(mapFile, lineIn);
       if(lineIn.length()<30 || lineIn[0] == '#')
         continue;
-      size_t found;
-      
-      // table format:
-      //   int label, text label, seg property category, seg property type, seg property type modifier
-      // category, type and modifier are encoded as (<code>;<code scheme designator>;<code name>)
 
-      // color number
+      std::vector<std::string> tokens;
+      std::stringstream ss(lineIn);
+      std::string item;
+      std::cout << "Tokens: ";
+      while(std::getline(ss,item,',')){
+        tokens.push_back(item);
+        std::cout << item << " ";
+      }
 
-      found = lineIn.find(",");
-      termMapping.LabelValue = atoi(this->RemoveLeadAndTrailSpaces(lineIn.substr(0,found)).c_str());
-      
-      lineIn = lineIn.substr(found+1,lineIn.length()-found-1);
-
-      // color text -- can skip
-      found = lineIn.find(",");
-      lineIn = lineIn.substr(found+1,lineIn.length()-found-1);
-
-      // segmented property category
-      found = lineIn.find(",");
-      this->ParseTerm(lineIn.substr(0,found), term);
-      lineIn = lineIn.substr(found+1,lineIn.length()-found-1);
+      termMapping.LabelValue = atoi(tokens[0].c_str());
+      this->ParseTerm(tokens[2],term);
       termMapping.SegmentedPropertyCategory = term;
-
-      // segmented property type
-      found = lineIn.find(",");
-      this->ParseTerm(lineIn.substr(0,found), term);
-      lineIn = lineIn.substr(found+1,lineIn.length()-found-1);
+      term = StandardTerm();
+      this->ParseTerm(tokens[3],term);
       termMapping.SegmentedPropertyType = term;
+      term = StandardTerm();
+      this->ParseTerm(tokens[4],term);
+      termMapping.SegmentedPropertyTypeModifier = term;
 
-      // segmented property type modifier
-      found = lineIn.find(",");
-      if(this->ParseTerm(lineIn.substr(0,found), term))
-        {
-        lineIn = lineIn.substr(found+1,lineIn.length()-found-1);
-        termMapping.SegmentedPropertyTypeModifier = term;
-        }
-      else
-        {
-        termMapping.SegmentedPropertyTypeModifier = StandardTerm();
-        }
       this->colorCategorizationMaps[lutName][termMapping.LabelValue] = termMapping;
+
+      std::cout << "Term parsed: ";
+      termMapping.PrintSelf(std::cout);
+
      }
   }
   std::cout << this->colorCategorizationMaps[lutName].size() << " terms were read for Slicer LUT " << lutName << std::endl;
