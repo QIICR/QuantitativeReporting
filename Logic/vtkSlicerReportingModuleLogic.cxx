@@ -2180,18 +2180,17 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
     }
 
     // Studies Containing Other Referenced Instances Sequence
-    Item->findOrCreateSequenceItem(DCM_StudiesContainingOtherReferencedInstancesSequence, subItem);
-    subItem->putAndInsertString(DCM_StudyInstanceUID, studyInstanceUID);
-    subItem->findOrCreateSequenceItem(DCM_ReferencedSeriesSequence, subItem2);
-    subItem2->putAndInsertString(DCM_SeriesInstanceUID, str);
+    dataset->findOrCreateSequenceItem(DCM_StudiesContainingOtherReferencedInstancesSequence, Item);
+    Item->putAndInsertString(DCM_StudyInstanceUID, studyInstanceUID);
+    Item->findOrCreateSequenceItem(DCM_ReferencedSeriesSequence, subItem);
+    subItem->putAndInsertString(DCM_SeriesInstanceUID, str);
 
     for(int i=0;i<dcmDatasetVector.size();i++){
-      DcmItem *subItem3;
       dcmDatasetVector[i]->findAndGetElement(DCM_SOPInstanceUID, element);
       element->getString(str);
-      subItem2->findOrCreateSequenceItem(DCM_ReferencedInstanceSequence, subItem3, i);
-      subItem3->putAndInsertString(DCM_ReferencedSOPClassUID, classUID);
-      subItem3->putAndInsertString(DCM_ReferencedSOPInstanceUID, str);
+      subItem->findOrCreateSequenceItem(DCM_ReferencedInstanceSequence, subItem2, i);
+      subItem2->putAndInsertString(DCM_ReferencedSOPClassUID, classUID);
+      subItem2->putAndInsertString(DCM_ReferencedSOPInstanceUID, str);
     }
   }
 
