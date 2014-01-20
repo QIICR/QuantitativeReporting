@@ -2105,9 +2105,6 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
 
   dataset->putAndInsertString(DCM_LossyImageCompression,"00");
 
-  copyDcmElement(DCM_PixelSpacing, dcm0, dataset);
-  copyDcmElement(DCM_SliceThickness, dcm0, dataset);
-
   //   Segmentation Image module
   dataset->putAndInsertString(DCM_SegmentationType, "BINARY");
   dataset->putAndInsertString(DCM_ContentLabel, "ROI"); // CS
