@@ -2259,6 +2259,10 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
     Item->findOrCreateSequenceItem(DCM_PixelMeasuresSequence, subItem);
     subItem->putAndInsertString(DCM_SliceThickness, sliceThicknessStr);
     subItem->putAndInsertString(DCM_PixelSpacing, pixelSpacingStr);
+    
+    Item->findOrCreateSequenceItem(DCM_SegmentIdentificationSequence, subItem);
+    subItem->putAndInsertString(DCM_ReferencedSegmentNumber, "1");
+
     }
 
   std::cout << "Before initializing PerFrameGroupsSequence" << std::endl;
@@ -2281,9 +2285,6 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
     element->getString(str);
     Item->findOrCreateSequenceItem(DCM_PlanePositionSequence, subItem);
     subItem->putAndInsertString(DCM_ImagePositionPatient, str);
-
-    Item->findOrCreateSequenceItem(DCM_SegmentIdentificationSequence, subItem);
-    subItem->putAndInsertString(DCM_ReferencedSegmentNumber, "1");
 
     }
 
