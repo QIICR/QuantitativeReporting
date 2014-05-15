@@ -234,7 +234,8 @@ class qSlicerReportingModuleWidget:
 
   def onEditorParameterNodeChanged(self,caller,event):
     label = self.__editorParameterNode.GetParameter('label')
-    if self.__rNode:
+    label = int(label)
+    if self.__rNode and label != 0:
       self.__rNode.SetFindingLabel(int(label))
       self.__logic.PropagateFindingUpdateToMarkup()
       self.updateTreeView()
