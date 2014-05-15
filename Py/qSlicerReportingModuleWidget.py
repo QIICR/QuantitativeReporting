@@ -243,7 +243,7 @@ class qSlicerReportingModuleWidget:
     # switch to Two-over-Two layout
     lm = slicer.app.layoutManager()
     if lm != None:
-      lm.setLayout(26) # two over two
+      lm.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutTwoOverTwoView)
 
     # update the logic to know that the module has been entered
     self.__logic.GUIHiddenOff()
