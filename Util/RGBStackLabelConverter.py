@@ -17,13 +17,14 @@
 #  and the name of that slice should include the name for the corresponding
 #  DICOM slice. For example, if DICOM slice name is "F0-1234.dcm", the name
 #  for the corresponding RGB slice can be "F0-1234-label.bmp".
+#  3) output directory
 #
 # To run the script install Slicer4 and the latest version of the Reporting
 # extension, then from command line run:
-# > Slicer --python-script RGBStackLabelConverter.py <input_dicom_dir> <input_rgb_dir>
+# > Slicer --python-script RGBStackLabelConverter.py <input_dicom_dir>
+# <input_rgb_dir> <output_dir>
 #
-# As a result, the following files will be created in the directory from which
-# the script was run:
+# As a result, the following files will be created in the output directory:
 # 1) input_volume.nrrd: reconstructed DICOM series in NRRD format
 # 2) output_label.nrrd: reconstructed segmentation volume
 # 3) <UID>.dcm: DICOM SEG object containing the segmentation
@@ -57,7 +58,7 @@ import sys, glob, shutil
 from DICOMLib import DICOMPlugin
 from DICOMLib import DICOMLoadable
 
-def DoIt(inputDir, rgbDir):
+def DoIt(inputDir, rgbDir, outputDir):
 
 
   #
@@ -97,7 +98,7 @@ def DoIt(inputDir, rgbDir):
   '''
 
   sNode.SetWriteFileFormat('nrrd')
-  sNode.SetFileName('input_volume.nrrd')
+  sNode.SetFileName(os.path.join(outputDir,'input_volume.nrrd'))
   sNode.WriteData(inputVolume)
 
   # 
@@ -197,7 +198,7 @@ def DoIt(inputDir, rgbDir):
   outputLabel.SetAndObserveDisplayNodeID(displayNode.GetID())
   
   sNode.SetWriteFileFormat('nrrd')
-  sNode.SetFileName('label_output.nrrd')
+  sNode.SetFileName(os.path.join(outputDir,'label_output.nrrd'))
   sNode.WriteData(outputLabel)
   
   # save as DICOM SEG
@@ -218,7 +219,7 @@ def DoIt(inputDir, rgbDir):
     dbFileName = dbFileName +'/ctkDICOM.sql'
     reportingLogic.InitializeDICOMDatabase(dbFileName)
 
-    reportingLogic.DicomSegWrite(labelCollection, '.')
+    reportingLogic.DicomSegWrite(labelCollection, outputDir)
 
 #
 if len(sys.argv)<3:
@@ -228,4 +229,5 @@ if len(sys.argv)<3:
 else:
   inputDir = sys.argv[1]
   rgbDir = sys.argv[2]
-  DoIt(inputDir, rgbDir) 
+  outputDir = sys.argv[3]
+  DoIt(inputDir, rgbDir, outputDir) 
