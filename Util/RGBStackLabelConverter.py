@@ -75,7 +75,7 @@ def DoIt(inputDir, rgbDir, outputDir):
 
 
   indexer = ctk.ctkDICOMIndexer()
-  indexer.addDirectory(slicer.dicomDatabase, inputDir, None)
+  indexer.addDirectory(slicer.dicomDatabase, inputDir)
   indexer.waitForImportFinished()
 
   loadables = scalarVolumePlugin.examine([dcmList])
