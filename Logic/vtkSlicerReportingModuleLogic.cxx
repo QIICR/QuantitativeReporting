@@ -2068,9 +2068,13 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
   dataset->putAndInsertString(DCM_Manufacturer, "3D Slicer Community");
 
   //  Enhanced General Equipment module
-  dataset->putAndInsertString(DCM_ManufacturerModelName, "AndreyTestDICOMSegWriter v.0.0.1");
+  dataset->putAndInsertString(DCM_ManufacturerModelName, "https://github.com/fedorov/Reporting");
   dataset->putAndInsertString(DCM_DeviceSerialNumber, "0.0.1");
-  dataset->putAndInsertString(DCM_SoftwareVersions, "0.0.1");
+  qSlicerApplication* slicer = qSlicerApplication::application();
+  QString slicerVersion = QString("Slicer ") + slicer->applicationVersion() + " r" + slicer->repositoryRevision();
+  std::string reportingVersion = std::string(" Reporting ") + Reporting_WC_REVISION;
+  std::string softwareVersion = std::string(qPrintable(slicerVersion)) + reportingVersion;
+  dataset->putAndInsertString(DCM_SoftwareVersions, softwareVersion.c_str());
 
   // Segmentation IE
 
