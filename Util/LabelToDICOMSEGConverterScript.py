@@ -14,7 +14,10 @@
 #  1) directory that contains reference DICOM series
 #  2) input label (geometry is expected to match the one of the volume read
 #  from DICOM)
-#  3) directory to store the output DICOM SEG series. i
+#  3) directory to store the output DICOM SEG series. 
+#  4) (optional) the label to be assigned, this label will be used to match
+#     SegmentedPropertyCategory and SegmentedPropertyType for the output
+#     object
 #
 # To run the script install Slicer4 and the latest version of the Reporting
 # extension, then from command line run:
@@ -46,7 +49,7 @@ import sys, glob, shutil, qt
 from DICOMLib import DICOMPlugin
 from DICOMLib import DICOMLoadable
 
-def DoIt(inputDir, labelFile, outputDir):
+def DoIt(inputDir, labelFile, outputDir, forceLabel):
 
   dbDir1 = slicer.app.temporaryPath+'/LabelConverter'
 
@@ -94,6 +97,20 @@ def DoIt(inputDir, labelFile, outputDir):
     sNode.ReadData(labelVolume)
     labelVolume.LabelMapOn()
 
+    if forceLabel>0:
+      print('Forcing label to '+str(forceLabel))
+      labelImage = labelVolume.GetImageData()
+      thresh = vtk.vtkImageThreshold()
+      thresh.SetInput(labelImage)
+      thresh.ThresholdBetween(1, labelImage.GetScalarRange()[1])
+      thresh.SetInValue(int(forceLabel))
+      thresh.SetOutValue(0)
+      thresh.ReplaceInOn()
+      thresh.ReplaceOutOn()
+      thresh.Update()
+      labelImage = thresh.GetOutput()
+      labelVolume.SetAndObserveImageData(labelImage)
+      
     reportingLogic = slicer.modules.reporting.logic()
 
     displayNode = slicer.vtkMRMLLabelMapVolumeDisplayNode()
@@ -125,10 +142,13 @@ def DoIt(inputDir, labelFile, outputDir):
 
 if len(sys.argv)<4:
   print 'Input parameters missing!'
-  print 'Usage: ',sys.argv[0],' <input directory with DICOM data> <input label> <output dir>'
+  print 'Usage: ',sys.argv[0],' <input directory with DICOM data> <input label> <output dir> <optional: label to assign>'
   exit()
 else:
   inputDICOMDir = sys.argv[1]
   inputLabelName = sys.argv[2]
   outputDICOMDir = sys.argv[3]
-  DoIt(inputDICOMDir, inputLabelName, outputDICOMDir) 
+  forceLabel = 0
+  if len(sys.argv)>4:
+    forceLabel = sys.argv[4]
+  DoIt(inputDICOMDir, inputLabelName, outputDICOMDir, forceLabel) 
