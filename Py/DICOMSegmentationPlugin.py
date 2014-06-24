@@ -126,6 +126,9 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
       labelNode.SetAndObserveDisplayNodeID(displayNode.GetID())
       slicer.mrmlScene.AddNode(labelNode)
 
+      # create Subject hierarchy nodes for the loaded series
+      self.addSeriesInSubjectHierarchy(loadable, labelNode)
+
     return True
 
 #
