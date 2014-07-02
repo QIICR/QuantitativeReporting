@@ -44,7 +44,7 @@
 
 from __main__ import slicer, vtk, ctk
 import sys, glob, shutil, qt
-# import args
+import SimpleITK as sitk
 
 from DICOMLib import DICOMPlugin
 from DICOMLib import DICOMLoadable
@@ -52,6 +52,7 @@ from DICOMLib import DICOMLoadable
 def DoIt(inputDir, labelFile, outputDir, forceLabel):
 
   dbDir1 = slicer.app.temporaryPath+'/LabelConverter'
+  reportingLogic = slicer.modules.reporting.logic()
 
   print('Temporary directory location: '+dbDir1)
   qt.QDir().mkpath(dbDir1)
@@ -88,6 +89,7 @@ def DoIt(inputDir, labelFile, outputDir, forceLabel):
       exit()
   
     inputVolume = scalarVolumePlugin.load(loadables[0])
+    slicer.mrmlScene.AddNode(inputVolume)
     print('Input volume loaded!')
 
     # read the label volume
@@ -110,24 +112,36 @@ def DoIt(inputDir, labelFile, outputDir, forceLabel):
       thresh.Update()
       labelImage = thresh.GetOutput()
       labelVolume.SetAndObserveImageData(labelImage)
-      
-    reportingLogic = slicer.modules.reporting.logic()
+
+    slicer.mrmlScene.AddNode(labelVolume)
+    
+    # resample label to the input volume raster
+    resampledLabel = slicer.vtkMRMLScalarVolumeNode()
+    slicer.mrmlScene.AddNode(resampledLabel)
+    eye = slicer.vtkMRMLLinearTransformNode()
+    slicer.mrmlScene.AddNode(eye)
+    parameters = {}
+    parameters['inputVolume'] = labelVolume.GetID()
+    parameters['referenceVolume'] = inputVolume.GetID()
+    parameters['outputVolume'] = resampledLabel.GetID()
+    parameters['warpTransform'] = eye.GetID()
+    parameters['interpolationMode'] = 'NearestNeighbor'
+    parameters['pixelType'] = 'ushort'
+    cliNode = None
+    cliNode = slicer.cli.run(slicer.modules.brainsresample, None, parameters, 1)
+    labelVolume = resampledLabel
 
     displayNode = slicer.vtkMRMLLabelMapVolumeDisplayNode()
     displayNode.SetAndObserveColorNodeID(reportingLogic.GetDefaultColorNode().GetID())
     slicer.mrmlScene.AddNode(displayNode)
-    slicer.mrmlScene.AddNode(labelVolume)
+
+    labelVolume.SetAttribute('AssociatedNodeID',inputVolume.GetID())
+    labelVolume.LabelMapOn()
     labelVolume.SetAndObserveDisplayNodeID(displayNode.GetID())
-    print('Display node set up, ID = '+str(displayNode.GetID()))
-  
-    # save as DICOM SEG
+    
+    # initialize the DICOM DB for Reporting logic, save as DICOM SEG
     labelCollection = vtk.vtkCollection()
     labelCollection.AddItem(labelVolume)
-
-    slicer.mrmlScene.AddNode(inputVolume)
-    labelVolume.SetAttribute('AssociatedNodeID',inputVolume.GetID())
-
-    # initialize the DICOM DB for Reporting logic
 
     print('About to write DICOM SEG!')
     dbFileName = slicer.dicomDatabase.databaseFilename

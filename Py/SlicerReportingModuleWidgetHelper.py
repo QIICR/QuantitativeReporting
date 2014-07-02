@@ -477,12 +477,21 @@ class SlicerReportingModuleWidgetHelper( object ):
     dim1 = image1.GetDimensions()
     dim2 = image2.GetDimensions()
 
-    print dim1,' ',dim2
+    if dim1[0] != dim2[0] or dim1[1] != dim2[1] or dim1[2] != dim2[2]:
+      return False
 
-    if dim1[0] == dim2[0] and dim1[1] == dim2[1] and dim1[2] == dim2[2]:
-      return True
+    # check orientation
+    dir1 = vtk.vtkMatrix4x4()
+    dir2 = vtk.vtkMatrix4x4()
+    vol1.GetIJKToRASDirectionMatrix(dir1)
+    vol2.GetIJKToRASDirectionMatrix(dir2)
 
-    return False
+    for i in range(4):
+      for j in range(4):
+        if dir1.GetElement(i,j) != dir2.GetElement(i,j):
+          return False
+
+    return True
 
   @staticmethod
   def getEditorParameterNode():
