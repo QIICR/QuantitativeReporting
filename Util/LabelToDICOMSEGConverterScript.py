@@ -44,7 +44,6 @@
 
 from __main__ import slicer, vtk, ctk
 import sys, glob, shutil, qt
-import SimpleITK as sitk
 
 from DICOMLib import DICOMPlugin
 from DICOMLib import DICOMLoadable
