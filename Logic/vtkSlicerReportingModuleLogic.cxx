@@ -2037,6 +2037,10 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
   dataset->putAndInsertString(DCM_StudyID, "1"); // David Clunie: should be initialized (not required, but good idea)
   copyDcmElement(DCM_AccessionNumber, dcm0, dataset);
 
+  // Frame Of Reference IE
+  copyDcmElement(DCM_FrameOfReferenceUID, dcm0, dataset);
+  copyDcmElement(DCM_PositionReferenceIndicator, dcm0, dataset); // David Clunie: must be present, may be empty
+
   OFString contentDate, contentTime;    // David Clunie: must be present and initialized
   DcmDate::getCurrentDate(contentDate);
   DcmTime::getCurrentTime(contentTime);
@@ -2058,10 +2062,6 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
 
   //  Segmentation Series module
   dataset->putAndInsertString(DCM_SeriesNumber,"1000");
-
-  // Frame Of Reference IE
-  dataset->putAndInsertString(DCM_FrameOfReferenceUID, seriesUIDStr);
-  dataset->putAndInsertString(DCM_PositionReferenceIndicator, ""); // David Clunie: must be present, may be empty
 
   // Equipment IE
   //  General Equipment module
