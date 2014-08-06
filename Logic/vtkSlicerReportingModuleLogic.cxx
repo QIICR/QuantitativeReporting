@@ -1939,7 +1939,11 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
   if(labelImage->GetScalarType() != 4)
     {
     vtkImageCast *cast = vtkImageCast::New();
+#if (VTK_MAJOR_VERSION < 6)
     cast->SetInput(labelImage);
+#else
+    cast->SetInputData(labelImage);
+#endif
     cast->SetOutputScalarTypeToShort();
     cast->Update();
     vtkSmartPointer<vtkMRMLScalarVolumeNode> labelNode = vtkMRMLScalarVolumeNode::SafeDownCast(labelNodes->GetItemAsObject(0));
@@ -2552,7 +2556,7 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
         else
           {
           // use the tag value only if the coding scheme designator and color
-          // name match!        
+          // name match!
           labelValue = tmpLabelValue;
           }
         }
@@ -2563,7 +2567,11 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
     if(imageData->GetScalarType() != 4) // check if short
       {
       vtkImageCast *cast = vtkImageCast::New();
+#if (VTK_MAJOR_VERSION < 6)
       cast->SetInput(imageData);
+#else
+      cast->SetInputData(imageData);
+#endif
       cast->SetOutputScalarTypeToShort();
       cast->Update();
       imageData->DeepCopy(cast->GetOutput());
@@ -2697,7 +2705,11 @@ void vtkSlicerReportingModuleLogic::PropagateFindingUpdateToMarkup()
 
         vtkImageData* labelImage = labelVolumeNode->GetImageData();
         vtkImageThreshold* thresh = vtkImageThreshold::New();
+#if (VTK_MAJOR_VERSION < 6)
         thresh->SetInput(labelImage);
+#else
+        thresh->SetInputData(labelImage);
+#endif
         thresh->ThresholdByUpper(1);
         thresh->SetInValue(reportNode->GetFindingLabel());
         thresh->Update();
