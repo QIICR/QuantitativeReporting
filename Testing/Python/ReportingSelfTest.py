@@ -386,7 +386,10 @@ class ReportingSelfTestTest(unittest.TestCase):
       labelDisplayNode.SetAndObserveColorNodeID('vtkMRMLColorTableNodeFileGenericAnatomyColors.txt')
       image = volume.GetImageData()
       thresh = vtk.vtkImageThreshold()
-      thresh.SetInput(image)
+      if vtk.vtkVersion().GetVTKMajorVersion() < 6:
+        thresh.SetInput(image)
+      else:
+        thresh.SetInputData(image)
       thresh.ThresholdBetween(10,400)
       thresh.SetInValue(report.GetFindingLabel())
       thresh.SetOutValue(0)

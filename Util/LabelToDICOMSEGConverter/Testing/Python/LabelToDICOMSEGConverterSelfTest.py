@@ -336,7 +336,10 @@ class LabelToDICOMSEGConverterSelfTestTest(unittest.TestCase):
       labelDisplayNode.SetAndObserveColorNodeID('vtkMRMLColorTableNodeFileGenericAnatomyColors.txt')
       image = volume.GetImageData()
       thresh = vtk.vtkImageThreshold()
-      thresh.SetInput(image)
+      if vtk.vtkVersion().GetVTKMajorVersion() < 6:
+        thresh.SetInput(image)
+      else:
+        thresh.SetInputData(image)
       thresh.ThresholdBetween(10,400)
       thresh.SetInValue(10)
       thresh.SetOutValue(0)
@@ -384,7 +387,10 @@ class LabelToDICOMSEGConverterSelfTestTest(unittest.TestCase):
           image = volume.GetImageData()
           previousImage = thresh.GetOutput()
           diff = vtk.vtkImageDifference()
-          diff.SetInput(thresh.GetOutput())
+          if vtk.vtkVersion().GetVTKMajorVersion() < 6:
+            diff.SetInput(thresh.GetOutput())
+          else:
+            diff.SetInputData(thresh.GetOutput())
           diff.SetImage(image)
           diff.Update()
           if diff.GetThresholdedError() > 1:
