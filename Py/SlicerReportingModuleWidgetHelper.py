@@ -51,6 +51,16 @@ class SlicerReportingModuleWidgetHelper( object ):
     print "[Reporting " + time.strftime( "%m/%d/%Y %H:%M:%S" ) + "] DEBUG: " + str( message )
     sys.stdout.flush()
 
+  # Ask a yes/no question, returning True on yes, False on no
+  @staticmethod
+  def QuestionPopup( message ):
+    messageBox = qt.QMessageBox()
+    clickedButton = messageBox.question(None, '', message, qt.QMessageBox().Yes | qt.QMessageBox().No, qt.QMessageBox().Yes)
+    if clickedButton == qt.QMessageBox.Yes:
+      return True
+    else:
+      return False
+
   @staticmethod
   def CreateSpace( n ):
     '''
