@@ -475,34 +475,6 @@ class SlicerReportingModuleWidgetHelper( object ):
           labelNode.SetAndObserveDisplayNodeID(displayNode.GetID())
           slicer.mrmlScene.AddNode(labelNodes.GetItemAsObject(i))
 
-  '''
-  Check if the geometries of the two volumes match
-  '''
-  @staticmethod
-  def GeometriesMatch(vol1, vol2):
-    # for now, just match the extents of the image data
-    image1 = vol1.GetImageData()
-    image2 = vol2.GetImageData()
-
-    dim1 = image1.GetDimensions()
-    dim2 = image2.GetDimensions()
-
-    if dim1[0] != dim2[0] or dim1[1] != dim2[1] or dim1[2] != dim2[2]:
-      return False
-
-    # check orientation
-    dir1 = vtk.vtkMatrix4x4()
-    dir2 = vtk.vtkMatrix4x4()
-    vol1.GetIJKToRASDirectionMatrix(dir1)
-    vol2.GetIJKToRASDirectionMatrix(dir2)
-
-    for i in range(4):
-      for j in range(4):
-        if dir1.GetElement(i,j) != dir2.GetElement(i,j):
-          return False
-
-    return True
-
   @staticmethod
   def getEditorParameterNode():
     """Get the Editor parameter node - a singleton in the scene"""
