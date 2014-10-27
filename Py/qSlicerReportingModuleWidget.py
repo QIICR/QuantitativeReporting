@@ -394,13 +394,12 @@ class qSlicerReportingModuleWidget:
     else:
       # if it's an existing label, we need to check that the geometry matches
       # the annotated label geometry, and if so, add it to the hierarchy
-      if Helper.GeometriesMatch(sNode, self.__vNode) == False:
-        inputDim = self.__vNode.GetImageData().GetDimensions()
-        segDim = sNode.GetImageData().GetDimensions()
-        newNodeAnswer = Helper.QuestionPopup('The geometry of the segmentation label you selected does not match the geometry (dimensions, orientation) of the volume being annotated!\nDo you want to create a new label to match the geometry, resampling data to fit?\nSegmentation dimensions = ' + str(segDim) + '\nAnnotated volume dimensions = ' + str(inputDim))
+      volumesLogic = slicer.modules.volumes.logic()
+      geometryCheckString = volumesLogic.CheckForLabelVolumeValidity(self.__vNode, sNode)
+      if geometryCheckString != "":
+        newNodeAnswer = Helper.QuestionPopup('The geometry of the segmentation label you selected does not match the geometry of the volume being annotated!\nDo you want to create a new label to match the geometry, resampling data to fit?\n' + geometryCheckString)
         if newNodeAnswer == True:
           # create a new resampled label node from the input image
-          volumesLogic = slicer.modules.volumes.logic()
           resampledSegmentationNode = volumesLogic.ResampleVolumeToReferenceVolume(sNode, self.__vNode)
           # reselect it
           self.segmentationSelector.setCurrentNode(resampledSegmentationNode)
