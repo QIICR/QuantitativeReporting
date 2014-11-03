@@ -13,7 +13,7 @@
 # This script takes on input three arguments:
 #  1) directory that contains reference DICOM series
 #  2) input label (geometry is expected to match the one of the volume read
-#  from DICOM)
+#  from DICOM, if not it will be resampled)
 #  3) directory to store the output DICOM SEG series. 
 #  4) (optional) the label to be assigned, this label will be used to match
 #     SegmentedPropertyCategory and SegmentedPropertyType for the output
@@ -116,22 +116,27 @@ def DoIt(inputDir, labelFile, outputDir, forceLabel):
       labelVolume.SetAndObserveImageData(labelImage)
 
     slicer.mrmlScene.AddNode(labelVolume)
-    
-    # resample label to the input volume raster
-    resampledLabel = slicer.vtkMRMLScalarVolumeNode()
-    slicer.mrmlScene.AddNode(resampledLabel)
-    eye = slicer.vtkMRMLLinearTransformNode()
-    slicer.mrmlScene.AddNode(eye)
-    parameters = {}
-    parameters['inputVolume'] = labelVolume.GetID()
-    parameters['referenceVolume'] = inputVolume.GetID()
-    parameters['outputVolume'] = resampledLabel.GetID()
-    parameters['warpTransform'] = eye.GetID()
-    parameters['interpolationMode'] = 'NearestNeighbor'
-    parameters['pixelType'] = 'ushort'
-    cliNode = None
-    cliNode = slicer.cli.run(slicer.modules.brainsresample, None, parameters, 1)
-    labelVolume = resampledLabel
+
+    volumesLogic = slicer.modules.volumes.logic()
+    geometryCheckString = volumesLogic.CheckForLabelVolumeValidity(inputVolume, labelVolume)
+    if geometryCheckString != "":
+      print('Label volume geometry mismatch, resampling:\n%s' % geometryCheckString)
+
+      # resample label to the input volume raster
+      resampledLabel = slicer.vtkMRMLScalarVolumeNode()
+      slicer.mrmlScene.AddNode(resampledLabel)
+      eye = slicer.vtkMRMLLinearTransformNode()
+      slicer.mrmlScene.AddNode(eye)
+      parameters = {}
+      parameters['inputVolume'] = labelVolume.GetID()
+      parameters['referenceVolume'] = inputVolume.GetID()
+      parameters['outputVolume'] = resampledLabel.GetID()
+      parameters['warpTransform'] = eye.GetID()
+      parameters['interpolationMode'] = 'NearestNeighbor'
+      parameters['pixelType'] = 'ushort'
+      cliNode = None
+      cliNode = slicer.cli.run(slicer.modules.brainsresample, None, parameters, 1)
+      labelVolume = resampledLabel
 
     displayNode = slicer.vtkMRMLLabelMapVolumeDisplayNode()
     displayNode.SetAndObserveColorNodeID(reportingLogic.GetDefaultColorNode().GetID())
