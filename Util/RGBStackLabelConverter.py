@@ -1,5 +1,5 @@
 #
-# This module was developed by Andrey Fedorov, BWH 
+# This module was developed by Andrey Fedorov, BWH
 #    with the support of Slicer Community
 #
 # This work was supported in part by NIH NCI U01CA151261 grant (Quantitative
@@ -7,7 +7,7 @@
 #
 # This script performs conversion of the segmentation saved as a stack of RGB
 # slices into NRRD and DICOM SEG formats.
-# 
+#
 # == Usage ==
 #
 # This script takes on input two arguments:
@@ -31,7 +31,7 @@
 #
 # In order to load the resulting NRRD files, use Slicer "Add data" menu
 # option
-# 
+#
 # In order to load the DICOM SEG object, use the DICOM Module "Import"
 # functionality to first import the directory containing the SEG object into
 # the DICOM database. After that (considering you have Reporting module
@@ -47,9 +47,9 @@
 # == Support ==
 #
 # fedorov@bwh.harvard.edu
-#   and 
+#   and
 # http://slicer.org user list
-# 
+#
 
 from __main__ import slicer, vtk, ctk
 import sys, glob, shutil
@@ -63,7 +63,7 @@ def DoIt(inputDir, rgbDir, outputDir):
 
   #
   # Read the input DICOM series as a volume
-  # 
+  #
   dcmList = []
   for dcm in os.listdir(inputDir):
     if len(dcm)-dcm.rfind('.dcm') == 4:
@@ -83,7 +83,7 @@ def DoIt(inputDir, rgbDir, outputDir):
   if len(loadables) == 0:
     print 'Could not parse the DICOM Study!'
     exit()
-  
+
   inputVolume = scalarVolumePlugin.load(loadables[0])
 
   sNode = slicer.vtkMRMLVolumeArchetypeStorageNode()
@@ -101,7 +101,7 @@ def DoIt(inputDir, rgbDir, outputDir):
   sNode.SetFileName(os.path.join(outputDir,'input_volume.nrrd'))
   sNode.WriteData(inputVolume)
 
-  # 
+  #
   # Order the input RGBs and rename in a temp directory
   #
   rgbList = []
@@ -132,7 +132,7 @@ def DoIt(inputDir, rgbDir, outputDir):
   dcmIdx = 0
   for dcm in dcmFileList:
     rgbIdx = 0
-    
+
     for rgb in rgbList:
 
       dcmPrefix = dcm[dcm.rfind('/')+1:dcm.rfind('.')]
@@ -144,7 +144,7 @@ def DoIt(inputDir, rgbDir, outputDir):
         dest = tmpDir+'/'+name+'.'+rgbExt
         rgbRenamedList.append(dest)
         shutil.copy(src,dest)
-      
+
         break
       rgbIdx = rgbIdx+1
 
@@ -171,36 +171,46 @@ def DoIt(inputDir, rgbDir, outputDir):
 
 
   # run the filter
-  # - extract the RGB portions 
+  # - extract the RGB portions
   extract = vtk.vtkImageExtractComponents()
   extract.SetComponents(0,1,2)
-  extract.SetInput(inputRGBVolume.GetImageData())
-  
+  if vtk.vtkVersion().GetVTKMajorVersion() < 6:
+    extract.SetInput(inputRGBVolume.GetImageData())
+  else:
+    extract.SetInputData(inputRGBVolume.GetImageData())
+
   luminance = vtk.vtkImageLuminance()
-  luminance.SetInput(extract.GetOutput())
+  if vtk.vtkVersion().GetVTKMajorVersion() < 6:
+    luminance.SetInput(extract.GetOutput())
+  else:
+    luminance.SetInputData(extract.GetOutput())
+
   cast = vtk.vtkImageCast()
-  cast.SetInput(luminance.GetOutput())
+  if vtk.vtkVersion().GetVTKMajorVersion() < 6:
+    cast.SetInput(luminance.GetOutput())
+  else:
+    cast.SetInputData(luminance.GetOutput())
   cast.SetOutputScalarTypeToShort()
   cast.GetOutput().Update()
 
   ijkToRAS = vtk.vtkMatrix4x4()
   inputVolume.GetIJKToRASMatrix(ijkToRAS)
-  
+
   outputLabel = slicer.vtkMRMLScalarVolumeNode()
   outputLabel.SetIJKToRASMatrix(ijkToRAS)
   outputLabel.SetAndObserveImageData(cast.GetOutput())
-  
+
   reportingLogic = slicer.modules.reporting.logic()
 
   displayNode = slicer.vtkMRMLLabelMapVolumeDisplayNode()
   displayNode.SetAndObserveColorNodeID(reportingLogic.GetDefaultColorNode().GetID())
   slicer.mrmlScene.AddNode(displayNode)
   outputLabel.SetAndObserveDisplayNodeID(displayNode.GetID())
-  
+
   sNode.SetWriteFileFormat('nrrd')
   sNode.SetFileName(os.path.join(outputDir,'label_output.nrrd'))
   sNode.WriteData(outputLabel)
-  
+
   # save as DICOM SEG
   labelCollection = vtk.vtkCollection()
   labelCollection.AddItem(outputLabel)
@@ -230,4 +240,4 @@ else:
   inputDir = sys.argv[1]
   rgbDir = sys.argv[2]
   outputDir = sys.argv[3]
-  DoIt(inputDir, rgbDir, outputDir) 
+  DoIt(inputDir, rgbDir, outputDir)

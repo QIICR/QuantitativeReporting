@@ -512,7 +512,7 @@ class SlicerReportingModuleWidgetHelper( object ):
     return node
 
   @staticmethod
-  def initializeNewLabel(newLabel, sourceVolume):    
+  def initializeNewLabel(newLabel, sourceVolume):
     displayNode = slicer.mrmlScene.AddNode(slicer.vtkMRMLLabelMapVolumeDisplayNode())
 
     threshold = vtk.vtkImageThreshold()
@@ -521,7 +521,10 @@ class SlicerReportingModuleWidgetHelper( object ):
     threshold.SetInValue(0)
     threshold.SetOutValue(0)
     threshold.SetOutputScalarTypeToUnsignedShort()
-    threshold.SetInput(sourceVolume.GetImageData())
+    if vtk.vtkVersion().GetVTKMajorVersion() < 6:
+      threshold.SetInput(sourceVolume.GetImageData())
+    else:
+      threshold.SetInputData(sourceVolume.GetImageData())
     threshold.Update()
 
     labelImage = vtk.vtkImageData()
