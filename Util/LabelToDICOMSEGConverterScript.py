@@ -102,7 +102,10 @@ def DoIt(inputDir, labelFile, outputDir, forceLabel):
       print('Forcing label to '+str(forceLabel))
       labelImage = labelVolume.GetImageData()
       thresh = vtk.vtkImageThreshold()
-      thresh.SetInput(labelImage)
+      if vtk.vtkVersion().GetVTKMajorVersion() < 6:
+        thresh.SetInput(labelImage)
+      else:
+        thresh.SetInputData(labelImage)
       thresh.ThresholdBetween(1, labelImage.GetScalarRange()[1])
       thresh.SetInValue(int(forceLabel))
       thresh.SetOutValue(0)
