@@ -3,6 +3,7 @@ import string
 from __main__ import vtk, qt, ctk, slicer
 from DICOMLib import DICOMPlugin
 from DICOMLib import DICOMLoadable
+import dicom
 
 #
 # This is the plugin to handle translation of DICOM objects
@@ -86,10 +87,25 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
         loadable.tooltip = loadable.name
         loadable.selected = True
         loadable.uid = uid
-        loadables.append(loadable)
         print('DICOM SEG modality found')
+        
+        loadable.referencedInstanceUIDs = self.getReferencedInstanceUIDs(file)
+        print('Referenced instances: '+str(loadable.referencedInstanceUIDs))
+        loadables.append(loadable)
 
     return loadables
+
+  def getReferencedInstanceUIDs(self,file):
+    dfile = dicom.read_file(file)
+    referencedInstanceUIDs = []
+    try:
+      for refSeriesItem in dfile.ReferencedSeriesSequence:
+        if hasattr(refSeriesItem,'ReferencedInstanceSequence'):
+          for refInstanceItem in refSeriesItem.ReferencedInstanceSequence:
+            referencedInstanceUIDs.append(refInstanceItem.ReferencedSOPInstanceUID)
+    except:
+      return []
+    return referencedInstanceUIDs
 
   def load(self,loadable):
     """ Call Reporting logic to load the DICOM SEG object
