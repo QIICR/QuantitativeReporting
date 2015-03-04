@@ -125,17 +125,17 @@ def DoIt(inputDir, labelFile, outputDir, forceLabel):
       # resample label to the input volume raster
       resampledLabel = slicer.vtkMRMLScalarVolumeNode()
       slicer.mrmlScene.AddNode(resampledLabel)
-      eye = slicer.vtkMRMLLinearTransformNode()
-      slicer.mrmlScene.AddNode(eye)
-      parameters = {}
-      parameters['inputVolume'] = labelVolume.GetID()
-      parameters['referenceVolume'] = inputVolume.GetID()
-      parameters['outputVolume'] = resampledLabel.GetID()
-      parameters['warpTransform'] = eye.GetID()
-      parameters['interpolationMode'] = 'NearestNeighbor'
-      parameters['pixelType'] = 'ushort'
-      cliNode = None
-      cliNode = slicer.cli.run(slicer.modules.brainsresample, None, parameters, 1)
+      resampledLabel = volumesLogic.ResampleVolumeToReferenceVolume(labelVolume, inputVolume)
+      if resampledLabel.GetImageData() != None:
+        # double check that the pixel type is unsigned short
+        if resampledLabel.GetImageData().GetScalarType() != vtk.VTK_UNSIGNED_SHORT:
+          if vtk.vtkVersion().GetVTKMajorVersion() < 6:
+            resampledLabel.GetImageData().SetScalarType(vtk.VTK_UNSIGNED_SHORT)
+          else:
+            tp = vtk.vtkTrivialProducer()
+            tp.SetOutput(resampledLabel.GetImageData())
+            outInfo = tp.GetOutputInformation(0)
+            vtk.vtkDataObject().SetPointDataActiveScalarInfo(outInfo, vtk.VTK_UNSIGNED_SHORT, vtk.vtkImageData().GetNumberOfScalarComponents(outInfo))
       labelVolume = resampledLabel
 
     displayNode = slicer.vtkMRMLLabelMapVolumeDisplayNode()
