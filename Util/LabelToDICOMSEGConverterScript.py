@@ -51,6 +51,11 @@ from DICOMLib import DICOMLoadable
 def DoIt(inputDir, labelFile, outputDir, forceLabel):
 
   dbDir1 = slicer.app.temporaryPath+'/LabelConverter'
+
+  if not hasattr(slicer.modules, 'reporting'):
+    print 'The Reporting module has not been loaded into Slicer, script cannot run!\n\tTry setting the --additional-module-path parameter.'
+    sys.exit(1)
+
   reportingLogic = slicer.modules.reporting.logic()
 
   print('Temporary directory location: '+dbDir1)
@@ -60,52 +65,50 @@ def DoIt(inputDir, labelFile, outputDir, forceLabel):
   if slicer.dicomDatabase:
     dbDir0 = os.path.split(slicer.dicomDatabase.databaseFilename)[0]
 
-  try:
-    dicomWidget = slicer.modules.dicom.widgetRepresentation().self()
-    dicomWidget.onDatabaseDirectoryChanged(dbDir1)
-    
-    # import DICOM study
-    indexer = ctk.ctkDICOMIndexer()
-    indexer.addDirectory(slicer.dicomDatabase, inputDir, None)
-    indexer.waitForImportFinished()
+  dicomWidget = slicer.modules.dicom.widgetRepresentation().self()
+  dicomWidget.onDatabaseDirectoryChanged(dbDir1)
 
-    print('DICOM import finished!')
+  # import DICOM study
+  indexer = ctk.ctkDICOMIndexer()
+  indexer.addDirectory(slicer.dicomDatabase, inputDir, None)
+  indexer.waitForImportFinished()
 
-    #
-    # Read the input DICOM series as a volume
-    # 
-    dcmList = []
-    for dcm in os.listdir(inputDir):
-      if len(dcm)-dcm.rfind('.dcm') == 4:
-        dcmList.append(inputDir+'/'+dcm)
+  print('DICOM import finished!')
 
-    scalarVolumePlugin = slicer.modules.dicomPlugins['DICOMScalarVolumePlugin']()
+  #
+  # Read the input DICOM series as a volume
+  #
+  dcmList = []
+  for dcm in os.listdir(inputDir):
+    if len(dcm)-dcm.rfind('.dcm') == 4:
+      dcmList.append(inputDir+'/'+dcm)
 
-    loadables = scalarVolumePlugin.examine([dcmList])
+  scalarVolumePlugin = slicer.modules.dicomPlugins['DICOMScalarVolumePlugin']()
 
-    if len(loadables) == 0:
-      print 'Could not parse the DICOM Study!'
-      exit()
-  
-    inputVolume = scalarVolumePlugin.load(loadables[0])
-    slicer.mrmlScene.AddNode(inputVolume)
-    print('Input volume loaded!')
+  loadables = scalarVolumePlugin.examine([dcmList])
 
-    # read the label volume
-    labelVolume = slicer.vtkMRMLScalarVolumeNode()
-    sNode = slicer.vtkMRMLVolumeArchetypeStorageNode()
-    sNode.SetFileName(labelFile)
-    sNode.ReadData(labelVolume)
-    labelVolume.LabelMapOn()
+  if len(loadables) == 0:
+    print 'Could not parse the DICOM Study!'
+    sys.exit(1)
 
-    if forceLabel>0:
-      print('Forcing label to '+str(forceLabel))
-      labelImage = labelVolume.GetImageData()
-      thresh = vtk.vtkImageThreshold()
-      if vtk.vtkVersion().GetVTKMajorVersion() < 6:
-        thresh.SetInput(labelImage)
-      else:
-        thresh.SetInputData(labelImage)
+  inputVolume = scalarVolumePlugin.load(loadables[0])
+  print 'Input volume loaded! ID = ', inputVolume.GetID()
+
+  # read the label volume
+  labelVolume = slicer.vtkMRMLScalarVolumeNode()
+  sNode = slicer.vtkMRMLVolumeArchetypeStorageNode()
+  sNode.SetFileName(labelFile)
+  sNode.ReadData(labelVolume)
+  labelVolume.LabelMapOn()
+
+  if forceLabel>0:
+    # print('Forcing label to '+str(forceLabel))
+    labelImage = labelVolume.GetImageData()
+    thresh = vtk.vtkImageThreshold()
+    if vtk.vtkVersion().GetVTKMajorVersion() < 6:
+      thresh.SetInput(labelImage)
+    else:
+      thresh.SetInputData(labelImage)
       thresh.ThresholdBetween(1, labelImage.GetScalarRange()[1])
       thresh.SetInValue(int(forceLabel))
       thresh.SetOutValue(0)
@@ -115,47 +118,54 @@ def DoIt(inputDir, labelFile, outputDir, forceLabel):
       labelImage = thresh.GetOutput()
       labelVolume.SetAndObserveImageData(labelImage)
 
-    slicer.mrmlScene.AddNode(labelVolume)
+  slicer.mrmlScene.AddNode(labelVolume)
+  print 'Label volume added, id = ', labelVolume.GetID()
 
-    volumesLogic = slicer.modules.volumes.logic()
-    geometryCheckString = volumesLogic.CheckForLabelVolumeValidity(inputVolume, labelVolume)
-    if geometryCheckString != "":
-      print('Label volume geometry mismatch, resampling:\n%s' % geometryCheckString)
+  volumesLogic = slicer.modules.volumes.logic()
+  geometryCheckString = volumesLogic.CheckForLabelVolumeValidity(inputVolume, labelVolume)
+  if geometryCheckString != "":
+    # resample label to the input volume raster
+    resampledLabel = slicer.vtkMRMLScalarVolumeNode()
+    slicer.mrmlScene.AddNode(resampledLabel)
+    print 'Resampled label added, id = ', resampledLabel.GetID()
+    resampledLabel = volumesLogic.ResampleVolumeToReferenceVolume(labelVolume, inputVolume)
+    if resampledLabel.GetImageData() != None:
+      # double check that the pixel type is unsigned short
+      if resampledLabel.GetImageData().GetScalarType() != vtk.VTK_UNSIGNED_SHORT:
+        cast = vtk.vtkImageCast()
+        cast.SetOutputScalarTypeToUnsignedShort()
+        # set the label volume to be the cast resampled label volume
+        if vtk.vtkVersion().GetVTKMajorVersion() < 6:
+          cast.SetInput(resampledLabel.GetImageData())
+          cast.Update()
+          labelVolume.SetAndObserveImageData(cast.GetOutput())
+        else:
+          cast.SetInputConnection(resampledLabel.GetImageDataConnection())
+          cast.Update()
+          labelVolume.SetImageDataConnection(cast.GetOutputPort())
+        if labelVolume.GetImageData().GetScalarType() != vtk.VTK_UNSIGNED_SHORT:
+          print 'Failed to cast label volume to unsigned short, type is ',  vtk.vtkImageScalarTypeNameMacro(labelVolume.GetImageData().GetScalarType())
+          sys.exit(1)
+      else:
+        # the resampled label map is the right type, use it
+        labelVolume = resampledLabel
 
-      # resample label to the input volume raster
-      resampledLabel = slicer.vtkMRMLScalarVolumeNode()
-      slicer.mrmlScene.AddNode(resampledLabel)
-      resampledLabel = volumesLogic.ResampleVolumeToReferenceVolume(labelVolume, inputVolume)
-      if resampledLabel.GetImageData() != None:
-        # double check that the pixel type is unsigned short
-        if resampledLabel.GetImageData().GetScalarType() != vtk.VTK_UNSIGNED_SHORT:
-          if vtk.vtkVersion().GetVTKMajorVersion() < 6:
-            resampledLabel.GetImageData().SetScalarType(vtk.VTK_UNSIGNED_SHORT)
-          else:
-            tp = vtk.vtkTrivialProducer()
-            tp.SetOutput(resampledLabel.GetImageData())
-            outInfo = tp.GetOutputInformation(0)
-            vtk.vtkDataObject().SetPointDataActiveScalarInfo(outInfo, vtk.VTK_UNSIGNED_SHORT, vtk.vtkImageData().GetNumberOfScalarComponents(outInfo))
-      labelVolume = resampledLabel
+  displayNode = slicer.vtkMRMLLabelMapVolumeDisplayNode()
+  displayNode.SetAndObserveColorNodeID(reportingLogic.GetDefaultColorNode().GetID())
+  slicer.mrmlScene.AddNode(displayNode)
 
-    displayNode = slicer.vtkMRMLLabelMapVolumeDisplayNode()
-    displayNode.SetAndObserveColorNodeID(reportingLogic.GetDefaultColorNode().GetID())
-    slicer.mrmlScene.AddNode(displayNode)
+  labelVolume.SetAttribute('AssociatedNodeID',inputVolume.GetID())
+  labelVolume.LabelMapOn()
+  labelVolume.SetAndObserveDisplayNodeID(displayNode.GetID())
 
-    labelVolume.SetAttribute('AssociatedNodeID',inputVolume.GetID())
-    labelVolume.LabelMapOn()
-    labelVolume.SetAndObserveDisplayNodeID(displayNode.GetID())
-    
-    # initialize the DICOM DB for Reporting logic, save as DICOM SEG
-    labelCollection = vtk.vtkCollection()
-    labelCollection.AddItem(labelVolume)
+  # initialize the DICOM DB for Reporting logic, save as DICOM SEG
+  labelCollection = vtk.vtkCollection()
+  labelCollection.AddItem(labelVolume)
 
-    print('About to write DICOM SEG!')
-    dbFileName = slicer.dicomDatabase.databaseFilename
-    reportingLogic.InitializeDICOMDatabase(dbFileName)
-    reportingLogic.DicomSegWrite(labelCollection, outputDir)
-  except:
-    print('Error occurred!')
+  print('About to write DICOM SEG!')
+  dbFileName = slicer.dicomDatabase.databaseFilename
+  reportingLogic.InitializeDICOMDatabase(dbFileName)
+  reportingLogic.DicomSegWrite(labelCollection, outputDir)
 
   dicomWidget.onDatabaseDirectoryChanged(dbDir0)
 
@@ -164,7 +174,7 @@ def DoIt(inputDir, labelFile, outputDir, forceLabel):
 if len(sys.argv)<4:
   print 'Input parameters missing!'
   print 'Usage: ',sys.argv[0],' <input directory with DICOM data> <input label> <output dir> <optional: label to assign>'
-  exit()
+  sys.exit(1)
 else:
   inputDICOMDir = sys.argv[1]
   inputLabelName = sys.argv[2]
@@ -172,4 +182,4 @@ else:
   forceLabel = 0
   if len(sys.argv)>4:
     forceLabel = sys.argv[4]
-  DoIt(inputDICOMDir, inputLabelName, outputDICOMDir, forceLabel) 
+  DoIt(inputDICOMDir, inputLabelName, outputDICOMDir, forceLabel)

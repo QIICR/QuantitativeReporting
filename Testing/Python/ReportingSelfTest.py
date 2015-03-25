@@ -28,7 +28,7 @@ class ReportingSelfTest:
     except AttributeError:
       slicer.selfTests = {}
     slicer.selfTests['ReportingSelfTest'] = self.runTest
-    print slicer.selfTests
+    # print 'ReportingSelfTest: Full list of Slicer self tests = ',slicer.selfTests
 
   def runTest(self):
     tester = ReportingSelfTestTest()
