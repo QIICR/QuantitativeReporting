@@ -44,6 +44,7 @@
 
 from __main__ import slicer, vtk, ctk
 import sys, glob, shutil, qt
+import argparse
 
 from DICOMLib import DICOMPlugin
 from DICOMLib import DICOMLoadable
@@ -144,8 +145,8 @@ def DoIt(inputDir, labelFile, outputDir, forceLabel, forceResample):
   geometryCheckString = volumesLogic.CheckForLabelVolumeValidity(inputVolume, labelVolume)
   if geometryCheckString != "":
     # has the user specified that forced resampling is okay?
-    if forceResample == 0:
-      print 'Label volume mismatch with input volume:\n',geometryCheckString,'\nForced resample not specified, aborting. Re-run with -F option to ignore geometric inconsistencies'
+    if forceResample == False:
+      print 'Label volume mismatch with input volume:\n',geometryCheckString,'\nForced resample not specified, aborting. Re-run with --force option to ignore geometric inconsistencies'
       sys.exit(1)
     # resample label to the input volume raster
     resampledLabel = slicer.vtkMRMLScalarVolumeNode()
@@ -175,26 +176,30 @@ def DoIt(inputDir, labelFile, outputDir, forceLabel, forceResample):
 
   exit()
 
-if len(sys.argv)<4:
-  print 'Input parameters missing!'
-  print 'Usage: ',sys.argv[0],' <input directory with DICOM data> <input label> <output dir> <optional: label to assign> <optional: -F>'
-  print '\t-F to force ignoring geometry inconsistencies (auto resample is done)'
-  sys.exit(1)
-else:
-  inputDICOMDir = sys.argv[1]
-  inputLabelName = sys.argv[2]
-  outputDICOMDir = sys.argv[3]
-  forceLabel = 0
-  forceResample = 0
-  if len(sys.argv)>4:
-    if sys.argv[4].isdigit():
-      forceLabel = sys.argv[4]
-    else:
-      if sys.argv[4].startswith("-F"):
-        forceResample = 1
-  if len(sys.argv) > 5:
-    if sys.argv[4].startswith("-F"):
-      forceResample = 1
+def main(argv):
 
-  print 'Force resample = ',forceResample
+  parser = argparse.ArgumentParser(description="Convert label map volume to DICOM SEG object")
+  parser.add_argument("--label", dest="forceLabel", type=int,
+                      default="0", help="label to assign")
+  parser.add_argument("--force", dest="forceResample", action='store_true',
+                      help="force ignoring geometry inconsistencies (auto resample is done)")
+  parser.add_argument("inputDICOMDir", metavar="InputDir",
+                      help="input directory with DICOM data")
+  parser.add_argument("inputLabelName", metavar="InputLabelVolume",
+                      help="input label map volume")
+  parser.add_argument("outputDICOMDir", metavar="OutputDir",
+                      default=".", help="output directory for DICOM SEG data")
+  args = parser.parse_args(argv)
+
+  # convert to python path style
+  inputDICOMDir = args.inputDICOMDir.replace('\\','/')
+  inputLabelName = args.inputLabelName.replace('\\','/')
+  outputDICOMDir = args.outputDICOMDir.replace('\\','/')
+
+  forceLabel = args.forceLabel
+  forceResample = args.forceResample
+
   DoIt(inputDICOMDir, inputLabelName, outputDICOMDir, forceLabel, forceResample)
+
+if __name__ == "__main__":
+  main(sys.argv[1:])
