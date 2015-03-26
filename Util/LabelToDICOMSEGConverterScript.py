@@ -48,7 +48,7 @@ import sys, glob, shutil, qt
 from DICOMLib import DICOMPlugin
 from DICOMLib import DICOMLoadable
 
-def DoIt(inputDir, labelFile, outputDir, forceLabel):
+def DoIt(inputDir, labelFile, outputDir, forceLabel, forceResample):
 
   dbDir1 = slicer.app.temporaryPath+'/LabelConverter'
 
@@ -121,34 +121,38 @@ def DoIt(inputDir, labelFile, outputDir, forceLabel):
   slicer.mrmlScene.AddNode(labelVolume)
   print 'Label volume added, id = ', labelVolume.GetID()
 
+  # ensure that the label volume scalar type is unsigned short
+  if labelVolume.GetImageData() != None:
+    scalarType = labelVolume.GetImageData().GetScalarType()
+    if scalarType != vtk.VTK_UNSIGNED_SHORT:
+      print 'Label volume has pixel type of ',vtk.vtkImageScalarTypeNameMacro(scalarType),', casting to unsigned short'
+      cast = vtk.vtkImageCast()
+      cast.SetOutputScalarTypeToUnsignedShort()
+      if vtk.vtkVersion().GetVTKMajorVersion() < 6:
+        cast.SetInput(labelVolume.GetImageData())
+        cast.Update()
+        labelVolume.SetAndObserveImageData(cast.GetOutput())
+      else:
+        cast.SetInputConnection(labelVolume.GetImageDataConnection())
+        cast.Update()
+        labelVolume.SetImageDataConnection(cast.GetOutputPort())
+      if labelVolume.GetImageData().GetScalarType() != vtk.VTK_UNSIGNED_SHORT:
+        print 'Failed to cast label volume to unsigned short, type is ',  vtk.vtkImageScalarTypeNameMacro(labelVolume.GetImageData().GetScalarType())
+        sys.exit(1)
+
   volumesLogic = slicer.modules.volumes.logic()
   geometryCheckString = volumesLogic.CheckForLabelVolumeValidity(inputVolume, labelVolume)
   if geometryCheckString != "":
+    # has the user specified that forced resampling is okay?
+    if forceResample == 0:
+      print 'Label volume mismatch with input volume:\n',geometryCheckString,'\nForced resample not specified, aborting. Re-run with -F option to ignore geometric inconsistencies'
+      sys.exit(1)
     # resample label to the input volume raster
     resampledLabel = slicer.vtkMRMLScalarVolumeNode()
     slicer.mrmlScene.AddNode(resampledLabel)
     print 'Resampled label added, id = ', resampledLabel.GetID()
     resampledLabel = volumesLogic.ResampleVolumeToReferenceVolume(labelVolume, inputVolume)
-    if resampledLabel.GetImageData() != None:
-      # double check that the pixel type is unsigned short
-      if resampledLabel.GetImageData().GetScalarType() != vtk.VTK_UNSIGNED_SHORT:
-        cast = vtk.vtkImageCast()
-        cast.SetOutputScalarTypeToUnsignedShort()
-        # set the label volume to be the cast resampled label volume
-        if vtk.vtkVersion().GetVTKMajorVersion() < 6:
-          cast.SetInput(resampledLabel.GetImageData())
-          cast.Update()
-          labelVolume.SetAndObserveImageData(cast.GetOutput())
-        else:
-          cast.SetInputConnection(resampledLabel.GetImageDataConnection())
-          cast.Update()
-          labelVolume.SetImageDataConnection(cast.GetOutputPort())
-        if labelVolume.GetImageData().GetScalarType() != vtk.VTK_UNSIGNED_SHORT:
-          print 'Failed to cast label volume to unsigned short, type is ',  vtk.vtkImageScalarTypeNameMacro(labelVolume.GetImageData().GetScalarType())
-          sys.exit(1)
-      else:
-        # the resampled label map is the right type, use it
-        labelVolume = resampledLabel
+    labelVolume = resampledLabel
 
   displayNode = slicer.vtkMRMLLabelMapVolumeDisplayNode()
   displayNode.SetAndObserveColorNodeID(reportingLogic.GetDefaultColorNode().GetID())
@@ -173,13 +177,24 @@ def DoIt(inputDir, labelFile, outputDir, forceLabel):
 
 if len(sys.argv)<4:
   print 'Input parameters missing!'
-  print 'Usage: ',sys.argv[0],' <input directory with DICOM data> <input label> <output dir> <optional: label to assign>'
+  print 'Usage: ',sys.argv[0],' <input directory with DICOM data> <input label> <output dir> <optional: label to assign> <optional: -F>'
+  print '\t-F to force ignoring geometry inconsistencies (auto resample is done)'
   sys.exit(1)
 else:
   inputDICOMDir = sys.argv[1]
   inputLabelName = sys.argv[2]
   outputDICOMDir = sys.argv[3]
   forceLabel = 0
+  forceResample = 0
   if len(sys.argv)>4:
-    forceLabel = sys.argv[4]
-  DoIt(inputDICOMDir, inputLabelName, outputDICOMDir, forceLabel)
+    if sys.argv[4].isdigit():
+      forceLabel = sys.argv[4]
+    else:
+      if sys.argv[4].startswith("-F"):
+        forceResample = 1
+  if len(sys.argv) > 5:
+    if sys.argv[4].startswith("-F"):
+      forceResample = 1
+
+  print 'Force resample = ',forceResample
+  DoIt(inputDICOMDir, inputLabelName, outputDICOMDir, forceLabel, forceResample)

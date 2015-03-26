@@ -63,11 +63,12 @@ add_test(
   ${TEMP_DICOM} ${TEMP_DIR}/labelToSEG.nrrd ${REPORTING_OUTPUT_SEG_DIR}
   )
 # add a test that triggers the resampling of the input label map
+# Note: without the -F argument at the end, this test is expected to fail
 add_test(
   NAME "py_LabelToDICOMSEGConverterScript_TestTransformedLabelVolume"
   COMMAND ${Slicer_LAUNCHER_EXECUTABLE}  --no-main-window
   --additional-module-path ${CMAKE_BINARY_DIR}/${Slicer_QTLOADABLEMODULES_LIB_DIR}
   --python-script ${${MODULE_NAME}_SOURCE_DIR}/Util/LabelToDICOMSEGConverterScript.py
-  ${TEMP_DICOM} ${TEMP_DIR}/labelToSEGTransformed.nrrd ${REPORTING_OUTPUT_SEG_DIR}
+  ${TEMP_DICOM} ${TEMP_DIR}/labelToSEGTransformed.nrrd ${REPORTING_OUTPUT_SEG_DIR} -F
   )
 
