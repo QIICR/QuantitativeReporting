@@ -21,7 +21,7 @@ class ReportingRoundTripTest(unittest.TestCase):
     Test fiducial round trip to and from AIM XML file on disk
     """
 
-    print("ctest, please don't truncate my output: CTEST_FULL_OUTPUT")
+    logging.info("ctest, please don't truncate my output: CTEST_FULL_OUTPUT")
 
     # enter the module
     mainWindow = slicer.util.mainWindow()
@@ -32,29 +32,29 @@ class ReportingRoundTripTest(unittest.TestCase):
     l.GUIHiddenOff()
 
     # testDataPath = os.path.normpath(os.path.join(os.path.realpath(__file__), "..", "..", "Prototype/TestData/DICOM.CT/")   
-    print("Reporting round trip test, current working directory = "+os.getcwd())
+    logging.info("Reporting round trip test, current working directory = "+os.getcwd())
     testDataPath = os.path.join(os.getcwd(),"../../Testing/Temporary/DICOM.CT")
     # testDataPath = "/projects/birn/nicole/Slicer4/Reporting/Prototype/TestData/DICOM.CT"
-    print("test data path = "+testDataPath)
+    logging.info("test data path = "+testDataPath)
  
     # set up a new DICOM database
-    print("Creating a dicomDatabase!")
+    logging.info("Creating a dicomDatabase!")
     ddb = ctk.ctkDICOMDatabase()
     if not ddb:
-      print("ERROR: failed to create a new dicom database!")
+      logging.error("ERROR: failed to create a new dicom database!")
       return   
     dbpath = slicer.app.slicerHome + '/Testing/Temporary/TestingDCMDB/ctkDICOM.sql'
-    print('database path set to '+dbpath)
+    logging.info('database path set to '+dbpath)
     if not os.path.exists(os.path.dirname(dbpath)):
-      print('Creating dir '+os.path.dirname(dbpath))
+      logging.info('Creating dir '+os.path.dirname(dbpath))
       os.makedirs(os.path.dirname(dbpath))
     ddb.openDatabase(dbpath,"ReportingTesting")
     if not ddb.isOpen:
-      print("ERROR: failed to open a new dicom database at path "+dbpath)
+      logging.error("ERROR: failed to open a new dicom database at path "+dbpath)
       return
     retval = ddb.initializeDatabase()
     if not retval:
-      print("ERROR: failed to init database")
+      logging.error("ERROR: failed to init database")
       return
 
     l.InitializeDICOMDatabase(dbpath)
@@ -62,7 +62,7 @@ class ReportingRoundTripTest(unittest.TestCase):
     testFileNames = []
     for n in [487, 488, 489]:
       filename = os.path.join(testDataPath, "instance_" + str(n) + ".dcm")
-      print("Adding file "+filename)
+      logging.info("Adding file "+filename)
       testFileNames.append(filename)
 
     # check to see if the test data is already in it
@@ -70,12 +70,11 @@ class ReportingRoundTripTest(unittest.TestCase):
     if len(patients) == 0:
       # add the files
       for filename in testFileNames:
-        print("Inserting file "+filename)
+        logging.info("Inserting file "+filename)
         retval = ddb.insert(filename)
       patients = ddb.patients()
       if len(patients) == 0:
-        print("ERROR: unable to add test files to database!")
-        print(str(testFileNames))
+        logging.error("ERROR: unable to add test files to database!"+str(testFileNames))
         return
 
     # get the UID for the series
@@ -86,11 +85,11 @@ class ReportingRoundTripTest(unittest.TestCase):
     # seriesUID = "1.2.392.200103.20080913.113635.2.2009.6.22.21.43.10.23432.1"
     # seriesUID = "2.16.840.1.114362.1.759508.1251415878280.192"
     # seriesUID = "1.3.12.2.1107.5.1.4.53031.30000011032906120157800000219"
-    print("For test, using the AIM sample volume with series UID of "+seriesUID)
+    logging.info("For test, using the AIM sample volume with series UID of "+seriesUID)
     fileList = ddb.filesForSeries(seriesUID)
-    print("fileList = "+str(fileList))
+    logging.info("fileList = "+str(fileList))
     if not fileList:
-      print("ERROR: sample series with id "+seriesUID+" not found in database!")
+      logging.error("ERROR: sample series with id "+seriesUID+" not found in database!")
       return
 
     # add a parameter node
@@ -121,21 +120,18 @@ class ReportingRoundTripTest(unittest.TestCase):
     volumeNode = None
     volName = 'AIM volume '+str(volId)
 
-    # print("Dicom data base = "+ddb)
-
     slicer.dicomDatabase = ddb
     scalarVolumePlugin = slicer.modules.dicomPlugins['DICOMScalarVolumePlugin']()
     scalarVolumeLoadables = scalarVolumePlugin.examine([fileList])
     volumeNode = scalarVolumePlugin.load(scalarVolumeLoadables[0])
     volumeNode.SetName(volName)
-    # print "volumeNode = ",volumeNode
 
-    print("Adding to Report: Volume with id "+volumeNode.GetID())
+    logging.info("Adding to Report: Volume with id "+volumeNode.GetID())
     l.AddVolumeToReport(volumeNode)
     # set it on the report
     reportNode.SetVolumeNodeID(volumeNode.GetID())
 
-    print("adding a fiducial")
+    logging.info("adding a fiducial")
 
     #
     # define a fiducial
@@ -146,28 +142,27 @@ class ReportingRoundTripTest(unittest.TestCase):
     fidNode.SetSelected(1)
     fidNode.SetDisplayVisibility(1)
     fidNode.SetLocked(0)
-    print("Calling set fid coords")
+    logging.info("Calling set fid coords")
     startCoords = [15.8, 70.8, -126.7]    
     fidNode.SetFiducialCoordinates(startCoords[0],startCoords[1],startCoords[2])
-    print("Starting fiducial coordinates: "+str(startCoords))
+    logging.info("Starting fiducial coordinates: "+str(startCoords))
     # point it to the volume
     fidNode.SetAttribute("AssociatedNodeID", volumeNode.GetID())
     # point it to the report
     fidNode.SetAttribute("ReportingReportNodeID", reportNode.GetID())
     fidNode.SetScene(slicer.mrmlScene)
-    print("Adding text disp node")
+    logging.info("Adding text disp node")
     fidNode.CreateAnnotationTextDisplayNode()
-    print("Adding point display node")
+    logging.info("Adding point display node")
     fidNode.CreateAnnotationPointDisplayNode()
 
-    print("add node:")
     # slicer.mrmlScene.DebugOn()
     # l.DebugOn()
     slicer.mrmlScene.AddNode(fidNode) 
    
-    print("getting slice uid")
+    logging.info("getting slice uid")
     uid = l.GetSliceUIDFromMarkUp(fidNode)
-    print("fidNode uid = "+uid)
+    logging.info("fidNode uid = "+uid)
 
     #
     # create a label volume
@@ -202,17 +197,17 @@ class ReportingRoundTripTest(unittest.TestCase):
     dirName = slicer.app.slicerHome + '/Testing/Temporary/'
     reportNode.SetStorageDirectoryName(dirName)
 
-    print("Saving report to "+dirName)
+    logging.info("Saving report to "+dirName)
     retval = l.SaveReportToAIM(reportNode)
 
     if (retval != 0):
-      print("ERROR: unable to save report to aim file "+dirName+", retval="+retval)
+      logging.error("ERROR: unable to save report to aim file "+dirName+", retval="+retval)
     else:
-      print("Saved report to "+dirName+" in file "+reportNode.GetAIMFileName())
+      logging.info("Saved report to "+dirName+" in file "+reportNode.GetAIMFileName())
 
     self.assertEqual(retval, 0)
 
-    print("\n\n\nReloading aim file"+reportNode.GetAIMFileName())
+    logging.info("\n\n\nReloading aim file"+reportNode.GetAIMFileName())
 
     #
     # now clear the scene so can read in
@@ -242,24 +237,24 @@ class ReportingRoundTripTest(unittest.TestCase):
     nFiducials = col.GetNumberOfItems()
 
     if nFiducials != 2:
-      print("Failed to read a fiducial from the saved report! Expect 2 in the non cleared scene, have " + str(nFiducials))
+      logging.error("Failed to read a fiducial from the saved report! Expect 2 in the non cleared scene, have " + str(nFiducials))
       self.assertTrue(False)
     
     f = col.GetItemAsObject(1)
     f.GetFiducialCoordinates(endCoords)
 
-    print("Start Coords = "+str(startCoords[0])+","+str(startCoords[1])+","+str(startCoords[2]))
-    print("End Coords = "+str(endCoords))
+    logging.info("Start Coords = "+str(startCoords[0])+","+str(startCoords[1])+","+str(startCoords[2]))
+    logging.info("End Coords = "+str(endCoords))
 
     xdiff = endCoords[0] - startCoords[0]
     ydiff = endCoords[1] - startCoords[1]
     zdiff = endCoords[2] - startCoords[2]
     diffTotal = xdiff + ydiff + zdiff
 
-    print("Difference between coordinates after loaded the aim file and value from before stored the aim file: "+str(xdiff)+","+str(ydiff)+","+str(zdiff)+". Total difference = "+str(diffTotal))
+    logging.info("Difference between coordinates after loaded the aim file and value from before stored the aim file: "+str(xdiff)+","+str(ydiff)+","+str(zdiff)+". Total difference = "+str(diffTotal))
 
     if diffTotal > 0.1:
-      print("Fiducial coordinates error exceeds the allowed bounds")
+      logging.error("Fiducial coordinates error exceeds the allowed bounds")
       self.assertTrue(False)
 
 
@@ -275,7 +270,7 @@ class ReportingRoundTripTest(unittest.TestCase):
         sceneLabels.append(vol)
 
     if len(sceneLabels) != 2:
-      print("Scene does not have two label nodes after reloading from AIM!")
+      logging.error("Scene does not have two label nodes after reloading from AIM!")
       self.assertTrue(False)
 
     newLabelNode = sceneLabels[1]
@@ -287,8 +282,8 @@ class ReportingRoundTripTest(unittest.TestCase):
         for i in range(extent[1]):
           pixel = newLabelImage.GetScalarComponentAsFloat(i,j,k,0)
           if ((pixelCounter in initializedSegmentationVoxels) and pixel != 1) or (not(pixelCounter in initializedSegmentationVoxels) and pixel != 0):
-            print("Segmentation content not recovered correctly!")
-            print("Pixel counter "+str(pixelCounter)+" is set to "+str(pixel))
+            logging.error("Segmentation content not recovered correctly!")
+            logging.error("Pixel counter "+str(pixelCounter)+" is set to "+str(pixel))
             self.assertTrue(False)
           pixelCounter = pixelCounter + 1
 
