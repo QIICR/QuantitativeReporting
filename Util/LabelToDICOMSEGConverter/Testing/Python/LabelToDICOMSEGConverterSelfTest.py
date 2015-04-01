@@ -28,7 +28,7 @@ class LabelToDICOMSEGConverterSelfTest:
     except AttributeError:
       slicer.selfTests = {}
     slicer.selfTests['LabelToDICOMSEGConverterSelfTest'] = self.runTest
-    print slicer.selfTests
+    # print 'LabelToDICOMSEGConverterSelfTest: full list of Slicer self tests = ',slicer.selfTests
 
   def runTest(self):
     tester = LabelToDICOMSEGConverterSelfTestTest()
