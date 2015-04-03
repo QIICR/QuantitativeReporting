@@ -155,9 +155,6 @@ class DICOMSegmentationPlugin:
     and was partially funded by NIH grant U01CA151261.
     """
 
-    # don't show this module - it only appears in the DICOM module
-    parent.hidden = True
-
     # Add this extension to the DICOM module's list for discovery when the module
     # is created.  Since this module may be discovered before DICOM itself,
     # create the list if it doesn't already exist.
@@ -166,20 +163,3 @@ class DICOMSegmentationPlugin:
     except AttributeError:
       slicer.modules.dicomPlugins = {}
     slicer.modules.dicomPlugins['DICOMSegmentationPlugin'] = DICOMSegmentationPluginClass
-
-#
-#
-
-class DICOMSegmentationPluginWidget:
-  def __init__(self, parent = None):
-    self.parent = parent
-    
-  def setup(self):
-    # don't display anything for this widget - it will be hidden anyway
-    pass
-
-  def enter(self):
-    pass
-    
-  def exit(self):
-    pass
