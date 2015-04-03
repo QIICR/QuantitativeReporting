@@ -5,6 +5,7 @@ import unittest
 from  __main__ import vtk, qt, ctk, slicer
 import time
 import os, sys
+import logging
 
 import DICOMLib # for loading a volume on AIM import
 
