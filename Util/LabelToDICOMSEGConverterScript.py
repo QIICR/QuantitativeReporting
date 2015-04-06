@@ -43,7 +43,7 @@
 # 
 
 from __main__ import slicer, vtk, ctk
-import sys, glob, shutil, qt
+import os, sys, glob, shutil, qt
 import argparse
 
 from DICOMLib import DICOMPlugin
