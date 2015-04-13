@@ -1,9 +1,8 @@
 import os
 import string
 from __main__ import vtk, qt, ctk, slicer
-# previously only imported DICOMPlugin and DICOMLoadable but dashboard
-# tests were failing due to not finding DICOMLib
-import DICOMLib
+from DICOMLib import DICOMPlugin
+from DICOMLib import DICOMLoadable
 
 #
 # This is the plugin to handle translation of DICOM objects
@@ -81,7 +80,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
       isDicomSeg = (slicer.dicomDatabase.fileValue(file, self.tags['modality']) == 'SEG')
 
       if isDicomSeg:
-        loadable = DICOMLib.DICOMLoadable()
+        loadable = DICOMLoadable()
         loadable.files = [file]
         loadable.name = desc + ' - as a DICOM SEG object'
         loadable.tooltip = loadable.name
