@@ -1199,7 +1199,8 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
 
             py->executeString(QString("labelNode = getNode('%1')").arg(labelNode->GetID()));
             py->executeString(QString("greyNode = getNode('%1')").arg(volumeNode->GetID()));
-            py->executeString(QString("labelStatisticsLogic = LabelStatisticsLogic(greyNode, labelNode)"));
+            py->executeString(QString("import LabelStatistics"));
+            py->executeString(QString("labelStatisticsLogic = LabelStatistics.LabelStatisticsLogic(greyNode, labelNode)"));
             int labelIndex = reportNode->GetFindingLabel();
             py->executeString(QString("labelNode.SetAttribute('LabelStatisticsVolume', str(labelStatisticsLogic.labelStats[%1,'Volume mm^3']))").arg(labelIndex));
             py->executeString(QString("labelNode.SetAttribute('LabelStatisticsMean', str(labelStatisticsLogic.labelStats[%1,'Mean']))").arg(labelIndex));
