@@ -54,7 +54,7 @@ class LabelToDICOMSEGConverterWidget:
     # Input label node
     label = qt.QLabel('Input label: ')
     self.segmentationSelector = slicer.qMRMLNodeComboBox()
-    self.segmentationSelector.nodeTypes = ['vtkMRMLScalarVolumeNode']
+    self.segmentationSelector.nodeTypes = ['vtkMRMLLabelMapVolumeNode']
     self.segmentationSelector.setMRMLScene(slicer.mrmlScene)
     self.segmentationSelector.addEnabled = 0
     self.segmentationSelector.noneEnabled = 1
@@ -62,7 +62,6 @@ class LabelToDICOMSEGConverterWidget:
     self.segmentationSelector.showHidden = 0
     self.segmentationSelector.showChildNodeTypes = 0
     self.segmentationSelector.selectNodeUponCreation = 1
-    self.segmentationSelector.addAttribute('vtkMRMLScalarVolumeNode','LabelMap',1)
     self.segmentationSelector.connect('currentNodeChanged(vtkMRMLNode*)',self.onInputChanged)
     dummyFormLayout.addRow(label, self.segmentationSelector)
 

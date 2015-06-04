@@ -96,11 +96,10 @@ def DoIt(inputDir, labelFile, outputDir, forceLabel, forceResample):
   print 'Input volume loaded! ID = ', inputVolume.GetID()
 
   # read the label volume
-  labelVolume = slicer.vtkMRMLScalarVolumeNode()
+  labelVolume = slicer.vtkMRMLLabelMapVolumeNode()
   sNode = slicer.vtkMRMLVolumeArchetypeStorageNode()
   sNode.SetFileName(labelFile)
   sNode.ReadData(labelVolume)
-  labelVolume.LabelMapOn()
 
   if forceLabel>0:
     # print('Forcing label to '+str(forceLabel))
@@ -149,7 +148,7 @@ def DoIt(inputDir, labelFile, outputDir, forceLabel, forceResample):
       print 'Label volume mismatch with input volume:\n',geometryCheckString,'\nForced resample not specified, aborting. Re-run with --force option to ignore geometric inconsistencies'
       sys.exit(1)
     # resample label to the input volume raster
-    resampledLabel = slicer.vtkMRMLScalarVolumeNode()
+    resampledLabel = slicer.vtkMRMLLabelMapVolumeNode()
     slicer.mrmlScene.AddNode(resampledLabel)
     print 'Resampled label added, id = ', resampledLabel.GetID()
     resampledLabel = volumesLogic.ResampleVolumeToReferenceVolume(labelVolume, inputVolume)
@@ -160,7 +159,6 @@ def DoIt(inputDir, labelFile, outputDir, forceLabel, forceResample):
   slicer.mrmlScene.AddNode(displayNode)
 
   labelVolume.SetAttribute('AssociatedNodeID',inputVolume.GetID())
-  labelVolume.LabelMapOn()
   labelVolume.SetAndObserveDisplayNodeID(displayNode.GetID())
 
   # initialize the DICOM DB for Reporting logic, save as DICOM SEG

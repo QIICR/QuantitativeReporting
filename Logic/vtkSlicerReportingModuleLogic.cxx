@@ -27,7 +27,7 @@
 #include <vtkMRMLVolumeArchetypeStorageNode.h>
 #include <vtkMRMLDisplayNode.h>
 #include <vtkMRMLReportingReportNode.h>
-#include <vtkMRMLScalarVolumeNode.h>
+#include <vtkMRMLLabelMapVolumeNode.h>
 #include <vtkMRMLScene.h>
 #include <vtkMRMLScriptedModuleNode.h>
 
@@ -442,9 +442,9 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
   // cast to the supported node types
   vtkMRMLAnnotationFiducialNode *fiducialNode = vtkMRMLAnnotationFiducialNode::SafeDownCast(node);
   vtkMRMLAnnotationRulerNode *rulerNode = vtkMRMLAnnotationRulerNode::SafeDownCast(node);
-  vtkMRMLScalarVolumeNode *labelVolumeNode = vtkMRMLScalarVolumeNode::SafeDownCast(node);
+  vtkMRMLLabelMapVolumeNode *labelVolumeNode = vtkMRMLLabelMapVolumeNode::SafeDownCast(node);
 
-  if(!fiducialNode && !rulerNode && !(labelVolumeNode && labelVolumeNode->GetLabelMap()))
+  if(!fiducialNode && !rulerNode && !labelVolumeNode)
     {
     // the node added should be ignored
     return;
@@ -532,7 +532,7 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     }
 
   // handle new label node
-  else if (labelVolumeNode && labelVolumeNode->GetLabelMap())
+  else if (labelVolumeNode)
     {
     annotationType = "Segmentation";
 
@@ -1097,11 +1097,11 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   QStringList referencedUIDList;
 
   std::vector<vtkMRMLNode *> volumeNodes;
-  int numNodes = this->GetMRMLScene()->GetNodesByClass("vtkMRMLScalarVolumeNode", volumeNodes);
+  int numNodes = this->GetMRMLScene()->GetNodesByClass("vtkMRMLLabelMapVolumeNode", volumeNodes);
   for (int i = 0; i < numNodes; i++)
     {
-     vtkMRMLScalarVolumeNode *labelVolumeNode = vtkMRMLScalarVolumeNode::SafeDownCast(volumeNodes[i]);
-     if (labelVolumeNode && labelVolumeNode->GetLabelMap())
+     vtkMRMLLabelMapVolumeNode *labelVolumeNode = vtkMRMLLabelMapVolumeNode::SafeDownCast(volumeNodes[i]);
+     if (labelVolumeNode)
        {
        // is this label map in the report and associated with the volume?
        if (this->IsInReport(labelVolumeNode))
@@ -1863,7 +1863,7 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
 
   for (unsigned i=0;i<numLabels;i++)
     {
-    vtkSmartPointer<vtkMRMLScalarVolumeNode> labelNode = vtkMRMLScalarVolumeNode::SafeDownCast(labelNodes->GetItemAsObject(i));
+    vtkSmartPointer<vtkMRMLLabelMapVolumeNode> labelNode = vtkMRMLLabelMapVolumeNode::SafeDownCast(labelNodes->GetItemAsObject(i));
     if (!labelNode)
       {
       std::cout << "Expected label map" << std::endl;
@@ -1947,7 +1947,7 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
 #endif
     cast->SetOutputScalarTypeToShort();
     cast->Update();
-    vtkSmartPointer<vtkMRMLScalarVolumeNode> labelNode = vtkMRMLScalarVolumeNode::SafeDownCast(labelNodes->GetItemAsObject(0));
+    vtkSmartPointer<vtkMRMLLabelMapVolumeNode> labelNode = vtkMRMLLabelMapVolumeNode::SafeDownCast(labelNodes->GetItemAsObject(0));
     labelNode->SetAndObserveImageData(cast->GetOutput());
     labelImage = cast->GetOutput();
     cast->Delete();
@@ -2476,7 +2476,7 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
     }
     sNode->SetSingleFile(0);
 
-    vtkSmartPointer<vtkMRMLScalarVolumeNode> vNode = vtkSmartPointer<vtkMRMLScalarVolumeNode>::New();
+    vtkSmartPointer<vtkMRMLLabelMapVolumeNode> vNode = vtkSmartPointer<vtkMRMLLabelMapVolumeNode>::New();
     sNode->ReadData(vNode);
 
     // Step 4: Initialize the image
@@ -2604,7 +2604,6 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
         }
       }
 
-    vNode->LabelMapOn();
     vNode->SetAttribute("DICOM.instanceUIDs", instanceUID.c_str());
 
     std::string referenceInstanceUIDs;
@@ -2692,11 +2691,11 @@ void vtkSlicerReportingModuleLogic::PropagateFindingUpdateToMarkup()
   // for each of the attached segmentations, set all non-zero voxels to the
   // label selected, and update the name of the segmentation
   std::vector<vtkMRMLNode *> volumeNodes;
-  int numNodes = this->GetMRMLScene()->GetNodesByClass("vtkMRMLScalarVolumeNode", volumeNodes);
+  int numNodes = this->GetMRMLScene()->GetNodesByClass("vtkMRMLLabelMapVolumeNode", volumeNodes);
   for (int i = 0; i < numNodes; i++)
     {
-    vtkMRMLScalarVolumeNode *labelVolumeNode = vtkMRMLScalarVolumeNode::SafeDownCast(volumeNodes[i]);
-    if (labelVolumeNode && labelVolumeNode->GetLabelMap())
+    vtkMRMLLabelMapVolumeNode *labelVolumeNode = vtkMRMLLabelMapVolumeNode::SafeDownCast(volumeNodes[i]);
+    if (labelVolumeNode)
       {
       // is this label map in the report and associated with the volume?
       if (this->IsInReport(labelVolumeNode))

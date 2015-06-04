@@ -513,7 +513,6 @@ class SlicerReportingModuleWidgetHelper( object ):
     labelImage.DeepCopy(threshold.GetOutput())
     
     newLabel.SetAndObserveStorageNodeID(None)
-    newLabel.SetLabelMap(1)
     newLabel.CopyOrientation(sourceVolume)
     ras2ijk = vtk.vtkMatrix4x4()
     sourceVolume.GetRASToIJKMatrix(ras2ijk)

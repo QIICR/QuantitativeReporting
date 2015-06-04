@@ -171,7 +171,7 @@ class qSlicerReportingModuleWidget:
 
     label = qt.QLabel('Segmentation volume: ')
     self.segmentationSelector = slicer.qMRMLNodeComboBox()
-    self.segmentationSelector.nodeTypes = ['vtkMRMLScalarVolumeNode']
+    self.segmentationSelector.nodeTypes = ['vtkMRMLLabelMapVolumeNode']
     self.segmentationSelector.setMRMLScene(slicer.mrmlScene)
     self.segmentationSelector.addEnabled = 1
     self.segmentationSelector.noneEnabled = 1
@@ -179,7 +179,6 @@ class qSlicerReportingModuleWidget:
     self.segmentationSelector.showHidden = 0
     self.segmentationSelector.showChildNodeTypes = 0
     self.segmentationSelector.selectNodeUponCreation = 1
-    self.segmentationSelector.addAttribute('vtkMRMLScalarVolumeNode','LabelMap',1)
 
     editorFrameLayout.addRow(label, self.segmentationSelector)
 
@@ -348,8 +347,7 @@ class qSlicerReportingModuleWidget:
     associatedLabelFound = False
     for i in range(volumeNodes.GetNumberOfItems()):
       vol = volumeNodes.GetItemAsObject(i)
-      label = vol.GetAttribute('LabelMap')
-      if label == '1' and self.__logic.IsInReport(vol):
+      if vol.IsA("vtkMRMLLabelMapVolumeNode") and self.__logic.IsInReport(vol):
         Helper.SetLabelVolume(vol.GetID())
         associatedLabelFound = True
 

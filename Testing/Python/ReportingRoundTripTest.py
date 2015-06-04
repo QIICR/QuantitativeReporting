@@ -267,7 +267,7 @@ class ReportingRoundTripTest(unittest.TestCase):
 
     for i in range(sceneVolumes.GetNumberOfItems()):
       vol = sceneVolumes.GetItemAsObject(i)
-      if vol.GetLabelMap():
+      if vol.IsA("vtkMRMLLabelMapVolumeNode"):
         sceneLabels.append(vol)
 
     if len(sceneLabels) != 2:

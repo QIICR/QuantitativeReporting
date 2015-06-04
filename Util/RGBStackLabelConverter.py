@@ -196,7 +196,7 @@ def DoIt(inputDir, rgbDir, outputDir):
   ijkToRAS = vtk.vtkMatrix4x4()
   inputVolume.GetIJKToRASMatrix(ijkToRAS)
 
-  outputLabel = slicer.vtkMRMLScalarVolumeNode()
+  outputLabel = slicer.vtkMRMLLabelMapVolumeNode()
   outputLabel.SetIJKToRASMatrix(ijkToRAS)
   outputLabel.SetAndObserveImageData(cast.GetOutput())
 
@@ -216,7 +216,6 @@ def DoIt(inputDir, rgbDir, outputDir):
   labelCollection.AddItem(outputLabel)
 
   slicer.mrmlScene.AddNode(inputVolume)
-  outputLabel.LabelMapOn()
   outputLabel.SetAttribute('AssociatedNodeID',inputVolume.GetID())
   slicer.mrmlScene.AddNode(outputLabel)
 
