@@ -1859,7 +1859,6 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
   std::vector<std::string> refDcmSeriesUIDs;
   std::vector<vtkImageData*> labelImages;
   std::string referenceNodeID;
-  vtkMRMLColorNode *colorNode = NULL;
 
   for (unsigned i=0;i<numLabels;i++)
     {
@@ -1878,8 +1877,6 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
         std::cerr << "Label cannot be saved when the display node or color node is empty!" << std::endl;
         return "";
         }
-
-      colorNode = labelNode->GetDisplayNode()->GetColorNode();
 
       referenceNodeID = labelNode->GetAttribute("AssociatedNodeID");
       if (referenceNodeID == "")
@@ -2179,7 +2176,7 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
     // Referenced Series Sequence
     dataset->findOrCreateSequenceItem(DCM_ReferencedSeriesSequence, Item);
     Item->putAndInsertString(DCM_SeriesInstanceUID, str);
-    for(int i=0;i<dcmDatasetVector.size();i++){
+    for(size_t i=0;i<dcmDatasetVector.size();i++){
       dcmDatasetVector[i]->findAndGetElement(DCM_SOPInstanceUID, element);
       element->getString(str);
       //std::cout << "Adding instance UID " << str << std::endl;
@@ -2194,7 +2191,7 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
     Item->findOrCreateSequenceItem(DCM_ReferencedSeriesSequence, subItem);
     subItem->putAndInsertString(DCM_SeriesInstanceUID, str);
 
-    for(int i=0;i<dcmDatasetVector.size();i++){
+    for(size_t i=0;i<dcmDatasetVector.size();i++){
       dcmDatasetVector[i]->findAndGetElement(DCM_SOPInstanceUID, element);
       element->getString(str);
       subItem->findOrCreateSequenceItem(DCM_ReferencedInstanceSequence, subItem2, i);
