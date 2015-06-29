@@ -2246,15 +2246,18 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
   subItem2->putAndInsertString(DCM_CodeMeaning, "Segmentation");
 
   char pixelSpacingStr[16*2+1], sliceThicknessStr[16];
+  sliceThicknessStr[0] = '\0';
   {
     char *str;
     DcmElement *element;
     dcmDatasetVector[0]->findAndGetElement(DCM_PixelSpacing, element);
     element->getString(str);
     strcpy(&pixelSpacingStr[0], str);
-    dcmDatasetVector[0]->findAndGetElement(DCM_SliceThickness, element);
-    element->getString(str);
-    strcpy(&sliceThicknessStr[0], str);
+    if(dcmDatasetVector[0]->findAndGetElement(DCM_SliceThickness, element).good())
+    {
+      element->getString(str);
+      strcpy(&sliceThicknessStr[0], str);
+    }
    }
     {
     // Elements identical for each frame should be in shared group
@@ -2266,7 +2269,8 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
     subItem->putAndInsertString(DCM_ImageOrientationPatient, str);
 
     Item->findOrCreateSequenceItem(DCM_PixelMeasuresSequence, subItem);
-    subItem->putAndInsertString(DCM_SliceThickness, sliceThicknessStr);
+    if(sliceThicknessStr[0] != '\0')
+      subItem->putAndInsertString(DCM_SliceThickness, sliceThicknessStr);
     subItem->putAndInsertString(DCM_PixelSpacing, pixelSpacingStr);
     
     Item->findOrCreateSequenceItem(DCM_SegmentIdentificationSequence, subItem);
