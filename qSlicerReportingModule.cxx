@@ -130,7 +130,7 @@ void qSlicerReportingModule::setup()
 
   ioManager->registerIO(new qSlicerNodeWriter(
                             QString("Reporting"), QString("AIMXML"),
-                            QStringList() << "vtkMRMLReportingReportNode", this));
+                            QStringList() << "vtkMRMLReportingReportNode", false, this));
   std::cout << "Registered Reporting IO with the mrml report node" << std::endl;
 
   vtkSlicerReportingModuleLogic *logic = 
