@@ -377,28 +377,27 @@ class LabelToDICOMSEGConverterSelfTestTest(unittest.TestCase):
       self.delayDisplay('Wait',10000)
 
       dicomWidget.detailsPopup.loadCheckedLoadables()
-      volumes = slicer.util.getNodes('vtkMRMLScalarVolumeNode*')
+      volumes = slicer.util.getNodes('vtkMRMLLabelMapVolumeNode*')
       for n,v in volumes.items():
-        print('Volume found: '+v.GetID())
-      self.assertTrue(len(volumes) == 2)
-      
+        print('Label volume found: '+v.GetID())
+      self.assertTrue(len(volumes) == 1)
+
       for name,volume in volumes.items():
-        if volume.GetAttribute('Label') == '1':
-          image = volume.GetImageData()
-          previousImage = thresh.GetOutput()
-          diff = vtk.vtkImageDifference()
-          if vtk.vtkVersion().GetVTKMajorVersion() < 6:
-            diff.SetInput(thresh.GetOutput())
-          else:
-            diff.SetInputData(thresh.GetOutput())
-          diff.SetImage(image)
-          diff.Update()
-          if diff.GetThresholdedError() > 1:
-            self.delayDisplay('Reloaded image does not match')
-            self.assertTrue(False)
+        image = volume.GetImageData()
+        previousImage = thresh.GetOutput()
+        diff = vtk.vtkImageDifference()
+        if vtk.vtkVersion().GetVTKMajorVersion() < 6:
+          diff.SetInput(thresh.GetOutput())
+        else:
+          diff.SetInputData(thresh.GetOutput())
+        diff.SetImage(image)
+        diff.Update()
+        if diff.GetThresholdedError() > 1:
+          self.delayDisplay('Reloaded image does not match')
+          self.assertTrue(False)
 
       self.delayDisplay('Test passed')
-      
+
       self.delayDisplay("Restoring original database directory")
       if self.originalDatabaseDirectory:
         dicomWidget.onDatabaseDirectoryChanged(self.originalDatabaseDirectory)
