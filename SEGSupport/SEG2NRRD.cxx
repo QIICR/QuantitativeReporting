@@ -158,7 +158,7 @@ int main(int argc, char *argv[])
   // ITK images corresponding to the individual segments
   std::map<unsigned,ImageType::Pointer> segment2image;
   // list of strings that
-  std::map<unsigned,std::vector<std::string> > segment2meta;
+  std::map<unsigned,std::string> segment2meta;
 
   // Iterate over frames, find the matching slice for each of the frames based on
   // ImagePositionPatient, set non-zero pixels to the segment number. Notify
@@ -212,6 +212,8 @@ int main(int argc, char *argv[])
       // NOTE: according to the standard, segment numbering should start from 1,
       //  not clear if this is intentional behavior or a bug in DCMTK expecting
       //  it to start from 0
+      std::ostringstream metastr;
+
       DcmSegment* segment = segdoc->getSegment(segmentId-1);
       if(segment == NULL){
         std::cerr << "Failed to get segment for segment ID " << segmentId << std::endl;
@@ -253,35 +255,46 @@ int main(int argc, char *argv[])
         std::cout << rgb[i] << " ";
       std::cout << std::endl;
 
-      {
-        std::ostringstream strs;
-        std::string metastr;
-        strs << rgb[0] << "," << rgb[1] << "," << rgb[2] << std::endl;
-        metastr = std::string("RGBColor:")+strs.str();
-      }
+      metastr << "RGBColor:" << rgb[0] << "," << rgb[1] << "," << rgb[2] << std::endl;
 
       // get anatomy codes
+      OFString meaning, designator, code;
       GeneralAnatomyMacro &anatomyMacro = segment->getGeneralAnatomyCode();
-      OFString anatomicRegionMeaning, anatomicRegionModifierMeaning;
-      anatomyMacro.getAnatomicRegion().getCodeMeaning(anatomicRegionMeaning);
-      std::cout << "Anatomic region meaning: " << anatomicRegionMeaning << std::endl;
+      anatomyMacro.getAnatomicRegion().getCodeMeaning(meaning);
+      anatomyMacro.getAnatomicRegion().getCodeValue(code);
+      anatomyMacro.getAnatomicRegion().getCodingSchemeDesignator(designator);
+      std::cout << "Anatomic region meaning: " << meaning << std::endl;
+      metastr << "AnatomicRegion:" << code << "," << designator << "," << meaning << std::endl;
       if(anatomyMacro.getAnatomicRegionModifier().size()>0){
-        anatomyMacro.getAnatomicRegionModifier()[0]->getCodeMeaning(anatomicRegionModifierMeaning);
-        std::cout << "  Modifier: " << anatomicRegionModifierMeaning << std::endl;
+        anatomyMacro.getAnatomicRegionModifier()[0]->getCodeMeaning(meaning);
+        anatomyMacro.getAnatomicRegionModifier()[0]->getCodeValue(code);
+        anatomyMacro.getAnatomicRegionModifier()[0]->getCodingSchemeDesignator(designator);
+        std::cout << "  Modifier: " << code << std::endl;
+        metastr << "AnatomicRegionModifier:" << code << "," << designator << "," << meaning << std::endl;
       }
 
       OFString categoryMeaning;
-      segment->getSegmentedPropertyCategoryCode().getCodeMeaning(categoryMeaning);
-      std::cout << "Category meaning: " << categoryMeaning << std::endl;
+      segment->getSegmentedPropertyCategoryCode().getCodeMeaning(meaning);
+      segment->getSegmentedPropertyCategoryCode().getCodeValue(code);
+      segment->getSegmentedPropertyCategoryCode().getCodingSchemeDesignator(designator);
+      metastr << "SegmentedPropertyCategory:" << code << ","  << designator << "," << meaning << std::endl;
+      std::cout << "SegmentedPropertyCategory: " << meaning << std::endl;
 
       OFString typeMeaning, typeModifierMeaning;
-      segment->getSegmentedPropertyTypeCode().getCodeMeaning(typeMeaning);
-      std::cout << "Type meaning: " << anatomicRegionMeaning << std::endl;
+      segment->getSegmentedPropertyTypeCode().getCodeMeaning(meaning);
+      segment->getSegmentedPropertyTypeCode().getCodeValue(code);
+      segment->getSegmentedPropertyTypeCode().getCodingSchemeDesignator(designator);
+      std::cout << "Type meaning: " << meaning << std::endl;
+      metastr << "SegmentedPropertyType:" << code << "," << designator << "," << meaning << std::endl;
       if(segment->getSegmentedPropertyTypeModifierCode().size()>0){
-        segment->getSegmentedPropertyTypeModifierCode()[0]->getCodeMeaning(typeModifierMeaning);
-        std::cout << "  Modifier: " << typeModifierMeaning << std::endl;
+        segment->getSegmentedPropertyTypeModifierCode()[0]->getCodeMeaning(meaning);
+        segment->getSegmentedPropertyTypeModifierCode()[0]->getCodeValue(code);
+        segment->getSegmentedPropertyTypeModifierCode()[0]->getCodingSchemeDesignator(designator);
+        std::cout << "  Modifier: " << meaning << std::endl;
+        metastr << "SegmentedPropertyTypeModifier:" << code << "," << designator << "," << meaning << std::endl;
       }
 
+      segment2meta[segmentId] = metastr.str();
     }
 
     // get string representation of the frame origin
@@ -331,14 +344,20 @@ int main(int argc, char *argv[])
 
   for(std::map<unsigned,ImageType::Pointer>::const_iterator sI=segment2image.begin();sI!=segment2image.end();++sI){
     typedef itk::ImageFileWriter<ImageType> WriterType;
-    std::stringstream fileNameSStream;
+    std::stringstream imageFileNameSStream, infoFileNameSStream;
     // is this safe?
-    fileNameSStream << outputDirName << "/" << sI->first << ".nrrd";
+    imageFileNameSStream << outputDirName << "/" << sI->first << ".nrrd";
+    infoFileNameSStream << outputDirName << "/" << sI->first << ".info";
+
     WriterType::Pointer writer = WriterType::New();
-    writer->SetFileName(fileNameSStream.str());
+    writer->SetFileName(imageFileNameSStream.str());
     writer->SetInput(sI->second);
     writer->SetUseCompression(1);
     writer->Update();
+
+    std::ofstream metaf(infoFileNameSStream.str());
+    metaf << segment2meta[sI->first] << std::endl;
+    metaf.close();
   }
 
   return 0;
