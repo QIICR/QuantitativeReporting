@@ -209,7 +209,13 @@ int main(int argc, char *argv[])
     // populate meta information needed for Slicer ScalarVolumeNode initialization
     //  (for example)
     {
-      DcmSegment* segment = segdoc->getSegment(segmentId);
+      // NOTE: according to the standard, segment numbering should start from 1,
+      //  not clear if this is intentional behavior or a bug in DCMTK expecting
+      //  it to start from 0
+      DcmSegment* segment = segdoc->getSegment(segmentId-1);
+      if(segment == NULL){
+        std::cerr << "Failed to get segment for segment ID " << segmentId << std::endl;
+      }
       std::cout << "Parsing relevant meta info for segment " << segmentId << std::endl;
 
       // get CIELab color for the segment
@@ -253,7 +259,7 @@ int main(int argc, char *argv[])
         strs << rgb[0] << "," << rgb[1] << "," << rgb[2] << std::endl;
         metastr = std::string("RGBColor:")+strs.str();
       }
-      
+
       // get anatomy codes
       GeneralAnatomyMacro &anatomyMacro = segment->getGeneralAnatomyCode();
       OFString anatomicRegionMeaning, anatomicRegionModifierMeaning;
