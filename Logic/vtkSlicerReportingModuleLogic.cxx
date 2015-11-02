@@ -82,9 +82,11 @@
 
 // SlicerApp includes
 #include "qSlicerApplication.h"
+#include "qSlicerAbstractCoreModule.h"
+#include "vtkSlicerCLIModuleLogic.h"
 #include "qSlicerPythonManager.h"
+#include "qSlicerModuleManager.h"
 #include "vtkReportingVersionConfigure.h"
-
 
 //----------------------------------------------------------------------------
 vtkStandardNewMacro(vtkSlicerReportingModuleLogic);
@@ -178,7 +180,7 @@ bool vtkSlicerReportingModuleLogic::InitializeTerminologyMappingFromFile(std::st
   std::string lutName = "";
 
   if(status){
-  
+
     while(!mapFile.eof())
       {
       std::string lineIn;
@@ -194,7 +196,7 @@ bool vtkSlicerReportingModuleLogic::InitializeTerminologyMappingFromFile(std::st
 
       break;
       }
-    
+
     while(!mapFile.eof()){
       StandardTerm term;
       ColorLabelCategorization termMapping;
@@ -234,7 +236,7 @@ bool vtkSlicerReportingModuleLogic::LookupCategorizationFromLabel(int label, Col
   std::cout << "Looking up categorization for label " << label << std::endl;
   if(this->colorCategorizationMaps.find("GenericAnatomyColors") != this->colorCategorizationMaps.end())
     {
-    if(this->colorCategorizationMaps["GenericAnatomyColors"].find(label) != 
+    if(this->colorCategorizationMaps["GenericAnatomyColors"].find(label) !=
       this->colorCategorizationMaps["GenericAnatomyColors"].end())
       {
       labelCat = this->colorCategorizationMaps["GenericAnatomyColors"][label];
@@ -256,7 +258,7 @@ bool vtkSlicerReportingModuleLogic::LookupLabelFromCategorization(ColorLabelCate
   int labelFound = -1;
 
   std::string inputTypeName, inputModifierName;
-  
+
   inputTypeName = labelCat.SegmentedPropertyType.CodeMeaning;
   inputModifierName = labelCat.SegmentedPropertyTypeModifier.CodeMeaning;
   std::transform(inputTypeName.begin(), inputTypeName.end(), inputTypeName.begin(), ::tolower);
@@ -309,7 +311,7 @@ bool vtkSlicerReportingModuleLogic::PrintCategorizationFromLabel(int label){
   ColorLabelCategorization labelCat;
   if(this->colorCategorizationMaps.find("GenericAnatomyColors") == this->colorCategorizationMaps.end())
     return false;
-  if(this->colorCategorizationMaps["GenericAnatomyColors"].find(label) != 
+  if(this->colorCategorizationMaps["GenericAnatomyColors"].find(label) !=
     this->colorCategorizationMaps["GenericAnatomyColors"].end()){
     labelCat = this->colorCategorizationMaps["GenericAnatomyColors"][label];
     labelCat.PrintSelf(std::cout);
@@ -405,7 +407,7 @@ void vtkSlicerReportingModuleLogic::AddNodeToReport(vtkMRMLNode* node)
 
 //---------------------------------------------------------------------------
 void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
-{ 
+{
   if (!node)
     {
     return;
@@ -419,7 +421,7 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     {
     return;
     }
-  
+
   vtkMRMLReportingReportNode *reportNode = NULL;
   vtkMRMLNode *mrmlNode = this->GetMRMLScene()->GetNodeByID(activeReportID.c_str());
   if (mrmlNode)
@@ -449,7 +451,7 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     // the node added should be ignored
     return;
     }
-  
+
 
   // handle new fiducials and rulers
   if(fiducialNode || rulerNode)
@@ -483,7 +485,7 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
     vtkMRMLAnnotationNode *annotationNode = vtkMRMLAnnotationNode::SafeDownCast(node);
     std::string UID = this->GetSliceUIDFromMarkUp(annotationNode);
     if(UID.compare("NONE") == 0)
-      { 
+      {
       std::string errorMessage;
       errorMessage = std::string("Newly added markup '");
       errorMessage += std::string( node->GetName());
@@ -517,7 +519,7 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
       {
       this->SetErrorMessage("");
       }
-    
+
     if (fiducialNode)
       {
       annotationType = "Fiducial";
@@ -582,11 +584,11 @@ void vtkSlicerReportingModuleLogic::OnMRMLSceneNodeAdded(vtkMRMLNode* node)
 
   // TODO: sanity check to make sure that the annotation's AssociatedNodeID
   // attribute points to the current volume
-  
+
   // let the GUI know there's a new annotation node
   std::cout << "Reporting Logic: had an annotation added, invoking node added event for " << node->GetName() << std::endl;
   this->InvokeEvent(vtkSlicerReportingModuleLogic::AnnotationAdded); // vtkMRMLScene::NodeAddedEvent);
-  
+
 }
 
 //---------------------------------------------------------------------------
@@ -623,14 +625,14 @@ std::string vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotati
     vtkErrorMacro("GetSliceUIDFromMarkUp: No MRML Scene defined!");
     return UID;
     }
-  
+
   vtkMRMLAnnotationControlPointsNode *cpNode = vtkMRMLAnnotationControlPointsNode::SafeDownCast(node);
   if (!node)
     {
     vtkErrorMacro("GetSliceUIDFromMarkUp: Input node is not a control points node!");
     return UID;
     }
-  
+
   int numPoints = cpNode->GetNumberOfControlPoints();
   vtkDebugMacro("GetSliceUIDFromMarkUp: have a control points node with " << numPoints << " points");
 
@@ -674,7 +676,7 @@ std::string vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotati
     uidVector.push_back(std::string(ptr));
     ptr = strtok(NULL, " ");
     }
-  
+
   // get the RAS to IJK matrix from the volume
   vtkSmartPointer<vtkMatrix4x4> ras2ijk = vtkSmartPointer<vtkMatrix4x4>::New();
   volumeNode->GetRASToIJKMatrix(ras2ijk);
@@ -718,7 +720,7 @@ std::string vtkSlicerReportingModuleLogic::GetSliceUIDFromMarkUp(vtkMRMLAnnotati
         break;
         }
       }
-    }  
+    }
   return UID;
 
 }
@@ -891,7 +893,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     vtkErrorMacro("SaveReportToAIM: no report node given.");
     return EXIT_FAILURE;
     }
-  
+
   char aimUID[128];
   dcmGenerateUniqueIdentifier(aimUID,SITE_SERIES_UID_ROOT);
 
@@ -971,7 +973,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     }
 
   // open the file for writing
-  
+
   // generated the document and parent elements
   //
   // (Step 1) Initialize ImageAnnotation and attributes
@@ -985,7 +987,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   time ( &rawtime );
   timeInfo = localtime (&rawtime);
   strftime (timeStr, 27, "%Y-%m-%dT%H:%M:%S", timeInfo);
-  
+
   QDomDocument doc;
   QDomProcessingInstruction xmlDecl = doc.createProcessingInstruction("xml","version=\"1.0\"");
   doc.appendChild(xmlDecl);
@@ -1020,7 +1022,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   root.setAttribute("uniqueIdentifier", aimUID);
   root.setAttribute("xmlns:xsi","http://www.w3.org/2001/XMLSchema-instance");
   root.setAttribute("xsi:schemaLocation","gme://caCORE.caCORE/3.2/edu.northwestern.radiology.AIM AIM_v3_rv11_XML.xsd");
-  
+
   doc.appendChild(root);
 
   // (Step 3) Initialize user/equipment/person (these have no meaning for now
@@ -1072,18 +1074,18 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   ae.setAttribute("label", colorNode->GetColorName(reportNode->GetFindingLabel()));
   aec.appendChild(ae);
 
- 
+
   if (reportNode)
     {
     std::cout << "SaveReportToAIM: saving report node " << reportNode->GetName() << std::endl;
     }
-  
+
   // print out the volume
   if (volumeNode)
     {
     std::cout << "SaveReportToAIM: saving volume node " << volumeNode->GetName() << std::endl;
     }
-  
+
   // print out the markups
   //   keep the list of referenced slice UIDs so that they can be saved in the
   //   final step
@@ -1143,14 +1145,14 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     root.insertBefore(calculationCollection, root.firstChild());
     //root.appendChild(calculationCollection);
     }
-  
+
   if (labelNodeCollection->GetNumberOfItems())
     {
     // save the SEG object, add it to the database, calculate label
     // statistics, get the UIDs and initialize the corresponding element in AIM
     QSettings settings;
     std::string dbFileName = reportNode->GetDICOMDatabaseFileName();
-    
+
     if(dbFileName != "")
       {
       // filename is initialized based on the UID of the segmentation object
@@ -1172,7 +1174,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
           QDomElement segDom = doc.createElement("Segmentation");
           segDom.setAttribute("cagridId","0");
 
-          std::string instanceUID = 
+          std::string instanceUID =
             this->getDcmElementAsString(DCM_SOPInstanceUID,segDcm).c_str();
 
           /*
@@ -1270,7 +1272,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   std::map<QString, DcmDataset*> instanceToDcm; // instanceUID to DcmDataset
   for(int i=0;i<allInstanceUIDs.size();i++)
     {
-    
+
     std::string fileName = this->GetFileNameFromUID(allInstanceUIDs[i].toLatin1().data());
     if(fileName == "")
       {
@@ -1295,7 +1297,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     std::cout << "instanceUID = " << instanceUID.toLatin1().data() << std::endl;
     std::cout << "studyUID = " << studyUID.toLatin1().data() << std::endl;
     std::cout << "seriesUID = " << seriesUID.toLatin1().data() << std::endl;
-          
+
     if(seriesToInstanceList.find(seriesUID) == seriesToInstanceList.end())
       {
       seriesToInstanceList[seriesUID] = QStringList() << instanceUID;
@@ -1326,7 +1328,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     // don't add a collection unless there's an image reference
     root.appendChild(irc);
     }
-  
+
   for(std::map<QString,QStringList>::const_iterator mIt=studyToSeriesList.begin();
       mIt!=studyToSeriesList.end();++mIt)
     {
@@ -1355,7 +1357,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
       study1.setAttribute("startTime","000000");
       study.appendChild(study1);
 
-      // 
+      //
       QDomElement series = doc.createElement("imageSeries");
       study1.appendChild(series);
 
@@ -1392,7 +1394,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     // only add the collection if there are shapes
     root.appendChild(gsc);
     }
-  
+
   // get the associated markups and print them
   for (int i = 0; i < annotationNodeCollection->GetNumberOfItems(); ++i)
     {
@@ -1400,45 +1402,45 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     if (mrmlAssociatedNode)
       {
       vtkMRMLAnnotationNode *annNode = vtkMRMLAnnotationNode::SafeDownCast(mrmlAssociatedNode);
-      vtkMRMLAnnotationFiducialNode *fidNode = vtkMRMLAnnotationFiducialNode::SafeDownCast(mrmlAssociatedNode);          
+      vtkMRMLAnnotationFiducialNode *fidNode = vtkMRMLAnnotationFiducialNode::SafeDownCast(mrmlAssociatedNode);
       vtkMRMLAnnotationRulerNode *rulerNode = vtkMRMLAnnotationRulerNode::SafeDownCast(mrmlAssociatedNode);
       // print out a point
       if(fidNode || rulerNode)
         {
         QStringList coordStr = this->GetMarkupPointCoordinatesStr(annNode);
-        
+
         QDomElement gs = doc.createElement("GeometricShape");
-        
+
         // GeometricShape markup-specific initialization
-        
+
         // Fiducial = AIM Point
         if (fidNode)
           {
           vtkDebugMacro("SaveReportToAIM: saving Point from node named " << fidNode->GetName());
-          
+
           if(coordStr.size()!=2)
             {
             vtkErrorMacro("Failed to obtain fiducial points for markup point!");
             return EXIT_FAILURE;
             }
-          
+
           gs.setAttribute("xsi:type","Point");
           gs.setAttribute("shapeIdentifier",shapeId++);
           gs.setAttribute("includeFlag", "true");
           gs.setAttribute("cagridId","0");
           }
-        
+
         // Ruler = AIM MultiPoint
         if (rulerNode)
           {
           vtkDebugMacro("SaveReportToAIM: saving MultiPoint from node named " << rulerNode->GetName());
-          
+
           if(coordStr.size()!=4)
             {
             vtkErrorMacro("Failed to obtain fiducial points for markup point!");
             return EXIT_FAILURE;
             }
-          
+
           gs.setAttribute("xsi:type","MultiPoint");
           // save the shape identifier, before it's incremented, to the node so that can print out the
           // ruler length associated with these points
@@ -1449,7 +1451,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
           gs.setAttribute("includeFlag", "true");
           gs.setAttribute("cagridId","0");
           }
-        
+
         // Procedure for saving the list of points should be the same for
         // all markup elements
         this->AddSpatialCoordinateCollectionElement(doc, gs, coordStr, referencedUIDList[i]);
@@ -1481,7 +1483,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
         }
       }
     }
-  
+
   // Extract patient information from the referenced volume
   //
   QDomElement person = doc.createElement("person");
@@ -1516,7 +1518,7 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
     QString fullBirthTime = QString("T00:00:00");
     if (patientBirthTime.size() != 0 &&
         !patientBirthTime.contains("(no value available)"))
-      {      
+      {
       patientBirthTime = patientBirthTime.split("]")[0].split("[")[1];
       vtkDebugMacro("patientBirthTime = " << qPrintable(patientBirthTime) );
       if (patientBirthTime.size() >= 6)
@@ -1533,21 +1535,21 @@ int vtkSlicerReportingModuleLogic::SaveReportToAIM(vtkMRMLReportingReportNode *r
   Person.setAttribute("name", patientName);
   Person.setAttribute("sex", patientSex);
   person.appendChild(Person);
- 
+
   // close the file
-  
+
   vtkDebugMacro("Here comes the AIM: ");
   QString xml = doc.toString();
   std::cout << qPrintable(xml);
 
   std::string aimFileName = dirname + "/" + aimUID + ".xml";
   reportNode->SetAIMFileName(aimFileName);
-  
+
   std::ofstream outputFile(aimFileName.c_str());
   outputFile << qPrintable(xml);
 
   return EXIT_SUCCESS;
-    
+
 }
 
 //---------------------------------------------------------------------------
@@ -1583,7 +1585,7 @@ int vtkSlicerReportingModuleLogic::AddSpatialCoordinateCollectionElement(QDomDoc
 int vtkSlicerReportingModuleLogic::AddCalculationCollectionElement(QDomDocument &doc, QDomElement &parent,
                                                                    QString &codeMeaning, QString &codeValue, QString &description, QString &unitOfMeasure,
                                                                    QString &value, QString &shapeIdentifier, QString &UID)
-{  
+{
   QDomElement calculation = doc.createElement("Calculation");
   parent.appendChild(calculation);
 
@@ -1596,7 +1598,7 @@ int vtkSlicerReportingModuleLogic::AddCalculationCollectionElement(QDomDocument 
 
   QDomElement referencedCalculationCollection = doc.createElement("referencedCalculationCollection");
   calculation.appendChild(referencedCalculationCollection);
-  
+
   QDomElement calculationResultCollection = doc.createElement("calculationResultCollection");
   calculation.appendChild(calculationResultCollection);
 
@@ -1615,7 +1617,7 @@ int vtkSlicerReportingModuleLogic::AddCalculationCollectionElement(QDomDocument 
   calculationData.setAttribute("cagridId","0");
   calculationData.setAttribute("value",value);
   calculationDataCollection.appendChild(calculationData);
-  
+
   QDomElement coordinateCollection = doc.createElement("coordinateCollection");
   calculationData.appendChild(coordinateCollection);
 
@@ -1652,7 +1654,7 @@ int vtkSlicerReportingModuleLogic::AddCalculationCollectionElement(QDomDocument 
     referencedGeometricShape.setAttribute("referencedShapeIdentifier","0");
     }
   referencedGeometricShapeCollection.appendChild(referencedGeometricShape);
-  
+
   return EXIT_SUCCESS;
 }
 
@@ -1831,7 +1833,7 @@ std::string vtkSlicerReportingModuleLogic::GetActiveReportID()
     }
 
   reportID = parameterNode->GetParameter("reportID");
-  return reportID;  
+  return reportID;
 }
 
 //---------------------------------------------------------------------------
@@ -1892,14 +1894,14 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
         std::cerr << "Label node does not have AssociatedNodeID initialized!" << std::endl;
         return "";
         }
-      
+
       const char* uids = referenceNode->GetAttribute("DICOM.instanceUIDs");
       if (!uids)
         {
         std::cerr << "Referenced node does not have DICOM.instanceUIDs initialized!" << std::endl;
         return "";
         }
-      
+
       std::istringstream iss(uids);
       std::string word;
       std::cout << "Reference dicom UIDs: ";
@@ -2013,7 +2015,7 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
 
   std::stringstream labelValueStr;
   labelValueStr << int(labelValue);
-  
+
 
 
   // create a DICOM dataset (see
@@ -2134,7 +2136,7 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
   //subItem->putAndInsertString(DCM_CodeValue, labelValueStr.str().c_str());
   //subItem->putAndInsertString(DCM_CodingSchemeDesignator,"3DSlicer");
   //subItem->putAndInsertString(DCM_CodeMeaning, colorNode->GetColorName(labelValue));
-  
+
   ColorLabelCategorization labelCat;
   // if cannot look up the item, fall back to label 1:tissue
   if(!this->LookupCategorizationFromLabel(labelValue, labelCat))
@@ -2208,7 +2210,7 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
   const unsigned long itemNum = extent[5];
   if(itemNum+1 != dcmDatasetVector.size())
     {
-    std::cerr << "Number of slices " << extent[5] << " does not match the number of DcmDatasets " 
+    std::cerr << "Number of slices " << extent[5] << " does not match the number of DcmDatasets "
       << dcmDatasetVector.size() << "!" << std::endl;
     return "";
     }
@@ -2269,7 +2271,7 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
     if(sliceThicknessStr[0] != '\0')
       subItem->putAndInsertString(DCM_SliceThickness, sliceThicknessStr);
     subItem->putAndInsertString(DCM_PixelSpacing, pixelSpacingStr);
-    
+
     Item->findOrCreateSequenceItem(DCM_SegmentIdentificationSequence, subItem);
     subItem->putAndInsertString(DCM_ReferencedSegmentNumber, "1");
 
@@ -2394,228 +2396,23 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
       return false;
       }
 
-    DcmFileFormat fileFormat;
-    DcmDataset *segDataset = NULL;
-    OFCondition status = fileFormat.loadFile(segFileName.c_str());
-    if(status.good())
-      {
-      std::cout << "Loaded dataset for " << segFileName << std::endl;
-      segDataset = fileFormat.getAndRemoveDataset();
-      }
-    else
-      {
-      std::cout << "Failed to load the dataset for " << instanceUID << std::endl;
-      return false;
-      }
+    // output dir name is SlicerTempDir/Reporting/<SEG UID>
+    QString outputDirName =
+      qSlicerCoreApplication::application()->temporaryPath();
+    outputDirName = outputDirName+"/QIICR/SEG/"+instanceUID.c_str();
+    // create CLI parameter Node
+    qSlicerAbstractCoreModule* segModule =
+      qSlicerApplication::application()->moduleManager()->module("SEG2NRRD");
+    vtkSlicerCLIModuleLogic* segModuleLogic =
+      vtkSlicerCLIModuleLogic::SafeDownCast(segModule->logic());
+    vtkSmartPointer<vtkMRMLCommandLineModuleNode> cmdNode =
+      segModuleLogic->CreateNodeInScene();
+    cmdNode->SetParameterAsString("inputSEGFileName", segFileName);
+    cmdNode->SetParameterAsString("outputDirName", outputDirName.toStdString());
 
-    // No go if this is not a SEG modality
-      {
-      DcmElement *el;
-      char* str;
-      OFCondition status =
-        segDataset->findAndGetElement(DCM_SOPClassUID, el);
-      if(status.bad())
-        {
-        std::cout << "Failed to get class UID" << std::endl;
-        return -1;
-        }
-      status = el->getString(str);
-      if(status.bad())
-        return -1;
-      if(strcmp(str, UID_SegmentationStorage))
-        {
-        std::cerr << "Input DICOM should be a SEG object!" << std::endl;
-        return -1;
-        }
-      }
-
-    // Step 2: get the UIDs of the source sequence to initialize the geometry
-    std::vector<std::string> referenceFramesUIDs;
-    {
-      DcmItem *item1, *item2, *item3;
-      DcmElement *el;
-      OFCondition status;
-      char* str;
-      status = segDataset->findAndGetSequenceItem(DCM_SharedFunctionalGroupsSequence, item1);
-      if(status.bad())
-        return -2;
-      status = item1->findAndGetSequenceItem(DCM_DerivationImageSequence, item2);
-      if(status.bad())
-        return -2;
-      //status = item2->findAndGetSequenceItem(DCM_SourceImageSequence, item3);
-      // TODO: how to get the number of items in sequence?
-      for(int i=0;;i++)
-      {
-        status = item2->findAndGetSequenceItem(DCM_SourceImageSequence, item3, i);
-        if(status.bad())
-          break;
-        status = item3->findAndGetElement(DCM_ReferencedSOPInstanceUID, el);
-        if(status.bad())
-          return -3;
-        status = el->getString(str);
-        if(status.bad())
-          return -4;
-        std::cout << "Next UID: " << str << std::endl;
-        referenceFramesUIDs.push_back(str);
-      }
-    }
-
-  std::cout << referenceFramesUIDs.size() << " reference UIDs found" << std::endl;
-
-  vtkSmartPointer<vtkMRMLVolumeArchetypeStorageNode> sNode = vtkSmartPointer<vtkMRMLVolumeArchetypeStorageNode>::New();
-  sNode->ResetFileNameList();
-
-  // TODO: initialize geometry directly from the frame information,
-  //  no real need to read referenced series here
-  for(std::vector<std::string>::const_iterator uidIt=referenceFramesUIDs.begin();
-    uidIt!=referenceFramesUIDs.end();++uidIt)
-    {
-      std::string frameFileName = this->GetFileNameFromUID(*uidIt);
-      if(uidIt == referenceFramesUIDs.begin())
-        sNode->SetFileName(frameFileName.c_str());
-      sNode->AddFileName(frameFileName.c_str());
-    }
-    sNode->SetSingleFile(0);
-
-    vtkSmartPointer<vtkMRMLLabelMapVolumeNode> vNode = vtkSmartPointer<vtkMRMLLabelMapVolumeNode>::New();
-    sNode->ReadData(vNode);
-
-    // Step 4: Initialize the image
-    const Uint8 *pixelArray;
-      {
-      unsigned long count;
-      const DcmTagKey pdTag = DCM_PixelData;
-      OFCondition status =
-        segDataset->findAndGetUint8Array(pdTag, pixelArray, &count, false);
-      if(!status.good())
-        return -5;
-      std::cout << "Pixel array length is " << count << std::endl;
-
-      }
-
-    // get the label value from SegmentSequence/AnatotmicRegionSequence
-    DcmItem *Item = NULL, *subItem = NULL;
-    int labelValue = 1; // by default, use label 1, if cannot parse property sequences
-    char tagValue[128];
-    //code[128], meaning[128], designator[128];
-    const char *tagValuePtr = &tagValue[0];
-    //*codePtr = &code[0], *meaningPtr = &meaning[0], *designatorPtr = &designator[0];
-    segDataset->findAndGetSequenceItem(DCM_SegmentSequence, Item);
-    status = Item->findAndGetSequenceItem(DCM_AnatomicRegionSequence, subItem);
-    if(status.bad())
-      {
-      DcmItem *categoryItem = NULL, *typeItem = NULL, *modifierItem = NULL;
-      // No anatomic region sequence -- assume that Structure
-      // Category/Type/Modifier are used to encode the label      
-      status = Item->findAndGetSequenceItem(DCM_SegmentedPropertyCategoryCodeSequence, categoryItem);
-      if(status.good())
-        {
-        status = Item->findAndGetSequenceItem(DCM_SegmentedPropertyTypeCodeSequence, typeItem);
-        }
-      if(status.good())
-        {
-        status = typeItem->findAndGetSequenceItem(DCM_AnatomicRegionModifierSequence, modifierItem);
-        }
-      // category and type must be available, modifier is optional
-      if(categoryItem && typeItem)
-        {
-        ColorLabelCategorization labelCat;
-        categoryItem->findAndGetString(DCM_CodeMeaning, tagValuePtr);
-        labelCat.SegmentedPropertyCategory.CodeMeaning = std::string(tagValuePtr);
-        typeItem->findAndGetString(DCM_CodeMeaning, tagValuePtr);
-        labelCat.SegmentedPropertyType.CodeMeaning = std::string(tagValuePtr);
-        if(modifierItem)
-          {
-          modifierItem->findAndGetString(DCM_CodeMeaning, tagValuePtr);
-          labelCat.SegmentedPropertyTypeModifier.CodeMeaning = std::string(tagValuePtr);
-          }
-        this->LookupLabelFromCategorization(labelCat, labelValue);
-        }
-      } 
-    else 
-      {
-      // support legacy format -- from the times I was writing Slicer label
-      // value with Slicer as coding scheme designator
-
-      subItem->findAndGetString(DCM_CodeValue, tagValuePtr);
-      int tmpLabelValue = atoi(tagValuePtr);
-
-      // label value is accepted only if the coding scheme designator is
-      // recognized and the color name matches
-      subItem->findAndGetString(DCM_CodingSchemeDesignator, tagValuePtr);    
-      if(strcmp(tagValuePtr, "3DSlicer") != 0)
-        {
-        std::cerr << "WARNING: Coding scheme designator " << tagValuePtr << " is not recognized!" << std::endl;
-        }
-      else
-        {
-        subItem->findAndGetString(DCM_CodeMeaning, tagValuePtr);
-        if(strcmp(tagValuePtr, colorNode->GetColorName(tmpLabelValue)) != 0)
-          {
-          std::cerr << "WARNING: Code meaning " << tagValuePtr << " does not match the expected value for label " <<
-            tmpLabelValue << std::endl;
-          }
-        else
-          {
-          // use the tag value only if the coding scheme designator and color
-          // name match!
-          labelValue = tmpLabelValue;
-          }
-        }
-    }
-
-    vtkImageData *imageData = vNode->GetImageData();
-
-    if(imageData->GetScalarType() != 4) // check if short
-      {
-      vtkImageCast *cast = vtkImageCast::New();
-#if (VTK_MAJOR_VERSION < 6)
-      cast->SetInput(imageData);
-#else
-      cast->SetInputData(imageData);
-#endif
-      cast->SetOutputScalarTypeToShort();
-      cast->Update();
-      imageData->DeepCopy(cast->GetOutput());
-      cast->Delete();
-      }
-
-    int extent[6];
-    imageData->GetExtent(extent);
-
-    short* bufferPointer = (short*) imageData->GetPointData()->GetScalars()->GetVoidPointer(0);
-    vtkIdType inc[3];
-    imageData->GetIncrements(inc);
-
-    int total = 0;
-    for(int k=0;k<extent[5]+1;k++)
-      {
-      for(int j=0;j<extent[3]+1;j++)
-        {
-        for(int i=0;i<extent[1]+1;i++)
-          {
-          int byte = total/8, bit = total % 8;
-          int value = (pixelArray[byte] >> bit) & 1;
-          value *= labelValue;
-          //imageData->SetScalarComponentFromFloat(i,j,k,0,value);
-          // Optimized access to the image buffer:
-          bufferPointer[k*inc[2]+j*inc[1]+i] = value;
-          total++;
-          }
-        }
-      }
-
-    vNode->SetAttribute("DICOM.instanceUIDs", instanceUID.c_str());
-
-    std::string referenceInstanceUIDs;
-    for(std::vector<std::string>::const_iterator uidIt=referenceFramesUIDs.begin();
-      uidIt!=referenceFramesUIDs.end();++uidIt)
-    {
-      referenceInstanceUIDs += *uidIt + std::string(" ");
-    }
- 
-    vNode->SetAttribute("DICOM.referenceInstanceUIDs", referenceInstanceUIDs.c_str());
-    labelNodes->AddItem(vNode);
+    std::cout << "Will run with " << outputDirName.toStdString() << std::endl;
+    segModuleLogic->ApplyAndWait(cmdNode);
+    std::cout << "Done" << std::endl;
 
     return true;
 }
@@ -2623,7 +2420,7 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
 //---------------------------------------------------------------------------
 vtkMRMLColorNode* vtkSlicerReportingModuleLogic::GetDefaultColorNode()
 {
-  vtkMRMLColorNode* colorNode = 
+  vtkMRMLColorNode* colorNode =
     vtkMRMLColorNode::SafeDownCast(this->GetMRMLScene()->GetNodeByID("vtkMRMLColorTableNodeFileGenericAnatomyColors.txt"));
   if(colorNode && strcmp(colorNode->GetName(), "GenericAnatomyColors"))
     {
@@ -2649,7 +2446,7 @@ void vtkSlicerReportingModuleLogic::PropagateFindingUpdateToMarkup()
     {
     return;
     }
-  
+
   vtkMRMLReportingReportNode *reportNode = NULL;
   vtkMRMLNode *mrmlNode = this->GetMRMLScene()->GetNodeByID(activeReportID.c_str());
   if (mrmlNode)
@@ -2679,7 +2476,7 @@ void vtkSlicerReportingModuleLogic::PropagateFindingUpdateToMarkup()
         {
         markupName = colorName+"_Fiducial";
         annotationNode->SetName(markupName.c_str());
-        } 
+        }
       else if(annotationNode->IsA("vtkMRMLAnnotationRulerNode"))
         {
         markupName = colorName+"_Ruler";
@@ -2721,3 +2518,203 @@ void vtkSlicerReportingModuleLogic::PropagateFindingUpdateToMarkup()
       }
     }
 }
+
+#if 0
+int vtkSlicerReportingModuleLogic::getImageDirections(FGInterface &fgInterface, ImageType::DirectionType &dir){
+  // For directions, we can only handle segments that have patient orientation
+  //  identical for all frames, so either find it in shared FG, or fail
+  // TODO: handle the situation when FoR is not initialized
+  OFBool isPerFrame;
+  vnl_vector<double> rowDirection(3), colDirection(3);
+
+  FGPlaneOrientationPatient *planorfg = OFstatic_cast(FGPlaneOrientationPatient*,
+                                                      fgInterface.get(0, DcmFGTypes::EFG_PLANEORIENTPATIENT, isPerFrame));
+  if(!planorfg){
+    std::cerr << "Plane Orientation (Patient) is missing, cannot parse input " << std::endl;
+    return -1;
+  }
+  OFString orientStr;
+  for(int i=0;i<3;i++){
+    if(planorfg->getImageOrientationPatient(orientStr, i).good()){
+      rowDirection[i] = atof(orientStr.c_str());
+    } else {
+      std::cerr << "Failed to get orientation " << i << std::endl;
+      return -1;
+    }
+  }
+  for(int i=3;i<6;i++){
+    if(planorfg->getImageOrientationPatient(orientStr, i).good()){
+      colDirection[i-3] = atof(orientStr.c_str());
+    } else {
+      std::cerr << "Failed to get orientation " << i << std::endl;
+      return -1;
+    }
+  }
+  vnl_vector<double> sliceDirection = vnl_cross_3d(rowDirection, colDirection);
+  sliceDirection.normalize();
+
+  for(int i=0;i<3;i++){
+    dir[i][0] = rowDirection[i];
+    dir[i][1] = colDirection[i];
+    dir[i][2] = sliceDirection[i];
+  }
+
+  std::cout << "Direction: " << std::endl << dir << std::endl;
+
+  return 0;
+}
+
+int vtkSlicerReportingModuleLogic::computeVolumeExtent(FGInterface &fgInterface, vnl_vector<double> &sliceDirection, ImageType::PointType &imageOrigin, double &sliceSpacing, double &sliceExtent){
+  // Size
+  // Rows/Columns can be read directly from the respective attributes
+  // For number of slices, consider that all segments must have the same number of frames.
+  //   If we have FoR UID initialized, this means every segment should also have Plane
+  //   Position (Patient) initialized. So we can get the number of slices by looking
+  //   how many per-frame functional groups a segment has.
+
+  std::vector<double> originDistances;
+  std::map<OFString, double> originStr2distance;
+  std::map<OFString, unsigned> frame2overlap;
+  double minDistance;
+
+  unsigned numFrames = fgInterface.getNumberOfFrames();
+
+  FrameSorterIPP fsIPP;
+  FrameSorterIPP::Results sortResults;
+  fsIPP.setSorterInput(&fgInterface);
+  fsIPP.sort(sortResults);
+
+  // Determine ordering of the frames, keep mapping from ImagePositionPatient string
+  //   to the distance, and keep track (just out of curiousity) how many frames overlap
+  vnl_vector<double> refOrigin(3);
+  {
+    OFBool isPerFrame;
+    FGPlanePosPatient *planposfg =
+        OFstatic_cast(FGPlanePosPatient*,fgInterface.get(0, DcmFGTypes::EFG_PLANEPOSPATIENT, isPerFrame));
+    for(int j=0;j<3;j++){
+      OFString planposStr;
+      if(planposfg->getImagePositionPatient(planposStr, j).good()){
+          refOrigin[j] = atof(planposStr.c_str());
+      } else {
+        std::cerr << "Failed to read patient position" << std::endl;
+      }
+    }
+  }
+
+  for(int frameId=0;frameId<numFrames;frameId++){
+    OFBool isPerFrame;
+    FGPlanePosPatient *planposfg =
+        OFstatic_cast(FGPlanePosPatient*,fgInterface.get(frameId, DcmFGTypes::EFG_PLANEPOSPATIENT, isPerFrame));
+
+    if(!planposfg){
+      std::cerr << "PlanePositionPatient is missing" << std::endl;
+      return -1;
+    }
+
+    if(!isPerFrame){
+      std::cerr << "PlanePositionPatient is required for each frame!" << std::endl;
+      return -1;
+    }
+
+    vnl_vector<double> sOrigin;
+    OFString sOriginStr = "";
+    sOrigin.set_size(3);
+    for(int j=0;j<3;j++){
+      OFString planposStr;
+      if(planposfg->getImagePositionPatient(planposStr, j).good()){
+          sOrigin[j] = atof(planposStr.c_str());
+          sOriginStr += planposStr;
+          if(j<2)
+            sOriginStr+='/';
+      } else {
+        std::cerr << "Failed to read patient position" << std::endl;
+        return -1;
+      }
+    }
+
+    // check if this frame has already been encountered
+    if(originStr2distance.find(sOriginStr) == originStr2distance.end()){
+      vnl_vector<double> difference;
+      difference.set_size(3);
+      difference[0] = sOrigin[0]-refOrigin[0];
+      difference[1] = sOrigin[1]-refOrigin[1];
+      difference[2] = sOrigin[2]-refOrigin[2];
+      double dist = dot_product(difference,sliceDirection);
+      frame2overlap[sOriginStr] = 1;
+      originStr2distance[sOriginStr] = dist;
+      assert(originStr2distance.find(sOriginStr) != originStr2distance.end());
+      originDistances.push_back(dist);
+
+      if(frameId==0){
+        minDistance = dist;
+        imageOrigin[0] = sOrigin[0];
+        imageOrigin[1] = sOrigin[1];
+        imageOrigin[2] = sOrigin[2];
+      }
+      else
+        if(dist<minDistance){
+          imageOrigin[0] = sOrigin[0];
+          imageOrigin[1] = sOrigin[1];
+          imageOrigin[2] = sOrigin[2];
+          minDistance = dist;
+        }
+    } else {
+      frame2overlap[sOriginStr]++;
+    }
+  }
+
+  // sort all unique distances, this will be used to check consistency of
+  //  slice spacing, and also to locate the slice position from ImagePositionPatient
+  //  later when we read the segments
+  sort(originDistances.begin(), originDistances.end());
+
+  sliceSpacing = fabs(originDistances[0]-originDistances[1]);
+
+  for(int i=1;i<originDistances.size();i++){
+    float dist1 = fabs(originDistances[i-1]-originDistances[i]);
+    float delta = sliceSpacing-dist1;
+    if(delta > 0.001){
+      std::cerr << "WARNING: Inter-slice distance " << originDistances[i] << " difference exceeded threshold: " << delta << std::endl;
+    }
+  }
+
+  sliceExtent = fabs(originDistances[0]-originDistances[originDistances.size()-1]);
+  unsigned overlappingFramesCnt = 0;
+  for(std::map<OFString, unsigned>::const_iterator it=frame2overlap.begin();
+      it!=frame2overlap.end();++it){
+    if(it->second>1)
+      overlappingFramesCnt++;
+  }
+
+  std::cout << "Total frames: " << numFrames << std::endl;
+  std::cout << "Total frames with unique IPP: " << originDistances.size() << std::endl;
+  std::cout << "Total overlapping frames: " << overlappingFramesCnt << std::endl;
+  std::cout << "Origin: " << imageOrigin << std::endl;
+
+  return 0;
+}
+
+int getDeclaredImageSpacing(FGInterface &fgInterface, ImageType::SpacingType &spacing){
+  OFBool isPerFrame;
+  FGPixelMeasures *pixm = OFstatic_cast(FGPixelMeasures*,
+                                                      fgInterface.get(0, DcmFGTypes::EFG_PIXELMEASURES, isPerFrame));
+  if(!pixm){
+    std::cerr << "Pixel measures FG is missing!" << std::endl;
+    return -1;
+  }
+
+  pixm->getPixelSpacing(spacing[0], 0);
+  pixm->getPixelSpacing(spacing[1], 1);
+
+  Float64 spacingFloat;
+  if(pixm->getSpacingBetweenSlices(spacingFloat,0).good() && spacingFloat != 0){
+    spacing[2] = spacingFloat;
+  } else if(pixm->getSliceThickness(spacingFloat,0).good() && spacingFloat != 0){
+    // SliceThickness can be carried forward from the source images, and may not be what we need
+    // As an example, this ePAD example has 1.25 carried from CT, but true computed thickness is 1!
+    std::cerr << "WARNING: SliceThickness is present and is " << spacingFloat << ". NOT using it!" << std::endl;
+  }
+
+  return 0;
+}
+#endif

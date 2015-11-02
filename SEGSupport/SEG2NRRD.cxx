@@ -27,6 +27,7 @@
 
 #include <sstream>
 #include <map>
+#include <vector>
 
 #ifdef WITH_ZLIB
 #include <zlib.h>                     /* for zlibVersion() */
@@ -41,6 +42,7 @@
 
 
 #include "framesorter.h"
+#include "SegmentAttributes.h"
 
 // CLP inclides
 #include "SEG2NRRDCLP.h"
@@ -153,8 +155,10 @@ int main(int argc, char *argv[])
   segImage->Allocate();
   segImage->FillBuffer(0);
 
-  // these are images corresponding to the individual segments
+  // ITK images corresponding to the individual segments
   std::map<unsigned,ImageType::Pointer> segment2image;
+  // list of strings that
+  std::map<unsigned,std::vector<std::string> > segment2meta;
 
   // Iterate over frames, find the matching slice for each of the frames based on
   // ImagePositionPatient, set non-zero pixels to the segment number. Notify
@@ -184,6 +188,14 @@ int main(int argc, char *argv[])
       abort();
     }
 
+
+    // WARNING: this is needed only for David's example, which numbers
+    // (incorrectly!) segments starting from 0, should start from 1
+    if(segmentId == 0){
+      std::cerr << "Segment numbers should start from 1!" << std::endl;
+      abort();
+    }
+
     if(segment2image.find(segmentId) == segment2image.end()){
       typedef itk::ImageDuplicator<ImageType> DuplicatorType;
       DuplicatorType::Pointer dup = DuplicatorType::New();
@@ -194,11 +206,75 @@ int main(int argc, char *argv[])
       segment2image[segmentId] = newSegmentImage;
     }
 
-    // WARNING: this is needed only for David's example, which numbers
-    // (incorrectly!) segments starting from 0, should start from 1
-    if(segmentId == 0){
-      std::cerr << "Segment numbers should start from 1!" << std::endl;
-      abort();
+    // populate meta information needed for Slicer ScalarVolumeNode initialization
+    //  (for example)
+    {
+      segment = segdoc->getSegment(segmentId);
+      std::cout << "Parsing relevant meta info for segment " << segmentId << std::endl;
+      // get CIELab color for the segment
+      Uint16 ciedcm[3];
+      unsigned cielabScaled[3];
+      float cielab[3], ciexyz[3];
+      unsigned rgb[3];
+      if(segment->getRecommendedDisplayCIELabValue(
+        ciedcm[0], ciedcm[1], ciedcm[2]
+      ).bad()) {
+        std::cerr << "Failed to get CIELab values" << std::endl;
+        return -1;
+      }
+      std::cout << "DCMTK CIELab values:" << ciedcm[0] << "," << ciedcm[1] << "," << ciedcm[2] << std::endl;
+      cielabScaled[0] = unsigned(ciedcm[0]);
+      cielabScaled[1] = unsigned(ciedcm[1]);
+      cielabScaled[2] = unsigned(ciedcm[2]);
+
+      getCIELabFromIntegerScaledCIELab(&cielabScaled[0],&cielab[0]);
+
+      std::cout << "CIELab: ";
+      for(int i=0;i<3;i++)
+        std::cout << cielab[i] << " ";
+      std::cout << std::endl;
+
+      getCIEXYZFromCIELab(&cielab[0],&ciexyz[0]);
+      std::cout << "CIEXYZ: ";
+      for(int i=0;i<3;i++)
+        std::cout << ciexyz[i] << " ";
+      std::cout << std::endl;
+
+      getRGBFromCIEXYZ(&ciexyz[0],&rgb[0]);
+      std::cout << "RGB: ";
+      for(int i=0;i<3;i++)
+        std::cout << rgb[i] << " ";
+      std::cout << std::endl;
+
+      {
+        std::ostringstream strs;
+        std::string metastr;
+        strs << rgb[0] << "," << rgb[1] << "," << rgb[2] << std::endl;
+        metastr = std::string("RGBColor:")+strs.str();
+      }
+
+      // get anatomy codes
+      GeneralAnatomyMacro &anatomyMacro = segment->getGeneralAnatomyCode();
+      OFString anatomicRegionMeaning, anatomicRegionModifierMeaning;
+      anatomyMacro.getAnatomicRegion().getCodeMeaning(anatomicRegionMeaning);
+      std::cout << "Anatomic region meaning: " << anatomicRegionMeaning << std::endl;
+      if(anatomyMacro.getAnatomicRegionModifier().size()>0){
+        anatomyMacro.getAnatomicRegionModifier()[0]->getCodeMeaning(anatomicRegionModifierMeaning);
+        std::cout << "  Modifier: " << anatomicRegionModifierMeaning << std::endl;
+      }
+
+      OFString categoryMeaning;
+      segment->getSegmentedPropertyCategoryCode().getCodeMeaning(categoryMeaning);
+      std::cout << "Category meaning: " << categoryMeaning << std::endl;
+
+      OFString typeMeaning, typeModifierMeaning;
+      segment->getSegmentedPropertyTypeCode().getCodeMeaning(typeMeaning);
+      std::cout << "Type meaning: " << anatomicRegionMeaning << std::endl;
+      if(segment->getSegmentedPropertyTypeModifierCode().size()>0){
+        segment->getSegmentedPropertyTypeModifierCode()[0]->getCodeMeaning(typeModifierMeaning);
+        std::cout << "  Modifier: " << typeModifierMeaning << std::endl;
+      }
+
     }
 
     // get string representation of the frame origin

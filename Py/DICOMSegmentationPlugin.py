@@ -1,14 +1,11 @@
 import os
 import string
-from __main__ import vtk, qt, ctk, slicer
+import vtk, qt, ctk, slicer
 from DICOMLib import DICOMPlugin
 from DICOMLib import DICOMLoadable
 
 #
-# This is the plugin to handle translation of DICOM objects
-# that can be represented as multivolume objects
-# from DICOM files into MRML nodes.  It follows the DICOM module's
-# plugin architecture.
+# This is the plugin to handle translation of DICOM SEG objects
 #
 
 class DICOMSegmentationPluginClass(DICOMPlugin):
@@ -26,10 +23,10 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
         print("DICOMSegmentationPlugin initialized DICOM db OK")
       else:
         print('Failed to initialize DICOM database at '+dbFileName)
-    
+
     super(DICOMSegmentationPluginClass,self).__init__()
     self.loadType = "DICOMSegmentation"
-        
+
     self.tags['seriesInstanceUID'] = "0020,000E"
     self.tags['seriesDescription'] = "0008,103E"
     self.tags['seriesNumber'] = "0020,0011"
@@ -38,7 +35,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
   def examine(self,fileLists):
     """ Returns a list of DICOMLoadable instances
-    corresponding to ways of interpreting the 
+    corresponding to ways of interpreting the
     fileLists parameter.
     """
     loadables = []
@@ -48,11 +45,11 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
   def examineFiles(self,files):
 
-    print("DICOMSegmentationPlugin::examine files: ")    
+    print("DICOMSegmentationPlugin::examine files: ")
     print files
 
     """ Returns a list of DICOMLoadable instances
-    corresponding to ways of interpreting the 
+    corresponding to ways of interpreting the
     files parameter.
     """
     loadables = []
@@ -107,8 +104,17 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
       return False
 
     res = False
+    # make the output directory
+    try:
+      os.makedirs(os.path.join(slicer.app.temporaryPath,"QIICR","SEG",loadable.uid))
+    except:
+      pass
+
     # default color node will be used
     res = reportingLogic.DicomSegRead(labelNodes, uid)
+
+    return
+
     print 'Read this many labels:',labelNodes.GetNumberOfItems()
 
     defaultColorNode = reportingLogic.GetDefaultColorNode()
@@ -150,7 +156,7 @@ class DICOMSegmentationPlugin:
     """
     parent.dependencies = ['DICOM', 'Colors', 'Reporting']
     parent.acknowledgementText = """
-    This DICOM Plugin was developed by 
+    This DICOM Plugin was developed by
     Andrey Fedorov, BWH.
     and was partially funded by NIH grant U01CA151261.
     """

@@ -8,6 +8,7 @@ set(MODULE_INCLUDE_DIRECTORIES
 set(MODULE_SRCS
   SEG2NRRD.cxx
   framesorter.h
+  SegmentAttributes.h
   )
 
 set(MODULE_TARGET_LIBRARIES

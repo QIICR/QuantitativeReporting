@@ -32,7 +32,7 @@ configure_file(
 add_subdirectory(MRML)
 add_subdirectory(Logic)
 add_subdirectory(Py)
-add_subdirectory(SEG2NRRD)
+add_subdirectory(SEGSupport)
 
 #-----------------------------------------------------------------------------
 set(MODULE_EXPORT_DIRECTIVE "Q_SLICER_QTMODULES_${MODULE_NAME_UPPER}_EXPORT")

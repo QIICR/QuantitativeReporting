@@ -115,7 +115,7 @@ public:
   /// matches the active report, and an associatedNodeID attribute that
   /// matches the active volume in the active report
   bool IsInReport(vtkMRMLNode *node);
-  
+
   /// Hide reporting annotations that aren't under this report node
   void HideAnnotationsForOtherReports(vtkMRMLReportingReportNode *node);
 
@@ -137,7 +137,7 @@ public:
   vtkGetMacro(GUIHidden, int);
   vtkSetMacro(GUIHidden, int);
   vtkBooleanMacro(GUIHidden, int);
-    
+
   bool IsDicomSeg(const std::string fname);
   // TODO: consider taking report as as a parameter here?
   std::string DicomSegWrite(vtkCollection* labelNodes, const std::string dirname, bool saveReferencedDcm = false);
@@ -146,7 +146,7 @@ public:
   /// set/get the error string
   vtkGetMacro(ErrorMessage, std::string);
   vtkSetMacro(ErrorMessage, std::string);
-  
+
   std::string GetFileNameFromUID(std::string uid);
 
   vtkMRMLColorNode* GetDefaultColorNode();
@@ -165,7 +165,7 @@ public:
   /// Add the calculated values of annotations to the document as a CalculationData
   /// keeping this public for testing/verification
   int AddCalculationCollectionElement(QDomDocument &doc, QDomElement &parent, QString &codeMeaning, QString &codeValue, QString &description, QString &unitOfMeasure, QString &value, QString &shapeIdentifier, QString &UID);
-  
+
 protected:
   vtkSlicerReportingModuleLogic();
   virtual ~vtkSlicerReportingModuleLogic();
@@ -186,7 +186,7 @@ protected:
   /// get the currently active report node id, from the parameter
   /// node. Returns an empty string on failure.
   std::string GetActiveReportID();
-  
+
   int AddSpatialCoordinateCollectionElement(QDomDocument&, QDomElement&, QStringList&, QString&);
 //  int AddCalculationCollectionElement(QDomDocument &doc, QDomElement &parent, QString &rulerLength, QString &sliceUID);
 
@@ -197,6 +197,9 @@ private:
 
   std::string RemoveLeadAndTrailSpaces(std::string);
   bool ParseTerm(std::string, StandardTerm&);
+
+  //int getImageDirections(FGInterface&, ImageType::DirectionType&);
+  //int computeVolumeExtent(FGInterface&, vnl_vector<double>&, ImageType::PointType&, double&, double&);
 
   // copy the content of Dcm tag from one dataset to another, or set to ""
   //  if not available
