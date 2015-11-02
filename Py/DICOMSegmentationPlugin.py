@@ -105,32 +105,32 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
     res = False
     # make the output directory
+    outputDir = os.path.join(slicer.app.temporaryPath,"QIICR","SEG",loadable.uid)
     try:
-      os.makedirs(os.path.join(slicer.app.temporaryPath,"QIICR","SEG",loadable.uid))
+      os.makedirs(outputDir)
     except:
       pass
 
     # default color node will be used
     res = reportingLogic.DicomSegRead(labelNodes, uid)
 
-    return
-
-    print 'Read this many labels:',labelNodes.GetNumberOfItems()
-
     defaultColorNode = reportingLogic.GetDefaultColorNode()
-    for i in range(labelNodes.GetNumberOfItems()):
-      # create and initialize the display node to use default color node
-      displayNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLLabelMapVolumeDisplayNode')
-      displayNode.SetReferenceCount(displayNode.GetReferenceCount()-1)
-      displayNode.SetAndObserveColorNodeID(defaultColorNode.GetID())
-      slicer.mrmlScene.AddNode(displayNode)
+    import glob
+    for segmentId in range(len(glob.glob(os.path.join(outputDir,'*.nrrd')))):
+      # load each of the segments' segmentations
+      labelFileName = os.path.join(outputDir,str(segmentId+1)+".nrrd")
+      (success,labelNode) = slicer.util.loadLabelVolume(labelName, returnNode=True)
 
-      # assign it to the label node
-      # this is done here as opposed to Reporting logic to minimize the
-      # dependencies of the DICOM SEG functionality in the Slicer internals
-      labelNode = labelNodes.GetItemAsObject(i)
-      labelNode.SetAndObserveDisplayNodeID(displayNode.GetID())
-      slicer.mrmlScene.AddNode(labelNode)
+      # TODO: initialize color and terminology from .info file
+      # Format of the .info file:
+      #    RGBColor:128,174,128
+      #    AnatomicRegion:T-C5300,SRT,pharyngeal tonsil (adenoid)
+      #    SegmentedPropertyCategory:M-01000,SRT,Morphologically Altered Structure
+      #     SegmentedPropertyType:M-80003,SRT,Neoplasm, Primary
+      infoFileName = os.path.join(outputDir,str(segmentId+1)+".info")
+
+
+      # TODO: initialize referenced UID (and segment number?) attribute(s)
 
       # create Subject hierarchy nodes for the loaded series
       self.addSeriesInSubjectHierarchy(loadable, labelNode)
