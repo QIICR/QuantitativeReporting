@@ -209,8 +209,9 @@ int main(int argc, char *argv[])
     // populate meta information needed for Slicer ScalarVolumeNode initialization
     //  (for example)
     {
-      segment = segdoc->getSegment(segmentId);
+      DcmSegment* segment = segdoc->getSegment(segmentId);
       std::cout << "Parsing relevant meta info for segment " << segmentId << std::endl;
+
       // get CIELab color for the segment
       Uint16 ciedcm[3];
       unsigned cielabScaled[3];
@@ -252,7 +253,7 @@ int main(int argc, char *argv[])
         strs << rgb[0] << "," << rgb[1] << "," << rgb[2] << std::endl;
         metastr = std::string("RGBColor:")+strs.str();
       }
-
+      
       // get anatomy codes
       GeneralAnatomyMacro &anatomyMacro = segment->getGeneralAnatomyCode();
       OFString anatomicRegionMeaning, anatomicRegionModifierMeaning;
