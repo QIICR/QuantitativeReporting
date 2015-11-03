@@ -19,6 +19,8 @@
 
 #include "dcmtk/oflog/loglevel.h"
 
+#include "dcmtk/dcmdata/dcrledrg.h"
+
 #include "vnl/vnl_cross.h"
 
 #define INCLUDE_CSTDLIB
@@ -71,6 +73,8 @@ int computeVolumeExtent(FGInterface &fgInterface, vnl_vector<double> &sliceDirec
 int main(int argc, char *argv[])
 {
   PARSE_ARGS;
+
+  DcmRLEDecoderRegistration::registerCodecs();
 
   dcemfinfLogger.setLogLevel(dcmtk::log4cplus::OFF_LOG_LEVEL);
 
