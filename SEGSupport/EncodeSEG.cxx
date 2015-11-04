@@ -38,12 +38,12 @@
 #include <itkBinaryThresholdImageFilter.h>
 
 // UIDs
-#include "../Common/QIICRUIDs.h"
-#include "../Common/SegmentAttributes.h"
+#include "QIICRUIDs.h"
+#include "SegmentAttributes.h"
 //#include "../Common/conditionCheckMacros.h"
 
 // versioning
-#include "../Iowa2DICOMVersionConfigure.h"
+#include "../vtkReportingVersionConfigure.h"
 
 // CLP inclides
 #include "EncodeSEGCLP.h"
@@ -74,7 +74,7 @@ void checkValidityOfFirstSrcImage(DcmSegmentation *segdoc){
             FGInterface &fgInterface = segdoc->getFunctionalGroups();
             bool isPerFrame = false;
             FGDerivationImage *derimgfg =
-              OFstatic_cast(FGDerivationImage*,fgInterface.get(0, 
+              OFstatic_cast(FGDerivationImage*,fgInterface.get(0,
                     DcmFGTypes::EFG_DERIVATIONIMAGE, isPerFrame));
             assert(derimgfg);
             assert(isPerFrame);
@@ -92,7 +92,7 @@ void checkValidityOfFirstSrcImage(DcmSegmentation *segdoc){
             }
           }
 }
- 
+
 
 int main(int argc, char *argv[])
 {
@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
   typedef itk::Image<PixelType,3> ImageType;
   typedef itk::ImageFileReader<ImageType> ReaderType;
   typedef itk::LabelImageToLabelMapFilter<ImageType> LabelToLabelMapFilterType;
-  
+
   ReaderType::Pointer reader = ReaderType::New();
   reader->SetFileName(inputSegmentationsFileNames[0].c_str());
   reader->Update();
@@ -116,13 +116,13 @@ int main(int argc, char *argv[])
   unsigned frameSize = inputSize[0]*inputSize[1];
 
   //OFLog::configure(OFLogger::DEBUG_LOG_LEVEL);
-  
+
   /* Construct Equipment information */
   IODGeneralEquipmentModule::EquipmentInfo eq;
   eq.m_Manufacturer = "QIICR";
   eq.m_DeviceSerialNumber = "0";
-  eq.m_ManufacturerModelName = Iowa2DICOM_WC_URL;
-  eq.m_SoftwareVersions = Iowa2DICOM_WC_REVISION;
+  eq.m_ManufacturerModelName = Reporting_WC_URL;
+  eq.m_SoftwareVersions = Reporting_WC_REVISION;
 
   /* Construct Content identification information */
   ContentIdentificationMacro ident;
@@ -333,7 +333,7 @@ int main(int argc, char *argv[])
       }
 
       std::cout << "Total non-empty slices that will be encoded in SEG for label " <<
-        label << " is " << lastSlice-firstSlice << std::endl << 
+        label << " is " << lastSlice-firstSlice << std::endl <<
         " (inclusive from " << firstSlice << " to " <<
         lastSlice << ")" << std::endl;
 
@@ -342,7 +342,7 @@ int main(int argc, char *argv[])
       std::string segmentName;
       std::string segFileName = inputSegmentationsFileNames[segFileNumber];
       CodeSequenceMacro categoryCode, typeCode;
-      
+
       // these are required
       categoryCode = StringToCodeSequenceMacro(label2attributes[label].lookupAttribute("SegmentedPropertyCategory"));
       typeCode = StringToCodeSequenceMacro(label2attributes[label].lookupAttribute("SegmentedPropertyType"));
@@ -360,7 +360,7 @@ int main(int argc, char *argv[])
         if(algoTypeStr == "AUTOMATIC")
           algoType = DcmSegTypes::SAT_AUTOMATIC;
         if(algoTypeStr == "SEMIAUTOMATIC")
-          algoType = DcmSegTypes::SAT_SEMIAUTOMATIC;        
+          algoType = DcmSegTypes::SAT_SEMIAUTOMATIC;
         algoName = label2attributes[label].lookupAttribute("SegmentAlgorithmName");
         if(algoName == ""){
           std::cerr << "ERROR: Algorithm name must be specified for non-manual algorithm types!" << std::endl;
@@ -390,7 +390,7 @@ int main(int argc, char *argv[])
       }
 
       std::string cielab = label2attributes[label].lookupAttribute("RecommendedDisplayCIELabValue");
-      if(cielab != ""){        
+      if(cielab != ""){
         unsigned cielabInt[3];
         std::vector<std::string> cielabStrVector;
         TokenizeString(cielab,cielabStrVector,",");
@@ -403,7 +403,7 @@ int main(int argc, char *argv[])
       CHECK_COND(segdoc->addSegment(segment, segmentNumber /* returns logical segment number */));
 
       // TODO: make it possible to skip empty frames (optional)
-      // iterate over slices for an individual label and populate output frames      
+      // iterate over slices for an individual label and populate output frames
       for(int sliceNumber=firstSlice;sliceNumber<lastSlice;sliceNumber++){
 
         // segments are numbered starting from 1
@@ -420,7 +420,7 @@ int main(int argc, char *argv[])
         //fracon->setInStackPositionNumber(s+1);
 
         // PerFrame FG: PlanePositionSequence
-        {         
+        {
           ImageType::PointType sliceOriginPoint;
           ImageType::IndexType sliceOriginIndex;
           sliceOriginIndex.Fill(0);
@@ -529,7 +529,7 @@ int main(int argc, char *argv[])
   CHECK_COND(segdocDataset.putAndInsertString(DCM_ClinicalTrialSeriesID, sessionId.c_str()));
   CHECK_COND(segdocDataset.putAndInsertString(DCM_ClinicalTrialTimePointID, timePointId.c_str()));
   CHECK_COND(segdocDataset.putAndInsertString(DCM_ClinicalTrialCoordinatingCenterName, "UIowa"));
-  
+
   // anatomy
   if(bodyPart.size())
     CHECK_COND(segdocDataset.putAndInsertString(DCM_BodyPartExamined, bodyPart.c_str()));

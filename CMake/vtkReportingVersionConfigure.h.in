@@ -14,5 +14,6 @@
 #define __vtkReportingVersionConfigure_h
 
 #define Reporting_WC_REVISION "@Reporting_WC_REVISION@"
+#define Reporting_WC_URL "@Reporting_WC_URL@"
 
 #endif // __vtkReportingVersionConfigure_h

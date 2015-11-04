@@ -1,29 +1,42 @@
 #-----------------------------------------------------------------------------
-set(MODULE_NAME SEG2NRRD)
+# Not used
+set(MODULE_NAME SEGSupport)
 
 #-----------------------------------------------------------------------------
 set(MODULE_INCLUDE_DIRECTORIES
   )
 
-set(MODULE_SRCS
-  SEG2NRRD.cxx
-  framesorter.h
-  SegmentAttributes.h
-  )
-
+#-----------------------------------------------------------------------------
 set(MODULE_TARGET_LIBRARIES
+  ${DCMTK_LIBRARIES}
   ${ITK_LIBRARIES}
-  )
+  xml2 z
+)
 
 #-----------------------------------------------------------------------------
 SEMMacroBuildCLI(
-  NAME ${MODULE_NAME}
-  TARGET_LIBRARIES ${MODULE_TARGET_LIBRARIES}
+  NAME EncodeSEG
   INCLUDE_DIRECTORIES ${MODULE_INCLUDE_DIRECTORIES}
-  ADDITIONAL_SRCS ${MODULE_SRCS}
-  )
+  ADDITIONAL_SRCS EncodeSEG.cxx
+  TARGET_LIBRARIES ${MODULE_TARGET_LIBRARIES}
+  RUNTIME_OUTPUT_DIRECTORY        "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
+  LIBRARY_OUTPUT_DIRECTORY        "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}"
+  ARCHIVE_OUTPUT_DIRECTORY        "${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}"
+  INSTALL_RUNTIME_DESTINATION ${CMAKE_BINARY_DIR}
+  INSTALL_LIBRARY_DESTINATION ${CMAKE_BINARY_DIR}
+  INSTALL_ARCHIVE_DESTINATION ${CMAKE_BINARY_DIR}
+)
 
 #-----------------------------------------------------------------------------
-if(BUILD_TESTING)
-  #add_subdirectory(Testing)
-endif()
+SEMMacroBuildCLI(
+  NAME SEG2NRRD
+  INCLUDE_DIRECTORIES ${MODULE_INCLUDE_DIRECTORIES}
+  ADDITIONAL_SRCS SEG2NRRD.cxx framesorter.h
+  TARGET_LIBRARIES ${MODULE_TARGET_LIBRARIES}
+  RUNTIME_OUTPUT_DIRECTORY        "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
+  LIBRARY_OUTPUT_DIRECTORY        "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}"
+  ARCHIVE_OUTPUT_DIRECTORY        "${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}"
+  INSTALL_RUNTIME_DESTINATION ${CMAKE_BINARY_DIR}
+  INSTALL_LIBRARY_DESTINATION ${CMAKE_BINARY_DIR}
+  INSTALL_ARCHIVE_DESTINATION ${CMAKE_BINARY_DIR}
+)
