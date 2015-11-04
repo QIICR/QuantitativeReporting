@@ -112,29 +112,101 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     except:
       pass
 
-    # default color node will be used
+    # produces output label map files, one per segment, and information files with
+    # the terminology information for each segment
     res = reportingLogic.DicomSegRead(labelNodes, uid)
 
-    defaultColorNode = reportingLogic.GetDefaultColorNode()
+    # create a new color node to be set up with the colors in these segments
+    colorLogic = slicer.modules.colors.logic()
+    segmentationColorNode = slicer.vtkMRMLColorTableNode()
+    segmentationColorNode.SetName(loadable.name)
+    segmentationColorNode.SetTypeToUser();
+    segmentationColorNode.SetHideFromEditors(0)
+    segmentationColorNode.SetAttribute("Category", "File")
+    segmentationColorNode.NamesInitialisedOff()
+    slicer.mrmlScene.AddNode(segmentationColorNode)
+
+    # also create a new terminology and associate it with this color node
+    colorLogic.CreateNewTerminology(segmentationColorNode.GetName())
+
     import glob
-    for segmentId in range(len(glob.glob(os.path.join(outputDir,'*.nrrd')))):
+    numberOfSegments = len(glob.glob(os.path.join(outputDir,'*.nrrd')))
+
+    # resize the color table to include the segments plus 0 for the background
+    print 'number of segments = ',numberOfSegments
+    segmentationColorNode.SetNumberOfColors(numberOfSegments + 1)
+    segmentationColorNode.SetColor(0, 'background', 0.0, 0.0, 0.0, 0.0)
+
+    for segmentId in range(numberOfSegments):
       # load each of the segments' segmentations
       labelFileName = os.path.join(outputDir,str(segmentId+1)+".nrrd")
       (success,labelNode) = slicer.util.loadLabelVolume(labelFileName, returnNode=True)
 
-      # TODO: initialize color and terminology from .info file
+      # Initialize color and terminology from .info file
       # Format of the .info file:
       #    RGBColor:128,174,128
       #    AnatomicRegion:T-C5300,SRT,pharyngeal tonsil (adenoid)
       #    SegmentedPropertyCategory:M-01000,SRT,Morphologically Altered Structure
       #     SegmentedPropertyType:M-80003,SRT,Neoplasm, Primary
       infoFileName = os.path.join(outputDir,str(segmentId+1)+".info")
+      print 'Parsing info file', infoFileName
+      infoFile = open(infoFileName, 'r')
+      # Get the RGB color
+      colorIndex = segmentId + 1
+      colorLine = infoFile.readline()
+      rgb = colorLine.split(':')[1]
+      red = rgb.split(',')[0]
+      green = rgb.split(',')[1]
+      blue = rgb.split(',')[2]
+      # delay setting the color until after have parsed out a name for it
 
+      # Get the Region information (TBD: not saved in the terminology structures in the color logic)
+      regionLine = infoFile.readline()
+      region = regionLine.split(':')[1]
+      regionCode,regionScheme,regionName = region.split(',')
+      # strip off the newline from the name
+      regionName = regionName.rstrip()
+
+      # Get the Category information
+      categoryLine = infoFile.readline()
+      category = categoryLine.split(':')[1]
+      # use partition so can get the line ending name with any commas in it
+      categoryCode, sep, categorySchemeAndName = category.partition(',')
+      categoryScheme, sep, categoryName = categorySchemeAndName.partition(',')
+      categoryName = categoryName.rstrip()
+
+      # Get the Type information
+      typeLine = infoFile.readline()
+      types = typeLine.split(':')[1]
+      typeCode, sep, typeSchemeAndName = types.partition(',')
+      typeScheme, sep, typeName = typeSchemeAndName.partition(',')
+      typeName = typeName.rstrip()
+
+      infoFile.close()
+
+      segmentationColorNode.SetColor(colorIndex, typeName, float(red)/255.0, float(green)/255.0, float(blue)/255.0)
+
+      colorLogic.AddTermToTerminology(segmentationColorNode.GetName(), colorIndex, categoryCode, categoryName, categoryScheme, typeCode, typeName, typeScheme, '','','')
+
+      # reset the color name to something meaningful
+      print 'Resetting color ',colorIndex,' name to ',typeName
+      segmentationColorNode.SetColorName(colorIndex, typeName)
+
+      # point the label node to the color node we're creating
+      labelDisplayNode = labelNode.GetDisplayNode()
+      if labelDisplayNode == None:
+        print 'Warning: no label map display node for segment ',segmentId,', creating!'
+        labelNode.CreateDefaultDisplayNodes()
+        labelDisplayNode = labelNode.GetDisplayNode()
+      labelDisplayNode.SetAndObserveColorNodeID(segmentationColorNode.GetID())
 
       # TODO: initialize referenced UID (and segment number?) attribute(s)
 
       # create Subject hierarchy nodes for the loaded series
       self.addSeriesInSubjectHierarchy(loadable, labelNode)
+
+    # finalize the color node
+    segmentationColorNode.NamesInitialisedOn()
 
     return True
 

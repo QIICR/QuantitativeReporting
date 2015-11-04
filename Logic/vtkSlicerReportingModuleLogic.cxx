@@ -2366,7 +2366,8 @@ std::string vtkSlicerReportingModuleLogic::DicomSegWrite(vtkCollection* labelNod
 
   Relies on the functionality that allows to reconstruct the volume geometry from the list of filenames.
 */
-bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, const std::string instanceUID, vtkMRMLColorNode *colorNode)
+bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* vtkNotUsed(labelNodes),
+                                                 const std::string instanceUID)
 {
     if(!this->DICOMDatabase)
       {
@@ -2387,9 +2388,6 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
     std::cout << "DicomSegRead will attempt to read for instance UID " << instanceUID << std::endl;
     std::string segFileName = this->GetFileNameFromUID(instanceUID);
 
-    if(!colorNode)
-      colorNode = this->GetDefaultColorNode();
-
     if(segFileName == "")
       {
       std::cout << "Failed to get the filename from DB for " << instanceUID << std::endl;
@@ -2403,17 +2401,23 @@ bool vtkSlicerReportingModuleLogic::DicomSegRead(vtkCollection* labelNodes, cons
     // create CLI parameter Node
     qSlicerAbstractCoreModule* segModule =
       qSlicerApplication::application()->moduleManager()->module("SEG2NRRD");
-    vtkSlicerCLIModuleLogic* segModuleLogic =
-      vtkSlicerCLIModuleLogic::SafeDownCast(segModule->logic());
-    vtkSmartPointer<vtkMRMLCommandLineModuleNode> cmdNode =
-      segModuleLogic->CreateNodeInScene();
-    cmdNode->SetParameterAsString("inputSEGFileName", segFileName);
-    cmdNode->SetParameterAsString("outputDirName", outputDirName.toStdString());
+    if (!segModule)
+      {
+      vtkWarningMacro("Module SEG2NRRD not found, skipping conversion to nrrd format");
+      }
+    else
+      {
+      vtkSlicerCLIModuleLogic* segModuleLogic =
+        vtkSlicerCLIModuleLogic::SafeDownCast(segModule->logic());
+      vtkSmartPointer<vtkMRMLCommandLineModuleNode> cmdNode =
+        segModuleLogic->CreateNodeInScene();
+      cmdNode->SetParameterAsString("inputSEGFileName", segFileName);
+      cmdNode->SetParameterAsString("outputDirName", outputDirName.toStdString());
 
-    std::cout << "Will run with " << outputDirName.toStdString() << std::endl;
-    segModuleLogic->ApplyAndWait(cmdNode);
-    std::cout << "Done" << std::endl;
-
+      std::cout << "Will run with " << outputDirName.toStdString() << std::endl;
+      segModuleLogic->ApplyAndWait(cmdNode);
+      std::cout << "Done" << std::endl;
+      }
     return true;
 }
 
