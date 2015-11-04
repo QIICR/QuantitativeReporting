@@ -43,7 +43,7 @@
 //#include "../Common/conditionCheckMacros.h"
 
 // versioning
-#include "../vtkReportingVersionConfigure.h"
+#include "vtkReportingVersionConfigure.h"
 
 // CLP inclides
 #include "EncodeSEGCLP.h"
