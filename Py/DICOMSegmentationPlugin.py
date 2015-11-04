@@ -119,7 +119,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     for segmentId in range(len(glob.glob(os.path.join(outputDir,'*.nrrd')))):
       # load each of the segments' segmentations
       labelFileName = os.path.join(outputDir,str(segmentId+1)+".nrrd")
-      (success,labelNode) = slicer.util.loadLabelVolume(labelName, returnNode=True)
+      (success,labelNode) = slicer.util.loadLabelVolume(labelFileName, returnNode=True)
 
       # TODO: initialize color and terminology from .info file
       # Format of the .info file:
