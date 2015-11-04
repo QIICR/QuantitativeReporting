@@ -82,6 +82,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
         loadable.name = desc + ' - as a DICOM SEG object'
         loadable.tooltip = loadable.name
         loadable.selected = True
+        loadable.confidence = 0.95
         loadable.uid = uid
         loadables.append(loadable)
         print('DICOM SEG modality found')
