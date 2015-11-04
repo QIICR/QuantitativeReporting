@@ -359,7 +359,7 @@ int main(int argc, char *argv[])
     writer->SetUseCompression(1);
     writer->Update();
 
-    std::ofstream metaf(infoFileNameSStream.str());
+    std::ofstream metaf(infoFileNameSStream.str().c_str());
     metaf << segment2meta[sI->first] << std::endl;
     metaf.close();
   }
