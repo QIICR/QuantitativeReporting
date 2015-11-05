@@ -141,7 +141,10 @@ public:
   bool IsDicomSeg(const std::string fname);
   // TODO: consider taking report as as a parameter here?
   std::string DicomSegWrite(vtkCollection* labelNodes, const std::string dirname, bool saveReferencedDcm = false);
-  bool DicomSegRead(vtkCollection*, const std::string fname, vtkMRMLColorNode* colorNode = NULL);
+  /// Reads in the DICOM Segmentation object from the given file name, creates a series of NRRD
+  /// label map volume files in the temporary output directory, as well as information files with
+  /// the segmentation information.
+  bool DicomSegRead(vtkCollection*, const std::string fname);
 
   /// set/get the error string
   vtkGetMacro(ErrorMessage, std::string);
