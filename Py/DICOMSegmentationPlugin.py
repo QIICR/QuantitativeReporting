@@ -143,54 +143,67 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
       (success,labelNode) = slicer.util.loadLabelVolume(labelFileName, returnNode=True)
 
       # Initialize color and terminology from .info file
-      # Format of the .info file:
+      # See SEG2NRRD.cxx for how it's written.
+      # Format of the .info file (no leading spaces, modifiers are optionally written if present):
       #    RGBColor:128,174,128
       #    AnatomicRegion:T-C5300,SRT,pharyngeal tonsil (adenoid)
+      #    AnatomicRegionModifier:code,scheme,meaning
       #    SegmentedPropertyCategory:M-01000,SRT,Morphologically Altered Structure
-      #     SegmentedPropertyType:M-80003,SRT,Neoplasm, Primary
+      #    SegmentedPropertyType:M-80003,SRT,Neoplasm, Primary
+      #    SegmentedPropertyTypeModifier:code,scheme,meaning
+      colorIndex = segmentId + 1
+      regionModCode = ''
+      regionModScheme = ''
+      regionModName = ''
+      typeModCode = ''
+      typeModScheme = ''
+      typeModName = ''
       infoFileName = os.path.join(outputDir,str(segmentId+1)+".info")
       print 'Parsing info file', infoFileName
-      infoFile = open(infoFileName, 'r')
-      # Get the RGB color
-      colorIndex = segmentId + 1
-      colorLine = infoFile.readline()
-      rgb = colorLine.split(':')[1]
-      red = rgb.split(',')[0]
-      green = rgb.split(',')[1]
-      blue = rgb.split(',')[2]
-      # delay setting the color until after have parsed out a name for it
-
-      # Get the Region information (TBD: not saved in the terminology structures in the color logic)
-      regionLine = infoFile.readline()
-      region = regionLine.split(':')[1]
-      regionCode,regionScheme,regionName = region.split(',')
-      # strip off the newline from the name
-      regionName = regionName.rstrip()
-
-      # Get the Category information
-      categoryLine = infoFile.readline()
-      category = categoryLine.split(':')[1]
-      # use partition so can get the line ending name with any commas in it
-      categoryCode, sep, categorySchemeAndName = category.partition(',')
-      categoryScheme, sep, categoryName = categorySchemeAndName.partition(',')
-      categoryName = categoryName.rstrip()
-
-      # Get the Type information
-      typeLine = infoFile.readline()
-      types = typeLine.split(':')[1]
-      typeCode, sep, typeSchemeAndName = types.partition(',')
-      typeScheme, sep, typeName = typeSchemeAndName.partition(',')
-      typeName = typeName.rstrip()
+      with open(infoFileName, 'r') as infoFile:
+        for line in infoFile:
+          key = line.split(':')[0]
+          if key == "RGBColor":
+            rgb = line.split(':')[1]
+            red = rgb.split(',')[0]
+            green = rgb.split(',')[1]
+            blue = rgb.split(',')[2]
+            # delay setting the color until after have parsed out a name for it
+          if key == "AnatomicRegion":
+            # Get the Region information
+            region = line.split(':')[1]
+            regionCode,regionScheme,regionName = region.split(',')
+            # strip off the newline from the name
+            regionName = regionName.rstrip()
+          if key == "AnatomicRegionModifier":
+            regionMod = line.split(':')[1]
+            regionModCode,regionModScheme,regionModName = regionMod.split(',')
+          if key == "SegmentedPropertyCategory":
+            # Get the Category information
+            category = line.split(':')[1]
+            # use partition so can get the line ending name with any commas in it
+            categoryCode, sep, categorySchemeAndName = category.partition(',')
+            categoryScheme, sep, categoryName = categorySchemeAndName.partition(',')
+            categoryName = categoryName.rstrip()
+          if key == "SegmentedPropertyType":
+            # Get the Type information
+            types = line.split(':')[1]
+            typeCode, sep, typeSchemeAndName = types.partition(',')
+            typeScheme, sep, typeName = typeSchemeAndName.partition(',')
+            typeName = typeName.rstrip()
+          if key == "SegmentedPropertyTypeModifier":
+            typeMod = line.split(':')[1]
+            typeModCode, sep, typeModSchemeAndName = typeMod.parition(',')
+            typeModScheme, sep, typeModName = typeModSchemeAndName.partition(',')
+            typeModName.rstrip()
 
       infoFile.close()
 
-      segmentationColorNode.SetColor(colorIndex, typeName, float(red)/255.0, float(green)/255.0, float(blue)/255.0)
+      # set the color name from the terminology
+      colorName = typeName
+      segmentationColorNode.SetColor(colorIndex, colorName, float(red)/255.0, float(green)/255.0, float(blue)/255.0)
 
-      colorLogic.AddTermToTerminology(segmentationColorNode.GetName(), colorIndex, categoryCode, categoryName, categoryScheme, typeCode, typeName, typeScheme, '','','')
-
-      # reset the color name to something meaningful
-      print 'Resetting color ',colorIndex,' name to ',typeName
-      segmentationColorNode.SetColorName(colorIndex, typeName)
+      colorLogic.AddTermToTerminology(segmentationColorNode.GetName(), colorIndex, regionCode, regionName, regionScheme, regionModCode, regionModName, regionModScheme, categoryCode, categoryName, categoryScheme, typeCode, typeName, typeScheme, typeModCode, typeModScheme, typeModName)
 
       # point the label node to the color node we're creating
       labelDisplayNode = labelNode.GetDisplayNode()
