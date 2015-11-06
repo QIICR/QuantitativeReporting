@@ -144,7 +144,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
       # Initialize color and terminology from .info file
       # See SEG2NRRD.cxx for how it's written.
-      # Format of the .info file (no leading spaces, modifiers are optionally written if present):
+      # Format of the .info file (no leading spaces):
       #    RGBColor:128,174,128
       #    AnatomicRegion:T-C5300,SRT,pharyngeal tonsil (adenoid)
       #    AnatomicRegionModifier:code,scheme,meaning
@@ -152,12 +152,26 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
       #    SegmentedPropertyType:M-80003,SRT,Neoplasm, Primary
       #    SegmentedPropertyTypeModifier:code,scheme,meaning
       colorIndex = segmentId + 1
+      # modifiers are optional
       regionModCode = ''
       regionModScheme = ''
       regionModName = ''
       typeModCode = ''
       typeModScheme = ''
       typeModName = ''
+      # set defaults in case of missing fields
+      red = '0'
+      green = '0'
+      blue = '0'
+      regionCode = 'T-D0010'
+      regionName = 'Entire Body'
+      regionScheme = 'SRT'
+      categoryCode = 'T-D0050'
+      categoryName = 'Tissue'
+      categoryScheme = 'SRT'
+      typeCode = 'T-D0050'
+      typeName = 'Tissue'
+      typeScheme = 'SRT'
       infoFileName = os.path.join(outputDir,str(segmentId+1)+".info")
       print 'Parsing info file', infoFileName
       with open(infoFileName, 'r') as infoFile:
