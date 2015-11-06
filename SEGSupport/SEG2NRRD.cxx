@@ -337,7 +337,7 @@ int main(int argc, char *argv[])
           index[0] = col;
           index[1] = row;
           index[2] = slice;
-          segment2image[segmentId]->SetPixel(index, 1);
+          segment2image[segmentId]->SetPixel(index, segmentId);
         }
       }
     }
