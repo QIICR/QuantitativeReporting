@@ -25,3 +25,8 @@ slicerMacroBuildScriptedModule(
   SCRIPTS "${KIT_PYTHON_SCRIPTS}"
   RESOURCES "${KIT_PYTHON_RESOURCES}"
   )
+
+slicerMacroBuildScriptedModule(
+  NAME SEGExporterSelfTest
+  SCRIPTS SEGExporterSelfTest.py
+  )
