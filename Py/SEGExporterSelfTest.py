@@ -57,6 +57,222 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
     self.test_SEGExporterSelfTest1()
 
   def test_SEGExporterSelfTest1(self):
+    """ Test DICOM import, segmentation, export
+    """
     self.messageDelay = 50
-    self.delayDisplay("hoot")
-    pass
+
+    import os
+    self.delayDisplay("Starting the DICOM SEG Export test")
+
+    #
+    # first, get the data - a zip file of dicom data
+    #
+    import urllib
+    downloads = (
+        ('http://slicer.kitware.com/midas3/download/item/220832/TCIA-lung-10slices.zip', 'TCIA-lung.zip'),
+    )
+
+    self.delayDisplay("Downloading")
+    for url,name in downloads:
+      filePath = slicer.app.temporaryPath + '/' + name
+      if not os.path.exists(filePath) or os.stat(filePath).st_size == 0:
+        self.delayDisplay('Requesting download %s from %s...\n' % (name, url))
+        urllib.urlretrieve(url, filePath)
+    self.delayDisplay('Finished with download\n')
+
+    self.delayDisplay("Unzipping")
+    dicomFilesDirectory = slicer.app.temporaryPath + '/dicomFiles'
+    qt.QDir().mkpath(dicomFilesDirectory)
+    slicer.app.applicationLogic().Unzip(filePath, dicomFilesDirectory)
+
+    try:
+      self.delayDisplay("Switching to temp database directory")
+      tempDatabaseDirectory = slicer.app.temporaryPath + '/tempDICOMDatabase'
+      qt.QDir().mkpath(tempDatabaseDirectory)
+      if slicer.dicomDatabase:
+        originalDatabaseDirectory = os.path.split(slicer.dicomDatabase.databaseFilename)[0]
+      else:
+        originalDatabaseDirectory = None
+        settings = qt.QSettings()
+        settings.setValue('DatabaseDirectory', tempDatabaseDirectory)
+      dicomWidget = slicer.modules.dicom.widgetRepresentation().self()
+      dicomWidget.onDatabaseDirectoryChanged(tempDatabaseDirectory)
+
+      self.delayDisplay('Importing DICOM')
+      mainWindow = slicer.util.mainWindow()
+      mainWindow.moduleSelector().selectModule('DICOM')
+
+      indexer = ctk.ctkDICOMIndexer()
+      indexer.addDirectory(slicer.dicomDatabase, dicomFilesDirectory, None)
+      indexer.waitForImportFinished()
+
+      dicomWidget.detailsPopup.open()
+
+      # load the data by series UID
+      dicomWidget.detailsPopup.offerLoadables("1.3.6.1.4.1.32722.99.99.225570660272964280948169301188944152335", 'Series')
+      dicomWidget.detailsPopup.examineForLoading()
+      self.delayDisplay('Loading Selection')
+      dicomWidget.detailsPopup.loadCheckedLoadables()
+
+      #
+      # create a label map and set it for editing
+      #
+      lungCT = slicer.util.getNode('5: Longen')
+      volumesLogic = slicer.modules.volumes.logic()
+      lungLabel = volumesLogic.CreateAndAddLabelVolume( slicer.mrmlScene, lungCT, lungCT.GetName() + '-label' )
+      lungLabel.GetDisplayNode().SetAndObserveColorNodeID('vtkMRMLColorTableNodeFileGenericAnatomyColors.txt')
+      selectionNode = slicer.app.applicationLogic().GetSelectionNode()
+      selectionNode.SetReferenceActiveVolumeID( lungCT.GetID() )
+      selectionNode.SetReferenceActiveLabelVolumeID( lungLabel.GetID() )
+      slicer.app.applicationLogic().PropagateVolumeSelection(0)
+
+      #
+      # go to the editor and do some drawing
+      #
+      slicer.util.selectModule('Editor')
+
+      import EditorLib
+      from EditorLib.EditUtil import EditUtil
+      self.delayDisplay("Paint some things")
+      parameterNode = EditUtil.getParameterNode()
+      lm = slicer.app.layoutManager()
+      paintEffect = EditorLib.PaintEffectOptions()
+      paintEffect.setMRMLDefaults()
+      paintEffect.__del__()
+      sliceWidget = lm.sliceWidget('Red')
+      paintTool = EditorLib.PaintEffectTool(sliceWidget)
+      EditUtil.setLabel(1)
+      paintTool.paintAddPoint(100,100)
+      paintTool.paintApply()
+      EditUtil.setLabel(2)
+      paintTool.paintAddPoint(200,200)
+      paintTool.paintApply()
+      paintTool.cleanup()
+      paintTool = None
+
+      # export the volumes into a SEG
+
+      # TODO: this should move to EditorLib/HelperBox.py
+      self.editorExportAsDICOMSEG(lungCT.GetName())
+
+      # close scene re-load the input data and SEG
+
+      # confirm that segmentations are available again as per-structure volumes
+
+      # re-export
+
+      # close scene re-load the input data and SEG
+
+      # confirm that segmentations are available again as per-structure volumes
+
+
+      self.delayDisplay('Test passed!')
+    except Exception, e:
+      import traceback
+      traceback.print_exc()
+      self.delayDisplay('Test caused exception!\n' + str(e))
+
+    self.delayDisplay("Restoring original database directory")
+    if originalDatabaseDirectory:
+      dicomWidget.onDatabaseDirectoryChanged(originalDatabaseDirectory)
+
+  def editorExportAsDICOMSEG(self,masterName):
+
+    self.delayDisplay('exporting...', 200)
+
+    # split the label map to per-structure volumes
+    # - to be done in the helper directly
+    slicer.util.findChildren(text='Split Merge Volume')[0].clicked()
+
+    masterNode = slicer.util.getNode(masterName)
+    instanceUIDs = masterNode.GetAttribute("DICOM.instanceUIDs").split()
+    if instanceUIDs == "":
+      raise Exception("Editor master node does not have DICOM information")
+
+    # get the list of source DICOM files
+    inputDICOMImageFileNames = ""
+    for instanceUID in instanceUIDs:
+      inputDICOMImageFileNames += slicer.dicomDatabase.fileForInstance(instanceUID) + ","
+    inputDICOMImageFileNames = inputDICOMImageFileNames[:-1] # strip last comma
+
+    # save the per-structure volumes in the temp directory
+    inputSegmentationsFileNames = ""
+    import random
+    import vtkITK
+    writer = vtkITK.vtkITKImageWriter()
+    rasToIJKMatrix = vtk.vtkMatrix4x4()
+    perStructureNodes = slicer.util.getNodes(masterName+"-*-label")
+    for nodeName in perStructureNodes.keys():
+      node = perStructureNodes[nodeName]
+      structureName = nodeName[len(masterName)+1:-1*len('-label')]
+      structureFileName = structureName + str(random.randint(0,vtk.VTK_INT_MAX)) + ".nrrd"
+      filePath = os.path.join(slicer.app.temporaryPath, structureFileName)
+      writer.SetFileName(filePath)
+      writer.SetInputDataObject(node.GetImageData())
+      node.GetRASToIJKMatrix(rasToIJKMatrix)
+      writer.SetRasToIJKMatrix(rasToIJKMatrix)
+      print("Saving to %s..." % filePath)
+      writer.Write()
+      inputSegmentationsFileNames += filePath + ","
+    inputSegmentationsFileNames = inputSegmentationsFileNames[:-1] # strip last comma
+
+    # save the per-structure volumes label attributes
+    mergeNode = slicer.util.getNode(masterName+"-label")
+    colorNode = mergeNode.GetDisplayNode().GetColorNode()
+    terminologyName = colorNode.GetAttribute("TerminologyName")
+    colorLogic = slicer.modules.colors.logic()
+    if not terminologyName or not colorLogic:
+      raise Exception("No terminology or color logic - cannot export")
+    inputLabelAttributesFileNames = ""
+    perStructureNodes = slicer.util.getNodes(masterName+"-*-label")
+    for nodeName in perStructureNodes.keys():
+      node = perStructureNodes[nodeName]
+      structureName = nodeName[len(masterName)+1:-1*len('-label')]
+      labelIndex = colorNode.GetColorIndexByName( structureName )
+      category = colorLogic.GetCategoryFromLabel(labelIndex, terminologyName)
+      categoryType = colorLogic.GetCategoryTypeFromLabel(labelIndex, terminologyName)
+      categoryModifier = colorLogic.GetCategoryModifierFromLabel(labelIndex, terminologyName)
+      structureFileName = structureName + str(random.randint(0,vtk.VTK_INT_MAX)) + ".txt"
+      filePath = os.path.join(slicer.app.temporaryPath, structureFileName)
+      attributes = "%d" % labelIndex
+      attributes += ";SegmentedPropertyCategory:" + category
+      attributes += ";SegmentedPropertyType:" + categoryType
+      if categoryModifier != "":
+        attributes += ";AnatomicRegionModifer:" + categoryModifier
+      fp = open(filePath, "w")
+      fp.write(attributes)
+      fp.close()
+      inputLabelAttributesFileNames += filePath + ","
+    inputLabelAttributesFileNames = inputLabelAttributesFileNames[:-1] # strip last comma
+
+    parameters = {
+        "inputDICOMImageFileNames": inputDICOMImageFileNames,
+        "inputSegmentationsFileNames": inputSegmentationsFileNames,
+        "inputLabelAttributesFileNames": inputLabelAttributesFileNames,
+        "readerId": "pieper",
+        "sessionId": "1",
+        "timepointId": "1",
+        "seriesDescription": "Slicer Editor SEG export",
+        "seriesNumber": "100",
+        "instanceNumber": "1",
+        "bodyPart": "tissue",
+        "algorithmDescriptionFileName": "Editor",
+        "outputSEGFileName": "/tmp/test.SEG.dcm",
+        "skipEmptySlices": False,
+        "compress": False,
+        }
+
+    encodeSEG = slicer.modules.encodeseg
+    self.cliNode = None
+    self.cliNode = slicer.cli.run(encodeSEG, self.cliNode, parameters, delete_temporary_files=False)
+    waitCount = 0
+    while self.cliNode.IsBusy() and waitCount < 20:
+      self.delayDisplay( "Running SEG Encoding... %d" % waitCount, 1000 )
+      waitCount += 1
+
+    if self.cliNode.GetStatusString() != 'Completed':
+      raise Exception("encodeSEG CLI did not complete cleanly")
+
+    self.delayDisplay("Finished!")
+
+
