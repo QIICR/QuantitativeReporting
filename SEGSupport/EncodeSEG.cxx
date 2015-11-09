@@ -48,49 +48,40 @@
 // CLP inclides
 #include "EncodeSEGCLP.h"
 
-static OFLogger locallogger = OFLog::getLogger("qiicr.apps.iowa1");
+static OFLogger locallogger = OFLog::getLogger("qiicr.apps.encodeSEG");
 
 #define CHECK_COND(condition) \
-      do { \
-                if (condition.bad()) { \
-                              OFLOG_FATAL(locallogger, condition.text() << " in " __FILE__ << ":" << __LINE__ ); \
-                              throw -1; \
-                          } \
-            } while (0)
+  do { \
+    if (condition.bad()) { \
+      OFLOG_FATAL(locallogger, condition.text() << " in " __FILE__ << ":" << __LINE__ ); \
+      throw -1; \
+    } \
+  } while (0)
 
-double distanceBwPoints(vnl_vector<double> from, vnl_vector<double> to){
-  return sqrt((from[0]-to[0])*(from[0]-to[0])+(from[1]-to[1])*(from[1]-to[1])+(from[2]-to[2])*(from[2]-to[2]));
-}
-
-std::string FloatToStrScientific(float f){
+std::string FloatToStrScientific(float f) {
   std::ostringstream sstream;
   sstream << std::scientific << f;
   return sstream.str();
 }
 
-void checkValidityOfFirstSrcImage(DcmSegmentation *segdoc){
-  static int invocation = 0;
-          if(1){
-            FGInterface &fgInterface = segdoc->getFunctionalGroups();
-            bool isPerFrame = false;
-            FGDerivationImage *derimgfg =
-              OFstatic_cast(FGDerivationImage*,fgInterface.get(0,
-                    DcmFGTypes::EFG_DERIVATIONIMAGE, isPerFrame));
-            assert(derimgfg);
-            assert(isPerFrame);
+void checkValidityOfFirstSrcImage(DcmSegmentation *segdoc) {
+  FGInterface &fgInterface = segdoc->getFunctionalGroups();
+  bool isPerFrame = false;
+  FGDerivationImage *derimgfg =
+    OFstatic_cast(FGDerivationImage*,fgInterface.get(0,
+          DcmFGTypes::EFG_DERIVATIONIMAGE, isPerFrame));
+  assert(derimgfg);
+  assert(isPerFrame);
 
-            OFVector<DerivationImageItem*> &deritems = derimgfg->getDerivationImageItems();
+  OFVector<DerivationImageItem*> &deritems = derimgfg->getDerivationImageItems();
 
-            OFVector<SourceImageItem*> &srcitems = deritems[0]->getSourceImageItems();
-            OFString codeValue;
-            CodeSequenceMacro &code = srcitems[0]->getPurposeOfReferenceCode();
-            if(code.getCodeValue(codeValue).good()) {
-              //std::cout << "Purpose of reference code: " << codeValue << " " << invocation++ << std::endl;
-            } else {
-              std::cout << "Failed to look up purpose of reference code" << std::endl;
-              abort();
-            }
-          }
+  OFVector<SourceImageItem*> &srcitems = deritems[0]->getSourceImageItems();
+  OFString codeValue;
+  CodeSequenceMacro &code = srcitems[0]->getPurposeOfReferenceCode();
+  if(!code.getCodeValue(codeValue).good()) {
+    std::cout << "Failed to look up purpose of reference code" << std::endl;
+    abort();
+  }
 }
 
 
