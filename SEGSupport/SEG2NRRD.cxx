@@ -232,8 +232,13 @@ int main(int argc, char *argv[])
       if(segment->getRecommendedDisplayCIELabValue(
         ciedcm[0], ciedcm[1], ciedcm[2]
       ).bad()) {
-        std::cerr << "Failed to get CIELab values" << std::endl;
-        return -1;
+        // NOTE: if the call above fails, it overwrites the values anyway,
+        //  not sure if this is a dcmtk bug or not
+        ciedcm[0] = 43803;
+        ciedcm[1] = 26565;
+        ciedcm[2] = 37722;
+        std::cerr << "Failed to get CIELab values - initializing to default " << 
+          ciedcm[0] << "," << ciedcm[1] << "," << ciedcm[2] << std::endl;
       }
       std::cout << "DCMTK CIELab values:" << ciedcm[0] << "," << ciedcm[1] << "," << ciedcm[2] << std::endl;
       cielabScaled[0] = unsigned(ciedcm[0]);
