@@ -263,7 +263,7 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
         "seriesDescription": "SlicerEditorSEGExport",
         "seriesNumber": "100",
         "instanceNumber": "1",
-        "bodyPart": "tissue",
+        "bodyPart": "HEAD",
         "algorithmDescriptionFileName": "Editor",
         "outputSEGFileName": "/tmp/test.SEG.dcm",
         "skipEmptySlices": False,
