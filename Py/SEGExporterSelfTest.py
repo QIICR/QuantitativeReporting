@@ -69,9 +69,8 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
     #
     import urllib
     downloads = (
-        ('http://slicer.kitware.com/midas3/download/item/220832/TCIA-lung-10slices.zip', 'TCIA-lung.zip'),
+        ('http://slicer.kitware.com/midas3/download/item/220834/PieperMRHead.zip', 'PieperMRHead.zip'),
     )
-
     self.delayDisplay("Downloading")
     for url,name in downloads:
       filePath = slicer.app.temporaryPath + '/' + name
@@ -109,7 +108,8 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
       dicomWidget.detailsPopup.open()
 
       # load the data by series UID
-      dicomWidget.detailsPopup.offerLoadables("1.3.6.1.4.1.32722.99.99.225570660272964280948169301188944152335", 'Series')
+      mrHeadSeriesUID = "2.16.840.1.113662.4.4168496325.1025306170.548651188813145058"
+      dicomWidget.detailsPopup.offerLoadables(mrHeadSeriesUID, 'Series')
       dicomWidget.detailsPopup.examineForLoading()
       self.delayDisplay('Loading Selection')
       dicomWidget.detailsPopup.loadCheckedLoadables()
@@ -117,13 +117,13 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
       #
       # create a label map and set it for editing
       #
-      lungCT = slicer.util.getNode('5: Longen')
+      headMR = slicer.util.getNode('2: SAG*')
       volumesLogic = slicer.modules.volumes.logic()
-      lungLabel = volumesLogic.CreateAndAddLabelVolume( slicer.mrmlScene, lungCT, lungCT.GetName() + '-label' )
-      lungLabel.GetDisplayNode().SetAndObserveColorNodeID('vtkMRMLColorTableNodeFileGenericAnatomyColors.txt')
+      headLabel = volumesLogic.CreateAndAddLabelVolume( slicer.mrmlScene, headMR, headMR.GetName() + '-label' )
+      headLabel.GetDisplayNode().SetAndObserveColorNodeID('vtkMRMLColorTableNodeFileGenericAnatomyColors.txt')
       selectionNode = slicer.app.applicationLogic().GetSelectionNode()
-      selectionNode.SetReferenceActiveVolumeID( lungCT.GetID() )
-      selectionNode.SetReferenceActiveLabelVolumeID( lungLabel.GetID() )
+      selectionNode.SetReferenceActiveVolumeID( headMR.GetID() )
+      selectionNode.SetReferenceActiveLabelVolumeID( headLabel.GetID() )
       slicer.app.applicationLogic().PropagateVolumeSelection(0)
 
       #
@@ -153,7 +153,7 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
       # export the volumes into a SEG
 
       # TODO: this should move to EditorLib/HelperBox.py
-      self.editorExportAsDICOMSEG(lungCT.GetName())
+      self.editorExportAsDICOMSEG(headMR.GetName())
 
       # close scene re-load the input data and SEG
 
@@ -235,13 +235,21 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
       structureFileName = structureName + str(random.randint(0,vtk.VTK_INT_MAX)) + ".txt"
       filePath = os.path.join(slicer.app.temporaryPath, structureFileName)
       attributes = "%d" % labelIndex
-      attributes += ";SegmentedPropertyCategory:" + category
-      attributes += ";SegmentedPropertyType:" + categoryType
+      if False:
+        # requires access from colorLogic
+        attributes += ";SegmentedPropertyCategory:" + category
+        attributes += ";SegmentedPropertyType:" + categoryType
+      else:
+        attributes += ";SegmentedPropertyCategory:" + "R-4218,SRT,Spatial and Relational Concept"
+        attributes += ";SegmentedPropertyType:" + "C94970,NCIt,Reference Region"
       if categoryModifier != "":
         attributes += ";AnatomicRegionModifer:" + categoryModifier
+      attributes += ";SegmentAlgorithmType:AUTOMATIC"
+      attributes += ";SegmentAlgorithmName:SlicerSelfTest"
       fp = open(filePath, "w")
       fp.write(attributes)
       fp.close()
+      print(filePath, "Attributes", attributes)
       inputLabelAttributesFileNames += filePath + ","
     inputLabelAttributesFileNames = inputLabelAttributesFileNames[:-1] # strip last comma
 
@@ -252,7 +260,7 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
         "readerId": "pieper",
         "sessionId": "1",
         "timepointId": "1",
-        "seriesDescription": "Slicer Editor SEG export",
+        "seriesDescription": "SlicerEditorSEGExport",
         "seriesNumber": "100",
         "instanceNumber": "1",
         "bodyPart": "tissue",
