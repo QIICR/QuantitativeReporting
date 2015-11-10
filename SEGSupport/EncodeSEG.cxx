@@ -165,6 +165,8 @@ int main(int argc, char *argv[])
     }
     if(!labelImage->TransformPhysicalPointToIndex(ippPoint, ippIndex)){
       std::cerr << "ImagePositionPatient maps outside the ITK image!" << std::endl;
+      std::cout << "image position: " << ippPoint << std::endl;
+      std::cerr << "ippIndex: " << ippIndex << std::endl;
       return -1;
     }
     slice2derimg[ippIndex[2]] = i;
