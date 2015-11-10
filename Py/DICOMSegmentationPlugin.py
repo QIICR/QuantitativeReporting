@@ -207,7 +207,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
             typeName = typeName.rstrip()
           if key == "SegmentedPropertyTypeModifier":
             typeMod = line.split(':')[1]
-            typeModCode, sep, typeModSchemeAndName = typeMod.parition(',')
+            typeModCode, sep, typeModSchemeAndName = typeMod.partition(',')
             typeModScheme, sep, typeModName = typeModSchemeAndName.partition(',')
             typeModName.rstrip()
 
