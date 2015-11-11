@@ -1,14 +1,11 @@
 import os
 import string
-from __main__ import vtk, qt, ctk, slicer
+import vtk, qt, ctk, slicer
 from DICOMLib import DICOMPlugin
 from DICOMLib import DICOMLoadable
 
 #
-# This is the plugin to handle translation of DICOM objects
-# that can be represented as multivolume objects
-# from DICOM files into MRML nodes.  It follows the DICOM module's
-# plugin architecture.
+# This is the plugin to handle translation of DICOM SEG objects
 #
 
 class DICOMSegmentationPluginClass(DICOMPlugin):
@@ -26,10 +23,10 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
         print("DICOMSegmentationPlugin initialized DICOM db OK")
       else:
         print('Failed to initialize DICOM database at '+dbFileName)
-    
+
     super(DICOMSegmentationPluginClass,self).__init__()
     self.loadType = "DICOMSegmentation"
-        
+
     self.tags['seriesInstanceUID'] = "0020,000E"
     self.tags['seriesDescription'] = "0008,103E"
     self.tags['seriesNumber'] = "0020,0011"
@@ -38,7 +35,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
   def examine(self,fileLists):
     """ Returns a list of DICOMLoadable instances
-    corresponding to ways of interpreting the 
+    corresponding to ways of interpreting the
     fileLists parameter.
     """
     loadables = []
@@ -48,11 +45,11 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
   def examineFiles(self,files):
 
-    print("DICOMSegmentationPlugin::examine files: ")    
+    print("DICOMSegmentationPlugin::examine files: ")
     print files
 
     """ Returns a list of DICOMLoadable instances
-    corresponding to ways of interpreting the 
+    corresponding to ways of interpreting the
     files parameter.
     """
     loadables = []
@@ -85,6 +82,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
         loadable.name = desc + ' - as a DICOM SEG object'
         loadable.tooltip = loadable.name
         loadable.selected = True
+        loadable.confidence = 0.95
         loadable.uid = uid
         loadables.append(loadable)
         print('DICOM SEG modality found')
@@ -107,27 +105,135 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
       return False
 
     res = False
-    # default color node will be used
+    # make the output directory
+    outputDir = os.path.join(slicer.app.temporaryPath,"QIICR","SEG",loadable.uid)
+    try:
+      os.makedirs(outputDir)
+    except:
+      pass
+
+    # produces output label map files, one per segment, and information files with
+    # the terminology information for each segment
     res = reportingLogic.DicomSegRead(labelNodes, uid)
-    print 'Read this many labels:',labelNodes.GetNumberOfItems()
 
-    defaultColorNode = reportingLogic.GetDefaultColorNode()
-    for i in range(labelNodes.GetNumberOfItems()):
-      # create and initialize the display node to use default color node
-      displayNode = slicer.mrmlScene.CreateNodeByClass('vtkMRMLLabelMapVolumeDisplayNode')
-      displayNode.SetReferenceCount(displayNode.GetReferenceCount()-1)
-      displayNode.SetAndObserveColorNodeID(defaultColorNode.GetID())
-      slicer.mrmlScene.AddNode(displayNode)
+    # create a new color node to be set up with the colors in these segments
+    colorLogic = slicer.modules.colors.logic()
+    segmentationColorNode = slicer.vtkMRMLColorTableNode()
+    segmentationColorNode.SetName(loadable.name)
+    segmentationColorNode.SetTypeToUser();
+    segmentationColorNode.SetHideFromEditors(0)
+    segmentationColorNode.SetAttribute("Category", "File")
+    segmentationColorNode.NamesInitialisedOff()
+    slicer.mrmlScene.AddNode(segmentationColorNode)
 
-      # assign it to the label node
-      # this is done here as opposed to Reporting logic to minimize the
-      # dependencies of the DICOM SEG functionality in the Slicer internals
-      labelNode = labelNodes.GetItemAsObject(i)
-      labelNode.SetAndObserveDisplayNodeID(displayNode.GetID())
-      slicer.mrmlScene.AddNode(labelNode)
+    # also create a new terminology and associate it with this color node
+    colorLogic.CreateNewTerminology(segmentationColorNode.GetName())
+
+    import glob
+    numberOfSegments = len(glob.glob(os.path.join(outputDir,'*.nrrd')))
+
+    # resize the color table to include the segments plus 0 for the background
+    print 'number of segments = ',numberOfSegments
+    segmentationColorNode.SetNumberOfColors(numberOfSegments + 1)
+    segmentationColorNode.SetColor(0, 'background', 0.0, 0.0, 0.0, 0.0)
+
+    for segmentId in range(numberOfSegments):
+      # load each of the segments' segmentations
+      labelFileName = os.path.join(outputDir,str(segmentId+1)+".nrrd")
+      (success,labelNode) = slicer.util.loadLabelVolume(labelFileName, returnNode=True)
+
+      # Initialize color and terminology from .info file
+      # See SEG2NRRD.cxx for how it's written.
+      # Format of the .info file (no leading spaces):
+      #    RGBColor:128,174,128
+      #    AnatomicRegion:T-C5300,SRT,pharyngeal tonsil (adenoid)
+      #    AnatomicRegionModifier:code,scheme,meaning
+      #    SegmentedPropertyCategory:M-01000,SRT,Morphologically Altered Structure
+      #    SegmentedPropertyType:M-80003,SRT,Neoplasm, Primary
+      #    SegmentedPropertyTypeModifier:code,scheme,meaning
+      colorIndex = segmentId + 1
+      # modifiers are optional
+      regionModCode = ''
+      regionModScheme = ''
+      regionModName = ''
+      typeModCode = ''
+      typeModScheme = ''
+      typeModName = ''
+      # set defaults in case of missing fields
+      red = '0'
+      green = '0'
+      blue = '0'
+      regionCode = 'T-D0010'
+      regionName = 'Entire Body'
+      regionScheme = 'SRT'
+      categoryCode = 'T-D0050'
+      categoryName = 'Tissue'
+      categoryScheme = 'SRT'
+      typeCode = 'T-D0050'
+      typeName = 'Tissue'
+      typeScheme = 'SRT'
+      infoFileName = os.path.join(outputDir,str(segmentId+1)+".info")
+      print 'Parsing info file', infoFileName
+      with open(infoFileName, 'r') as infoFile:
+        for line in infoFile:
+          key = line.split(':')[0]
+          if key == "RGBColor":
+            rgb = line.split(':')[1]
+            red = rgb.split(',')[0]
+            green = rgb.split(',')[1]
+            blue = rgb.split(',')[2]
+            # delay setting the color until after have parsed out a name for it
+          if key == "AnatomicRegion":
+            # Get the Region information
+            region = line.split(':')[1]
+            regionCode,regionScheme,regionName = region.split(',')
+            # strip off the newline from the name
+            regionName = regionName.rstrip()
+          if key == "AnatomicRegionModifier":
+            regionMod = line.split(':')[1]
+            regionModCode,regionModScheme,regionModName = regionMod.split(',')
+          if key == "SegmentedPropertyCategory":
+            # Get the Category information
+            category = line.split(':')[1]
+            # use partition so can get the line ending name with any commas in it
+            categoryCode, sep, categorySchemeAndName = category.partition(',')
+            categoryScheme, sep, categoryName = categorySchemeAndName.partition(',')
+            categoryName = categoryName.rstrip()
+          if key == "SegmentedPropertyType":
+            # Get the Type information
+            types = line.split(':')[1]
+            typeCode, sep, typeSchemeAndName = types.partition(',')
+            typeScheme, sep, typeName = typeSchemeAndName.partition(',')
+            typeName = typeName.rstrip()
+          if key == "SegmentedPropertyTypeModifier":
+            typeMod = line.split(':')[1]
+            typeModCode, sep, typeModSchemeAndName = typeMod.partition(',')
+            typeModScheme, sep, typeModName = typeModSchemeAndName.partition(',')
+            typeModName.rstrip()
+
+      infoFile.close()
+
+      # set the color name from the terminology
+      colorName = typeName
+      segmentationColorNode.SetColor(colorIndex, colorName, float(red)/255.0, float(green)/255.0, float(blue)/255.0)
+
+      colorLogic.AddTermToTerminology(segmentationColorNode.GetName(), colorIndex, regionCode, regionName, regionScheme, regionModCode, regionModName, regionModScheme, categoryCode, categoryName, categoryScheme, typeCode, typeName, typeScheme, typeModCode, typeModScheme, typeModName)
+
+      # point the label node to the color node we're creating
+      labelDisplayNode = labelNode.GetDisplayNode()
+      if labelDisplayNode == None:
+        print 'Warning: no label map display node for segment ',segmentId,', creating!'
+        labelNode.CreateDefaultDisplayNodes()
+        labelDisplayNode = labelNode.GetDisplayNode()
+      labelDisplayNode.SetAndObserveColorNodeID(segmentationColorNode.GetID())
+
+      # TODO: initialize referenced UID (and segment number?) attribute(s)
 
       # create Subject hierarchy nodes for the loaded series
       self.addSeriesInSubjectHierarchy(loadable, labelNode)
+
+    # finalize the color node
+    segmentationColorNode.NamesInitialisedOn()
 
     return True
 
@@ -150,7 +256,7 @@ class DICOMSegmentationPlugin:
     """
     parent.dependencies = ['DICOM', 'Colors', 'Reporting']
     parent.acknowledgementText = """
-    This DICOM Plugin was developed by 
+    This DICOM Plugin was developed by
     Andrey Fedorov, BWH.
     and was partially funded by NIH grant U01CA151261.
     """

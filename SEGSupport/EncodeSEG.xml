@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<executable>
+  <category>Informatics</category>
+  <title>Convert non-DICOM segmentations into DICOM SEG</title>
+  <description></description>
+  <version></version>
+  <documentation-url></documentation-url>
+  <license></license>
+  <contributor>Andrey Fedorov, BWH</contributor>
+<acknowledgements></acknowledgements>
+
+<parameters>
+    <string-vector>
+      <name>inputDICOMImageFileNames</name>
+      <label>DICOM images file names</label>
+      <channel>input</channel>
+      <longflag>dicomImageFiles</longflag>
+      <description>List of DICOM images that were used for creating the segmentation</description>
+    </string-vector>
+      
+    <string-vector>
+      <name>inputSegmentationsFileNames</name>
+      <label>Segmentation file names</label>
+      <channel>input</channel>
+      <longflag>segImageFiles</longflag>
+      <description>File names of the segmentation images</description>
+    </string-vector>
+
+    <string-vector>
+      <name>inputLabelAttributesFileNames</name>
+      <label>Label attributes file names</label>
+      <channel>input</channel>
+      <longflag>labelAttributesFiles</longflag>
+      <description>File names of the text files containing anatomical codes for each of the labels for the corresponding segmentation file. Order matters and must match that of the segmentations file list! Fomat of the text file:labelId;tag1:codeTuple1;tag2:codeTuple2</description>
+    </string-vector>
+
+    <string>
+      <name>readerId</name>
+      <label>Reader Identifier</label>
+      <channel>input</channel>
+      <longflag>readerId</longflag>
+      <description>Reader identifier</description>
+    </string>
+
+    <string>
+      <name>sessionId</name>
+      <label>Session Identifier</label>
+      <channel>input</channel>
+      <longflag>sessionId</longflag>
+      <description>Session identifier</description>
+    </string>
+
+    <string>
+      <name>timePointId</name>
+      <label>Time Point Identifier</label>
+      <channel>input</channel>
+      <longflag>timepointId</longflag>
+      <description>Time point identifier</description>
+    </string>
+
+    <string>
+      <name>seriesDescription</name>
+      <label>Series description</label>
+      <channel>input</channel>
+      <longflag>seriesDescription</longflag>
+      <description>Series description</description>
+    </string>
+
+    <string>
+      <name>seriesNumber</name>
+      <label>Series number</label>
+      <channel>input</channel>
+      <longflag>seriesNumber</longflag>
+      <description>Series number - make it unique for series wihin a study.</description>
+    </string>
+
+    <string>
+      <name>instanceNumber</name>
+      <label>Instance number</label>
+      <channel>input</channel>
+      <longflag>instanceNumber</longflag>
+      <description>Instance number</description>
+      <default>1</default>
+    </string>
+
+    <string>
+      <name>bodyPart</name>
+      <label>Body part</label>
+      <channel>input</channel>
+      <longflag>bodyPart</longflag>
+      <description>Body part - optional - provide body part code to store in the input dataset.</description>
+    </string>
+
+    <file>
+      <name>algorithmDescriptionFileName</name>
+      <label>Algorithm description file</label>
+      <channel>input</channel>
+      <longflag>algorithmDescriptionFile</longflag>
+      <description>File containing description of the algorithm. Format: type (MANUAL, AUTOMATIC or SEMIAUTOMATIC);SegmentSurfaceGenerationAlgorithm:codeTuple (if needed). UPDATE: this probably should be optional, as the algorithm should be specified per-segment, and thus provided using the meta-information files.</description>
+    </file>
+
+    <file>
+      <name>outputSEGFileName</name>
+      <label>SEG file name</label>
+      <channel>output</channel>
+      <longflag>segDICOMFile</longflag>
+      <description>File name of the SEG object that will keep the result.</description>
+    </file>
+
+    <boolean>
+      <name>skipEmptySlices</name>
+      <label>Skip empty slices</label>
+      <channel>input</channel>
+      <longflag>skip</longflag>
+      <description>Skip empty slices while encoding segmentation image.</description>
+    </boolean>
+
+    <boolean>
+      <name>compress</name>
+      <label>Deflate PixelData</label>
+      <channel>input</channel>
+      <longflag>zip</longflag>
+      <description>Apply compression to PixelData.</description>
+    </boolean>
+
+
+  </parameters>
+
+</executable>
