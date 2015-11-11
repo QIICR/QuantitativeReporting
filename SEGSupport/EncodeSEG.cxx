@@ -382,14 +382,21 @@ int main(int argc, char *argv[])
         }
       }
 
-      std::string cielab = label2attributes[label].lookupAttribute("RecommendedDisplayCIELabValue");
-      if(cielab != ""){
-        unsigned cielabInt[3];
-        std::vector<std::string> cielabStrVector;
-        TokenizeString(cielab,cielabStrVector,",");
-        for(int cie_i=0;cie_i<3;cie_i++)
-          cielabInt[cie_i] = atoi(cielabStrVector[cie_i].c_str());
-        CHECK_COND(segment->setRecommendedDisplayCIELabValue(cielabInt[0],cielabInt[1],cielabInt[2]));
+      std::string rgbStr = label2attributes[label].lookupAttribute("RecommendedDisplayRGBValue");
+      if(rgbStr != ""){
+        unsigned rgb[3];
+        std::vector<std::string> rgbStrVector;
+        TokenizeString(rgbStr,rgbStrVector,",");
+        for(int rgb_i=0;rgb_i<3;rgb_i++)
+          rgb[rgb_i] = atoi(rgbStrVector[rgb_i].c_str());
+
+        unsigned cielabScaled[3];
+        float cielab[3], ciexyz[3];
+
+        getCIEXYZFromRGB(&rgb[0],&ciexyz[0]);
+        getCIELabFromCIEXYZ(&ciexyz[0],&cielab[0]);
+        getIntegerScaledCIELabFromCIELab(&cielab[0],&cielabScaled[0]);
+        CHECK_COND(segment->setRecommendedDisplayCIELabValue(cielabScaled[0],cielabScaled[1],cielabScaled[2]));
       }
 
       Uint16 segmentNumber;
