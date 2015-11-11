@@ -229,18 +229,24 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
       node = perStructureNodes[nodeName]
       structureName = nodeName[len(masterName)+1:-1*len('-label')]
       labelIndex = colorNode.GetColorIndexByName( structureName )
+
       category = colorLogic.GetCategoryFromLabel(labelIndex, terminologyName)
       categoryType = colorLogic.GetCategoryTypeFromLabel(labelIndex, terminologyName)
       categoryModifier = colorLogic.GetCategoryModifierFromLabel(labelIndex, terminologyName)
+
+      propertyCategory = colorLogic.GetCategoryTypeCodeFromLabel(labelIndex, terminologyName)
+      propertyCategory += "," + colorLogic.GetCategorySchemeFromLabel(labelIndex, terminologyName)
+      propertyCategory += "," + colorLogic.GetCategoryFromLabel(labelIndex, terminologyName)
+
       structureFileName = structureName + str(random.randint(0,vtk.VTK_INT_MAX)) + ".txt"
       filePath = os.path.join(slicer.app.temporaryPath, structureFileName)
+
       attributes = "%d" % labelIndex
+      attributes += ";"+propertyCategory
       if False:
         # requires access from colorLogic
-        attributes += ";SegmentedPropertyCategory:" + category
         attributes += ";SegmentedPropertyType:" + categoryType
       else:
-        attributes += ";SegmentedPropertyCategory:" + "R-4218,SRT,Spatial and Relational Concept"
         attributes += ";SegmentedPropertyType:" + "C94970,NCIt,Reference Region"
       if categoryModifier != "":
         attributes += ";AnatomicRegionModifer:" + categoryModifier

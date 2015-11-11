@@ -218,9 +218,10 @@ int main(int argc, char *argv[])
       //  it to start from 0
       std::ostringstream metastr;
 
-      DcmSegment* segment = segdoc->getSegment(segmentId-1);
+      DcmSegment* segment = segdoc->getSegment(segmentId);
       if(segment == NULL){
         std::cerr << "Failed to get segment for segment ID " << segmentId << std::endl;
+        continue;
       }
       std::cout << "Parsing relevant meta info for segment " << segmentId << std::endl;
 
@@ -233,7 +234,9 @@ int main(int argc, char *argv[])
         ciedcm[0], ciedcm[1], ciedcm[2]
       ).bad()) {
         std::cerr << "Failed to get CIELab values" << std::endl;
-        return -1;
+        ciedcm[0] = 43803;
+        ciedcm[1] = 26565;
+        ciedcm[2] = 37722;
       }
       std::cout << "DCMTK CIELab values:" << ciedcm[0] << "," << ciedcm[1] << "," << ciedcm[2] << std::endl;
       cielabScaled[0] = unsigned(ciedcm[0]);
@@ -315,7 +318,7 @@ int main(int argc, char *argv[])
       std::cerr << "ERROR: Frame " << frameId << " origin " << frameOriginPoint <<
                    " is outside image geometry!" << frameOriginIndex << std::endl;
       std::cerr << "Image size: " << segment2image[segmentId]->GetBufferedRegion().GetSize() << std::endl;
-      return -1;
+      //return -1;
     }
 
     unsigned slice = frameOriginIndex[2];
