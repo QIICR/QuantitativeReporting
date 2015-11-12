@@ -178,14 +178,18 @@ int main(int argc, char *argv[])
 
     ImageType::DirectionType labelDirMatrix = labelImage->GetDirection();
 
+    std::cout << "Directions: " << labelDirMatrix << std::endl;
+
     FGPlaneOrientationPatient *planor =
         FGPlaneOrientationPatient::createMinimal(
             FloatToStrScientific(labelDirMatrix[0][0]).c_str(),
-            FloatToStrScientific(labelDirMatrix[0][1]).c_str(),
-            FloatToStrScientific(labelDirMatrix[0][2]).c_str(),
             FloatToStrScientific(labelDirMatrix[1][0]).c_str(),
+            FloatToStrScientific(labelDirMatrix[2][0]).c_str(),
+            FloatToStrScientific(labelDirMatrix[0][1]).c_str(),
             FloatToStrScientific(labelDirMatrix[1][1]).c_str(),
-            FloatToStrScientific(labelDirMatrix[1][2]).c_str());
+            FloatToStrScientific(labelDirMatrix[2][1]).c_str());
+
+
     //CHECK_COND(planor->setImageOrientationPatient(imageOrientationPatientStr));
     CHECK_COND(segdoc->addForAllFrames(*planor));
   }
@@ -480,7 +484,14 @@ int main(int argc, char *argv[])
           CHECK_COND(fgder->addDerivationImageItem(CodeSequenceMacro("113076","DCM","Segmentation"),"",derimgItem));
 
           OFVector<OFString> siVector;
+
+          if(sliceNumber>=inputDICOMImageFileNames.size()){
+            std::cerr << "ERROR: trying to access missing DICOM Slice! And sorry, multi-frame not supported at the moment..." << std::endl;
+            return -1;
+          }
+
           siVector.push_back(OFString(inputDICOMImageFileNames[slice2derimg[sliceNumber]].c_str()));
+
           OFVector<SourceImageItem*> srcimgItems;
           CHECK_COND(derimgItem->addSourceImageItems(siVector,
               CodeSequenceMacro("121322","DCM","Source image for image processing operation"),
