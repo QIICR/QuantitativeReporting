@@ -143,81 +143,91 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
       (success,labelNode) = slicer.util.loadLabelVolume(labelFileName, returnNode=True)
 
       # Initialize color and terminology from .info file
-      # See SEG2NRRD.cxx for how it's written.
-      # Format of the .info file (no leading spaces):
-      #    RGBColor:128,174,128
-      #    AnatomicRegion:T-C5300,SRT,pharyngeal tonsil (adenoid)
-      #    AnatomicRegionModifier:code,scheme,meaning
-      #    SegmentedPropertyCategory:M-01000,SRT,Morphologically Altered Structure
-      #    SegmentedPropertyType:M-80003,SRT,Neoplasm, Primary
-      #    SegmentedPropertyTypeModifier:code,scheme,meaning
+      # See SEG2NRRD.cxx and EncodeSEG.cxx for how it's written.
+      # Format of the .info file (no leading spaces, labelNum, RGBColor, SegmentedPropertyCategory and
+      # SegmentedPropertyCategory are required):
+      # labelNum;RGB:R,G,B;SegmentedPropertyCategory:code,scheme,meaning;SegmentedPropertyType:code,scheme,meaning;SegmentedPropertyTypeModifier:code,scheme,meaning;AnatomicRegion:code,scheme,meaning;AnatomicRegionModifier:code,scheme,meaning
+      # R, G, B are 0-255
+      # set defaults in case of missing fields, modifiers are optional
       colorIndex = segmentId + 1
-      # modifiers are optional
-      regionModCode = ''
-      regionModScheme = ''
-      regionModName = ''
-      typeModCode = ''
-      typeModScheme = ''
-      typeModName = ''
-      # set defaults in case of missing fields
       red = '0'
       green = '0'
       blue = '0'
-      regionCode = 'T-D0010'
-      regionName = 'Entire Body'
-      regionScheme = 'SRT'
       categoryCode = 'T-D0050'
-      categoryName = 'Tissue'
-      categoryScheme = 'SRT'
+      categoryCodingScheme = 'SRT'
+      categoryCodeMeaning = 'Tissue'
       typeCode = 'T-D0050'
-      typeName = 'Tissue'
-      typeScheme = 'SRT'
+      typeCodeMeaning = 'Tissue'
+      typeCodingScheme = 'SRT'
+      typeModCode = ''
+      typeModCodingScheme = ''
+      typeModCodeMeaning = ''
+      regionCode = 'T-D0010'
+      regionCodingScheme = 'SRT'
+      regionCodeMeaning = 'Entire Body'
+      regionModCode = ''
+      regionModCodingScheme = ''
+      regionModCodeMeaning = ''
       infoFileName = os.path.join(outputDir,str(segmentId+1)+".info")
       print 'Parsing info file', infoFileName
       with open(infoFileName, 'r') as infoFile:
         for line in infoFile:
-          key = line.split(':')[0]
-          if key == "RGBColor":
-            rgb = line.split(':')[1]
-            red = rgb.split(',')[0]
-            green = rgb.split(',')[1]
-            blue = rgb.split(',')[2]
-            # delay setting the color until after have parsed out a name for it
-          if key == "AnatomicRegion":
-            # Get the Region information
-            region = line.split(':')[1]
-            regionCode,regionScheme,regionName = region.split(',')
-            # strip off the newline from the name
-            regionName = regionName.rstrip()
-          if key == "AnatomicRegionModifier":
-            regionMod = line.split(':')[1]
-            regionModCode,regionModScheme,regionModName = regionMod.split(',')
-          if key == "SegmentedPropertyCategory":
-            # Get the Category information
-            category = line.split(':')[1]
-            # use partition so can get the line ending name with any commas in it
-            categoryCode, sep, categorySchemeAndName = category.partition(',')
-            categoryScheme, sep, categoryName = categorySchemeAndName.partition(',')
-            categoryName = categoryName.rstrip()
-          if key == "SegmentedPropertyType":
-            # Get the Type information
-            types = line.split(':')[1]
-            typeCode, sep, typeSchemeAndName = types.partition(',')
-            typeScheme, sep, typeName = typeSchemeAndName.partition(',')
-            typeName = typeName.rstrip()
-          if key == "SegmentedPropertyTypeModifier":
-            typeMod = line.split(':')[1]
-            typeModCode, sep, typeModSchemeAndName = typeMod.partition(',')
-            typeModScheme, sep, typeModName = typeModSchemeAndName.partition(',')
-            typeModName.rstrip()
+          line = line.rstrip()
+          if len(line) == 0:
+            # empty line
+            continue
+          terms = line.split(';')
+          for term in terms:
+            # label number is the first thing, no key
+            if len(term.split(':')) == 1:
+              colorIndex = int(term)
+            else:
+              key = term.split(':')[0]
+              if key == "RGB":
+                rgb = term.split(':')[1]
+                red = rgb.split(',')[0]
+                green = rgb.split(',')[1]
+                blue = rgb.split(',')[2]
+                # delay setting the color until after have parsed out a name for it
+              elif key == "AnatomicRegion":
+                # Get the Region information
+                region = term.split(':')[1]
+                # use partition to deal with any commas in the meaning
+                regionCode, sep, regionCodingSchemeAndCodeMeaning = region.partition(',')
+                regionCodingScheme, sep, regionCodeMeaning = regionCodingSchemeAndCodeMeaning.partition(',')
+              elif key == "AnatomicRegionModifier":
+                regionMod = term.split(':')[1]
+                regionModCode, sep, regionModCodingSchemeAndCodeMeaning = regionMod.partition(',')
+                regionModCodingScheme, sep, regionModCodeMeaning = regionModCodingSchemeAndCodeMeaning.partition(',')
+              elif key == "SegmentedPropertyCategory":
+                # Get the Category information
+                category = term.split(':')[1]
+                categoryCode, sep, categoryCodingSchemeAndCodeMeaning = category.partition(',')
+                categoryCodingScheme, sep, categoryCodeMeaning = categoryCodingSchemeAndCodeMeaning.partition(',')
+              elif key == "SegmentedPropertyType":
+                # Get the Type information
+                types = term.split(':')[1]
+                typeCode, sep, typeCodingSchemeAndCodeMeaning = types.partition(',')
+                typeCodingScheme, sep, typeCodeMeaning = typeCodingSchemeAndCodeMeaning.partition(',')
+              elif key == "SegmentedPropertyTypeModifier":
+                typeMod = term.split(':')[1]
+                typeModCode, sep, typeModCodingSchemeAndCodeMeaning = typeMod.partition(',')
+                typeModCodingScheme, sep, typeModCodeMeaning = typeModCodingSchemeAndCodeMeaning.partition(',')
+
+
+        # set the color name from the terminology
+        colorName = typeCodeMeaning
+        segmentationColorNode.SetColor(colorIndex, colorName, float(red)/255.0, float(green)/255.0, float(blue)/255.0)
+
+        colorLogic.AddTermToTerminology(segmentationColorNode.GetName(), colorIndex,
+                                        categoryCode, categoryCodingScheme, categoryCodeMeaning,
+                                        typeCode, typeCodingScheme, typeCodeMeaning,
+                                        typeModCode, typeModCodingScheme, typeModCodeMeaning,
+                                        regionCode, regionCodingScheme, regionCodeMeaning,
+                                        regionModCode, regionModCodingScheme, regionModCodeMeaning)
+        # end of processing a line of terminology
 
       infoFile.close()
-
-      # set the color name from the terminology
-      colorName = typeName
-      segmentationColorNode.SetColor(colorIndex, colorName, float(red)/255.0, float(green)/255.0, float(blue)/255.0)
-
-      colorLogic.AddTermToTerminology(segmentationColorNode.GetName(), colorIndex, regionCode, regionName, regionScheme, regionModCode, regionModName, regionModScheme, categoryCode, categoryName, categoryScheme, typeCode, typeName, typeScheme, typeModCode, typeModScheme, typeModName)
 
       # point the label node to the color node we're creating
       labelDisplayNode = labelNode.GetDisplayNode()

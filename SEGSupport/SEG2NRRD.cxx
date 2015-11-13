@@ -265,45 +265,46 @@ int main(int argc, char *argv[])
         std::cout << rgb[i] << " ";
       std::cout << std::endl;
 
-      metastr << "RGBColor:" << rgb[0] << "," << rgb[1] << "," << rgb[2] << std::endl;
+      // line format:
+      // labelNum;RGB:R,G,B;SegmentedPropertyCategory:code,scheme,meaning;SegmentedPropertyType:code,scheme,meaning;SegmentedPropertyTypeModifier:code,scheme,meaning;AnatomicRegion:code,scheme,meaning;AnatomicRegionModifier:code,scheme,meaning
+      metastr << segmentId;
+      metastr << ";RGB:" << rgb[0] << "," << rgb[1] << "," << rgb[2];
 
-      // get anatomy codes
       OFString meaning, designator, code;
-      GeneralAnatomyMacro &anatomyMacro = segment->getGeneralAnatomyCode();
-      anatomyMacro.getAnatomicRegion().getCodeMeaning(meaning);
-      anatomyMacro.getAnatomicRegion().getCodeValue(code);
-      anatomyMacro.getAnatomicRegion().getCodingSchemeDesignator(designator);
-      std::cout << "Anatomic region meaning: " << meaning << std::endl;
-      metastr << "AnatomicRegion:" << code << "," << designator << "," << meaning << std::endl;
-      if(anatomyMacro.getAnatomicRegionModifier().size()>0){
-        anatomyMacro.getAnatomicRegionModifier()[0]->getCodeMeaning(meaning);
-        anatomyMacro.getAnatomicRegionModifier()[0]->getCodeValue(code);
-        anatomyMacro.getAnatomicRegionModifier()[0]->getCodingSchemeDesignator(designator);
-        std::cout << "  Modifier: " << code << std::endl;
-        metastr << "AnatomicRegionModifier:" << code << "," << designator << "," << meaning << std::endl;
-      }
-
-      OFString categoryMeaning;
       segment->getSegmentedPropertyCategoryCode().getCodeMeaning(meaning);
       segment->getSegmentedPropertyCategoryCode().getCodeValue(code);
       segment->getSegmentedPropertyCategoryCode().getCodingSchemeDesignator(designator);
-      metastr << "SegmentedPropertyCategory:" << code << ","  << designator << "," << meaning << std::endl;
-      std::cout << "SegmentedPropertyCategory: " << meaning << std::endl;
+      std::cout << "SegmentedPropertyCategory: " << meaning;
+      metastr << ";SegmentedPropertyCategory:" << code << ","  << designator << "," << meaning;
 
-      OFString typeMeaning, typeModifierMeaning;
       segment->getSegmentedPropertyTypeCode().getCodeMeaning(meaning);
       segment->getSegmentedPropertyTypeCode().getCodeValue(code);
       segment->getSegmentedPropertyTypeCode().getCodingSchemeDesignator(designator);
       std::cout << "Type meaning: " << meaning << std::endl;
-      metastr << "SegmentedPropertyType:" << code << "," << designator << "," << meaning << std::endl;
+      metastr << ";SegmentedPropertyType:" << code << "," << designator << "," << meaning;
       if(segment->getSegmentedPropertyTypeModifierCode().size()>0){
         segment->getSegmentedPropertyTypeModifierCode()[0]->getCodeMeaning(meaning);
         segment->getSegmentedPropertyTypeModifierCode()[0]->getCodeValue(code);
         segment->getSegmentedPropertyTypeModifierCode()[0]->getCodingSchemeDesignator(designator);
         std::cout << "  Modifier: " << meaning << std::endl;
-        metastr << "SegmentedPropertyTypeModifier:" << code << "," << designator << "," << meaning << std::endl;
+        metastr << ";SegmentedPropertyTypeModifier:" << code << "," << designator << "," << meaning;
       }
 
+      // get anatomy codes
+      GeneralAnatomyMacro &anatomyMacro = segment->getGeneralAnatomyCode();
+      anatomyMacro.getAnatomicRegion().getCodeMeaning(meaning);
+      anatomyMacro.getAnatomicRegion().getCodeValue(code);
+      anatomyMacro.getAnatomicRegion().getCodingSchemeDesignator(designator);
+      std::cout << "Anatomic region meaning: " << meaning << std::endl;
+      metastr << ";AnatomicRegion:" << code << "," << designator << "," << meaning;
+      if(anatomyMacro.getAnatomicRegionModifier().size()>0){
+        anatomyMacro.getAnatomicRegionModifier()[0]->getCodeMeaning(meaning);
+        anatomyMacro.getAnatomicRegionModifier()[0]->getCodeValue(code);
+        anatomyMacro.getAnatomicRegionModifier()[0]->getCodingSchemeDesignator(designator);
+        std::cout << "  Modifier: " << code << std::endl;
+        metastr << ";AnatomicRegionModifier:" << code << "," << designator << "," << meaning;
+      }
+      metastr << std::endl;
       segment2meta[segmentId] = metastr.str();
     }
 

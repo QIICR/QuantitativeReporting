@@ -230,26 +230,44 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
       structureName = nodeName[len(masterName)+1:-1*len('-label')]
       labelIndex = colorNode.GetColorIndexByName( structureName )
 
-      category = colorLogic.GetCategoryFromLabel(labelIndex, terminologyName)
-      categoryType = colorLogic.GetCategoryTypeFromLabel(labelIndex, terminologyName)
-      categoryModifier = colorLogic.GetCategoryModifierFromLabel(labelIndex, terminologyName)
+      # get the attributes and conver to format CodeValue,CodeMeaning,CodingSchemeDesignator
+      # or empty strings if not defined
+      propertyCategoryWithColons = colorLogic.GetSegmentedPropertyCategory(labelIndex, terminologyName)
+      if propertyCategoryWithColons == '':
+        print 'ERROR: no segmented property category found for label ',str(labelIndex)
+        # Try setting a default as this section is required
+        propertyCategory = "C94970,NCIt,Reference Region"
+      else:
+        propertyCategory = propertyCategoryWithColons.replace(':',',')
 
-      propertyCategory = colorLogic.GetCategoryTypeCodeFromLabel(labelIndex, terminologyName)
-      propertyCategory += "," + colorLogic.GetCategorySchemeFromLabel(labelIndex, terminologyName)
-      propertyCategory += "," + colorLogic.GetCategoryFromLabel(labelIndex, terminologyName)
+      propertyTypeWithColons = colorLogic.GetSegmentedPropertyType(labelIndex, terminologyName)
+      propertyType = propertyTypeWithColons.replace(':',',')
+
+      propertyTypeModifierWithColons = colorLogic.GetSegmentedPropertyTypeModifier(labelIndex, terminologyName)
+      propertyTypeModifier = propertyTypeModifierWithColons.replace(':',',')
+
+      anatomicRegionWithColons = colorLogic.GetAnatomicRegion(labelIndex, terminologyName)
+      anatomicRegion = anatomicRegionWithColons.replace(':',',')
+
+      anatomicRegionModifierWithColons = colorLogic.GetAnatomicRegionModifier(labelIndex, terminologyName)
+      anatomicRegionModifier = anatomicRegionModifierWithColons.replace(':',',')
+
 
       structureFileName = structureName + str(random.randint(0,vtk.VTK_INT_MAX)) + ".txt"
       filePath = os.path.join(slicer.app.temporaryPath, structureFileName)
 
+      # EncodeSEG is expecting a file of format:
+      # labelNum;SegmentedPropertyCategory:codeValue,codeScheme,codeMeaning;SegmentedPropertyType:v,m,s etc
       attributes = "%d" % labelIndex
-      attributes += ";"+propertyCategory
-      if False:
-        # requires access from colorLogic
-        attributes += ";SegmentedPropertyType:" + categoryType
-      else:
-        attributes += ";SegmentedPropertyType:" + "C94970,NCIt,Reference Region"
-      if categoryModifier != "":
-        attributes += ";AnatomicRegionModifer:" + categoryModifier
+      attributes += ";SegmentedPropertyCategory:"+propertyCategory
+      if propertyType != "":
+        attributes += ";SegmentedPropertyType:" + propertyType
+      if propertyTypeModifier != "":
+        attributes += ";SegmentedPropertyTypeModifier:" + propertyTypeModifier
+      if anatomicRegion != "":
+        attriutes += ";AnatomicRegion:" + anatomicRegion
+      if anatomicRegionModifier != "":
+        attributes += ";AnatomicRegionModifer:" + anatomicRegionModifier
       attributes += ";SegmentAlgorithmType:AUTOMATIC"
       attributes += ";SegmentAlgorithmName:SlicerSelfTest"
       fp = open(filePath, "w")
