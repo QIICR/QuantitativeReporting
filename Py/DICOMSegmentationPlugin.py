@@ -84,10 +84,28 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
         loadable.selected = True
         loadable.confidence = 0.95
         loadable.uid = uid
+        self.addReferences(loadable)
+
         loadables.append(loadable)
+
         print('DICOM SEG modality found')
 
     return loadables
+
+  def addReferences(self,loadable):
+    import dicom
+    dcm = dicom.read_file(loadable.files[0])
+    if not hasattr(dcm, "ReferencedSeriesSequence"):
+      return
+
+    if not hasattr(dcm.ReferencedSeriesSequence[0], "ReferencedInstanceSequence"):
+      return
+
+    loadable.referencedInstanceUIDs = []
+    for ref in dcm.ReferencedSeriesSequence[0].ReferencedInstanceSequence:
+      loadable.referencedInstanceUIDs.append(ref.ReferencedSOPInstanceUID)
+
+    return
 
   def load(self,loadable):
     """ Call Reporting logic to load the DICOM SEG object
