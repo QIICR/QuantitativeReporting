@@ -230,11 +230,15 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
       structureName = nodeName[len(masterName)+1:-1*len('-label')]
       labelIndex = colorNode.GetColorIndexByName( structureName )
 
+      rgbColor = [0,]*4
+      colorNode.GetColor(labelIndex, rgbColor)
+      rgbColor = map(lambda e: e*255., rgbColor)
+
       # get the attributes and conver to format CodeValue,CodeMeaning,CodingSchemeDesignator
       # or empty strings if not defined
       propertyCategoryWithColons = colorLogic.GetSegmentedPropertyCategory(labelIndex, terminologyName)
       if propertyCategoryWithColons == '':
-        print 'ERROR: no segmented property category found for label ',str(labelIndex)
+        print ('ERROR: no segmented property category found for label ',str(labelIndex))
         # Try setting a default as this section is required
         propertyCategory = "C94970,NCIt,Reference Region"
       else:
@@ -252,8 +256,7 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
       anatomicRegionModifierWithColons = colorLogic.GetAnatomicRegionModifier(labelIndex, terminologyName)
       anatomicRegionModifier = anatomicRegionModifierWithColons.replace(':',',')
 
-
-      structureFileName = structureName + str(random.randint(0,vtk.VTK_INT_MAX)) + ".txt"
+      structureFileName = structureName + str(random.randint(0,vtk.VTK_INT_MAX)) + ".info"
       filePath = os.path.join(slicer.app.temporaryPath, structureFileName)
 
       # EncodeSEG is expecting a file of format:
@@ -270,6 +273,7 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
         attributes += ";AnatomicRegionModifer:" + anatomicRegionModifier
       attributes += ";SegmentAlgorithmType:AUTOMATIC"
       attributes += ";SegmentAlgorithmName:SlicerSelfTest"
+      attributes += ";RecommendedDisplayRGBValue:%g,%g,%g" % tuple(rgbColor[:-1])
       fp = open(filePath, "w")
       fp.write(attributes)
       fp.close()
