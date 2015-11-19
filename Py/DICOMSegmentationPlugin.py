@@ -45,9 +45,6 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
   def examineFiles(self,files):
 
-    print("DICOMSegmentationPlugin::examine files: ")
-    print files
-
     """ Returns a list of DICOMLoadable instances
     corresponding to ways of interpreting the
     files parameter.
@@ -118,7 +115,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     try:
       reportingLogic = slicer.modules.reporting.logic()
       uid = loadable.uid
-      print 'in load(): uid = ', uid
+      print ('in load(): uid = ', uid)
     except AttributeError:
       return False
 
@@ -151,7 +148,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     numberOfSegments = len(glob.glob(os.path.join(outputDir,'*.nrrd')))
 
     # resize the color table to include the segments plus 0 for the background
-    print 'number of segments = ',numberOfSegments
+    print ('number of segments = ',numberOfSegments)
     segmentationColorNode.SetNumberOfColors(numberOfSegments + 1)
     segmentationColorNode.SetColor(0, 'background', 0.0, 0.0, 0.0, 0.0)
 
@@ -187,7 +184,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
       regionModCodingScheme = ''
       regionModCodeMeaning = ''
       infoFileName = os.path.join(outputDir,str(segmentId+1)+".info")
-      print 'Parsing info file', infoFileName
+      print ('Parsing info file', infoFileName)
       with open(infoFileName, 'r') as infoFile:
         for line in infoFile:
           line = line.rstrip()
@@ -202,11 +199,8 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
             else:
               key = term.split(':')[0]
               if key == "RGB":
-                rgb = term.split(':')[1]
-                red = rgb.split(',')[0]
-                green = rgb.split(',')[1]
-                blue = rgb.split(',')[2]
-                # delay setting the color until after have parsed out a name for it
+                rgb255 = term.split(':')[1].split(',')
+                rgb = map(lambda c: float(c) / 255., rgb255)
               elif key == "AnatomicRegion":
                 # Get the Region information
                 region = term.split(':')[1]
@@ -232,10 +226,9 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
                 typeModCode, sep, typeModCodingSchemeAndCodeMeaning = typeMod.partition(',')
                 typeModCodingScheme, sep, typeModCodeMeaning = typeModCodingSchemeAndCodeMeaning.partition(',')
 
-
         # set the color name from the terminology
         colorName = typeCodeMeaning
-        segmentationColorNode.SetColor(colorIndex, colorName, float(red)/255.0, float(green)/255.0, float(blue)/255.0)
+        segmentationColorNode.SetColor(colorIndex, colorName, *rgb)
 
         colorLogic.AddTermToTerminology(segmentationColorNode.GetName(), colorIndex,
                                         categoryCode, categoryCodingScheme, categoryCodeMeaning,
@@ -244,13 +237,12 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
                                         regionCode, regionCodingScheme, regionCodeMeaning,
                                         regionModCode, regionModCodingScheme, regionModCodeMeaning)
         # end of processing a line of terminology
-
       infoFile.close()
 
       # point the label node to the color node we're creating
       labelDisplayNode = labelNode.GetDisplayNode()
       if labelDisplayNode == None:
-        print 'Warning: no label map display node for segment ',segmentId,', creating!'
+        print ('Warning: no label map display node for segment ',segmentId,', creating!')
         labelNode.CreateDefaultDisplayNodes()
         labelDisplayNode = labelNode.GetDisplayNode()
       labelDisplayNode.SetAndObserveColorNodeID(segmentationColorNode.GetID())
@@ -262,6 +254,8 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
     # finalize the color node
     segmentationColorNode.NamesInitialisedOn()
+
+    # TODO: the outputDir should be cleaned up
 
     return True
 
