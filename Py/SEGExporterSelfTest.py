@@ -133,6 +133,13 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
 
       import EditorLib
       from EditorLib.EditUtil import EditUtil
+      parameterNode = EditUtil.getParameterNode()
+      parameterNode.SetParameter("LabelEffect,paintThreshold", "1")
+      parameterNode.SetParameter("LabelEffect,paintThresholdMin", "70.0")
+      parameterNode.SetParameter("LabelEffect,paintThresholdMax", "279.75")
+      parameterNode.SetParameter("PaintEffect,radius", "40")
+      parameterNode.SetParameter("PaintEffect,sphere", "1")
+      
       self.delayDisplay("Paint some things")
       parameterNode = EditUtil.getParameterNode()
       lm = slicer.app.layoutManager()
@@ -151,11 +158,17 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
       paintTool = None
 
       # export the volumes into a SEG
+      tempSEGDirectory = slicer.app.temporaryPath + '/tempDICOMSEG'
+      qt.QDir().mkpath(tempSEGDirectory)
+      segFilePath = os.path.join(tempSEGDirectory, "test.SEG.dcm")
 
       # TODO: this should move to EditorLib/HelperBox.py
-      self.editorExportAsDICOMSEG(headMR.GetName())
+      self.editorExportAsDICOMSEG(headMR.GetName(), segFilePath)
 
       # close scene re-load the input data and SEG
+      slicer.mrmlScene.Clear(0)
+      indexer.addDirectory(slicer.dicomDatabase, tempSEGDirectory, None)
+      indexer.waitForImportFinished()
 
       # confirm that segmentations are available again as per-structure volumes
 
@@ -176,7 +189,7 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
     if originalDatabaseDirectory:
       dicomWidget.onDatabaseDirectoryChanged(originalDatabaseDirectory)
 
-  def editorExportAsDICOMSEG(self,masterName):
+  def editorExportAsDICOMSEG(self,masterName,segFilePath):
 
     self.delayDisplay('exporting...', 200)
 
@@ -293,7 +306,7 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
         "instanceNumber": "1",
         "bodyPart": "HEAD",
         "algorithmDescriptionFileName": "Editor",
-        "outputSEGFileName": "/tmp/test.SEG.dcm",
+        "outputSEGFileName": segFilePath,
         "skipEmptySlices": False,
         "compress": False,
         }
@@ -310,5 +323,3 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
       raise Exception("encodeSEG CLI did not complete cleanly")
 
     self.delayDisplay("Finished!")
-
-
