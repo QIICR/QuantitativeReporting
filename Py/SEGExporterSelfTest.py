@@ -170,6 +170,12 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
       indexer.addDirectory(slicer.dicomDatabase, tempSEGDirectory, None)
       indexer.waitForImportFinished()
 
+      mrHeadStudyUID = "2.16.840.1.113662.4.4168496325.1025305873.7118351817185979330"
+      dicomWidget.detailsPopup.offerLoadables(mrHeadStudyUID, 'Study')
+      dicomWidget.detailsPopup.examineForLoading()
+      self.delayDisplay('Loading Selection')
+      dicomWidget.detailsPopup.loadCheckedLoadables()
+
       # confirm that segmentations are available again as per-structure volumes
 
       # re-export
