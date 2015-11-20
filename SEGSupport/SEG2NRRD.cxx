@@ -148,7 +148,7 @@ int main(int argc, char *argv[])
     }
   }
   // number of slices should be computed, since segmentation may have empty frames
-  imageSize[2] = computedVolumeExtent/imageSpacing[2]+2;
+  imageSize[2] = computedVolumeExtent/imageSpacing[2]+1;
 
   // Initialize the image
   imageRegion.SetSize(imageSize);
@@ -241,29 +241,15 @@ int main(int argc, char *argv[])
         std::cerr << "Failed to get CIELab values - initializing to default " << 
           ciedcm[0] << "," << ciedcm[1] << "," << ciedcm[2] << std::endl;
       }
-      std::cout << "DCMTK CIELab values:" << ciedcm[0] << "," << ciedcm[1] << "," << ciedcm[2] << std::endl;
       cielabScaled[0] = unsigned(ciedcm[0]);
       cielabScaled[1] = unsigned(ciedcm[1]);
       cielabScaled[2] = unsigned(ciedcm[2]);
 
       getCIELabFromIntegerScaledCIELab(&cielabScaled[0],&cielab[0]);
 
-      std::cout << "CIELab: ";
-      for(int i=0;i<3;i++)
-        std::cout << cielab[i] << " ";
-      std::cout << std::endl;
-
       getCIEXYZFromCIELab(&cielab[0],&ciexyz[0]);
-      std::cout << "CIEXYZ: ";
-      for(int i=0;i<3;i++)
-        std::cout << ciexyz[i] << " ";
-      std::cout << std::endl;
 
       getRGBFromCIEXYZ(&ciexyz[0],&rgb[0]);
-      std::cout << "RGB: ";
-      for(int i=0;i<3;i++)
-        std::cout << rgb[i] << " ";
-      std::cout << std::endl;
 
       // line format:
       // labelNum;RGB:R,G,B;SegmentedPropertyCategory:code,scheme,meaning;SegmentedPropertyType:code,scheme,meaning;SegmentedPropertyTypeModifier:code,scheme,meaning;AnatomicRegion:code,scheme,meaning;AnatomicRegionModifier:code,scheme,meaning
@@ -274,19 +260,16 @@ int main(int argc, char *argv[])
       segment->getSegmentedPropertyCategoryCode().getCodeMeaning(meaning);
       segment->getSegmentedPropertyCategoryCode().getCodeValue(code);
       segment->getSegmentedPropertyCategoryCode().getCodingSchemeDesignator(designator);
-      std::cout << "SegmentedPropertyCategory: " << meaning;
       metastr << ";SegmentedPropertyCategory:" << code << ","  << designator << "," << meaning;
 
       segment->getSegmentedPropertyTypeCode().getCodeMeaning(meaning);
       segment->getSegmentedPropertyTypeCode().getCodeValue(code);
       segment->getSegmentedPropertyTypeCode().getCodingSchemeDesignator(designator);
-      std::cout << "Type meaning: " << meaning << std::endl;
       metastr << ";SegmentedPropertyType:" << code << "," << designator << "," << meaning;
       if(segment->getSegmentedPropertyTypeModifierCode().size()>0){
         segment->getSegmentedPropertyTypeModifierCode()[0]->getCodeMeaning(meaning);
         segment->getSegmentedPropertyTypeModifierCode()[0]->getCodeValue(code);
         segment->getSegmentedPropertyTypeModifierCode()[0]->getCodingSchemeDesignator(designator);
-        std::cout << "  Modifier: " << meaning << std::endl;
         metastr << ";SegmentedPropertyTypeModifier:" << code << "," << designator << "," << meaning;
       }
 
@@ -295,13 +278,11 @@ int main(int argc, char *argv[])
       anatomyMacro.getAnatomicRegion().getCodeMeaning(meaning);
       anatomyMacro.getAnatomicRegion().getCodeValue(code);
       anatomyMacro.getAnatomicRegion().getCodingSchemeDesignator(designator);
-      std::cout << "Anatomic region meaning: " << meaning << std::endl;
       metastr << ";AnatomicRegion:" << code << "," << designator << "," << meaning;
       if(anatomyMacro.getAnatomicRegionModifier().size()>0){
         anatomyMacro.getAnatomicRegionModifier()[0]->getCodeMeaning(meaning);
         anatomyMacro.getAnatomicRegionModifier()[0]->getCodeValue(code);
         anatomyMacro.getAnatomicRegionModifier()[0]->getCodingSchemeDesignator(designator);
-        std::cout << "  Modifier: " << code << std::endl;
         metastr << ";AnatomicRegionModifier:" << code << "," << designator << "," << meaning;
       }
       metastr << std::endl;
@@ -412,8 +393,6 @@ int getImageDirections(FGInterface &fgInterface, ImageType::DirectionType &dir){
     dir[i][1] = colDirection[i];
     dir[i][2] = sliceDirection[i];
   }
-
-  std::cout << "Direction: " << std::endl << dir << std::endl;
 
   return 0;
 }
