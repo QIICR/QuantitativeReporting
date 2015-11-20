@@ -82,6 +82,9 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
         loadable.confidence = 0.95
         loadable.uid = uid
         self.addReferences(loadable)
+        refName = self.referencedSeriesName(loadable)
+        if refName != "":
+          loadable.name = refName + " " + desc + " - Segmentations"
 
         loadables.append(loadable)
 
@@ -89,20 +92,30 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
     return loadables
 
+  def referencedSeriesName(self,loadable):
+    """Returns the default series name for the given loadable"""
+    referencedName = "Unnamed Reference"
+    if hasattr(loadable, "referencedSeriesUID"):
+      referencedName = self.defaultSeriesNodeName(loadable.referencedSeriesUID)
+    return referencedName
+
   def addReferences(self,loadable):
+    """Puts a list of the referened UID into the loadable for use
+    in the node if this is loaded."""
     import dicom
     dcm = dicom.read_file(loadable.files[0])
-    if not hasattr(dcm, "ReferencedSeriesSequence"):
-      return
-
-    if not hasattr(dcm.ReferencedSeriesSequence[0], "ReferencedInstanceSequence"):
-      return
-
-    loadable.referencedInstanceUIDs = []
-    for ref in dcm.ReferencedSeriesSequence[0].ReferencedInstanceSequence:
-      loadable.referencedInstanceUIDs.append(ref.ReferencedSOPInstanceUID)
-
-    return
+    if hasattr(dcm, "ReferencedSeriesSequence"):
+      if hasattr(dcm.ReferencedSeriesSequence[0], "ReferencedInstanceSequence"):
+        # set the referenced UID list for the loadable
+        loadable.referencedInstanceUIDs = []
+        for ref in dcm.ReferencedSeriesSequence[0].ReferencedInstanceSequence:
+          loadable.referencedInstanceUIDs.append(ref.ReferencedSOPInstanceUID)
+        # cache the referenced seriesUID for use in looking up the series name
+        # - use the last referenced instance in the list - they should all be the same series
+        refUID = str(ref.ReferencedSOPInstanceUID)
+        refFilePath = slicer.dicomDatabase.fileForInstance(refUID)
+        refDCM = dicom.read_file(refFilePath)
+        loadable.referencedSeriesUID = str(refDCM.SeriesInstanceUID)
 
   def load(self,loadable):
     """ Call Reporting logic to load the DICOM SEG object
@@ -152,22 +165,19 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     segmentationColorNode.SetNumberOfColors(numberOfSegments + 1)
     segmentationColorNode.SetColor(0, 'background', 0.0, 0.0, 0.0, 0.0)
 
+    seriesName = self.referencedSeriesName(loadable)
+    segmentNodes = []
     for segmentId in range(numberOfSegments):
       # load each of the segments' segmentations
-      labelFileName = os.path.join(outputDir,str(segmentId+1)+".nrrd")
-      (success,labelNode) = slicer.util.loadLabelVolume(labelFileName, returnNode=True)
-
       # Initialize color and terminology from .info file
       # See SEG2NRRD.cxx and EncodeSEG.cxx for how it's written.
       # Format of the .info file (no leading spaces, labelNum, RGBColor, SegmentedPropertyCategory and
       # SegmentedPropertyCategory are required):
       # labelNum;RGB:R,G,B;SegmentedPropertyCategory:code,scheme,meaning;SegmentedPropertyType:code,scheme,meaning;SegmentedPropertyTypeModifier:code,scheme,meaning;AnatomicRegion:code,scheme,meaning;AnatomicRegionModifier:code,scheme,meaning
-      # R, G, B are 0-255
+      # R, G, B are 0-255 in file, but mapped to 0-1 for use in color node
       # set defaults in case of missing fields, modifiers are optional
+      rgb = (0., 0., 0.)
       colorIndex = segmentId + 1
-      red = '0'
-      green = '0'
-      blue = '0'
       categoryCode = 'T-D0050'
       categoryCodingScheme = 'SRT'
       categoryCodeMeaning = 'Tissue'
@@ -239,6 +249,14 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
         # end of processing a line of terminology
       infoFile.close()
 
+      # load the segmentation volume file and name it for the reference series and segment color
+      labelFileName = os.path.join(outputDir,str(segmentId+1)+".nrrd")
+      segmentName = seriesName + "-" + colorName + "-label"
+      (success,labelNode) = slicer.util.loadLabelVolume(labelFileName,
+                                                        properties = {'name' : segmentName},
+                                                        returnNode=True)
+      segmentNodes.append(labelNode)
+
       # point the label node to the color node we're creating
       labelDisplayNode = labelNode.GetDisplayNode()
       if labelDisplayNode == None:
@@ -251,6 +269,23 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
       # create Subject hierarchy nodes for the loaded series
       self.addSeriesInSubjectHierarchy(loadable, labelNode)
+
+    # create a combined (merge) label volume node (only if a segment was created)
+    if labelNode:
+      volumeLogic = slicer.modules.volumes.logic()
+      mergeNode = volumeLogic.CloneVolume(labelNode, seriesName + "-label")
+      combiner = slicer.vtkImageLabelCombine()
+      for segmentNode in segmentNodes:
+        combiner.SetInputConnection(0, mergeNode.GetImageDataConnection() )
+        combiner.SetInputConnection(1, segmentNode.GetImageDataConnection() )
+        combiner.Update()
+        mergeNode.GetImageData().DeepCopy( combiner.GetOutput() )
+      for segmentNode in segmentNodes:
+        segmentNode.Modified() # sets the MTime so the editor won't think they are older than mergeNode
+      # display the mergeNode
+      selectionNode = slicer.app.applicationLogic().GetSelectionNode()
+      selectionNode.SetReferenceActiveLabelVolumeID( mergeNode.GetID() )
+      slicer.app.applicationLogic().PropagateVolumeSelection(0)
 
     # finalize the color node
     segmentationColorNode.NamesInitialisedOn()
