@@ -87,6 +87,8 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
     try:
       self.delayDisplay("Switching to temp database directory")
       tempDatabaseDirectory = slicer.app.temporaryPath + '/tempDICOMDatabase'
+      import shutil
+      shutil.rmtree(tempDatabaseDirectory)
       qt.QDir().mkpath(tempDatabaseDirectory)
       if slicer.dicomDatabase:
         originalDatabaseDirectory = os.path.split(slicer.dicomDatabase.databaseFilename)[0]
@@ -157,6 +159,11 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
       paintTool.cleanup()
       paintTool = None
 
+      # save these to compare with the one we read back
+      originalSegmentationArray = slicer.util.array(headLabel.GetID())
+      originalSegmentationNodeCopy = slicer.vtkMRMLLabelMapVolumeNode()
+      originalSegmentationNodeCopy.CopyOrientation(headLabel)
+
       # export the volumes into a SEG
       tempSEGDirectory = slicer.app.temporaryPath + '/tempDICOMSEG'
       qt.QDir().mkpath(tempSEGDirectory)
@@ -176,7 +183,16 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
       self.delayDisplay('Loading Selection')
       dicomWidget.detailsPopup.loadCheckedLoadables()
 
-      # confirm that segmentations are available again as per-structure volumes
+      # confirm that segmentations are correctly reloaded
+      headLabelName = '2: SAG/RF-FAST/VOL/FLIP 30-label'
+      reloadedLabel = slicer.util.getNode(headLabelName)
+      reloadedSegmentationArray = slicer.util.array(reloadedLabel.GetID())
+
+      import numpy
+      self.assertTrue(numpy.alltrue(originalSegmentationArray == reloadedSegmentationArray))
+      geometryWarnings = volumesLogic.CompareVolumeGeometry(headLabel, reloadedLabel)
+      print(geometryWarnings)
+      self.assertTrue(geometryWarnings == '')
 
       # re-export
 
