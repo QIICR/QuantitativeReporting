@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
   ImageType::SizeType inputSize = labelImage->GetBufferedRegion().GetSize();
   std::cout << "Input image size: " << inputSize << std::endl;
 
-  unsigned frameSize = inputSize[0]*inputSize[1];
+  const unsigned frameSize = inputSize[0]*inputSize[1];
 
   //OFLog::configure(OFLogger::DEBUG_LOG_LEVEL);
 

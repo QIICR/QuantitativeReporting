@@ -28,15 +28,19 @@
 #include "dcmtk/ofstd/ofvector.h"
 #include "dcmtk/ofstd/ofstring.h"
 #include "dcmtk/dcmfg/fginterface.h"
+#include "dcmtk/dcmfg/fgplanpo.h"
+#include "dcmtk/dcmfg/fgplanor.h"
+#include "dcmtk/ofstd/ofcond.h"
 
 #include <stdlib.h>
+#include <math.h>
 
 /** Abstract class for sorting a set of frames in a functional group. The
  *  sorting criteria are up to the actual implementation classes.
  */
 class DCMTK_DCMFG_EXPORT FrameSorter
-{  
-  
+{
+
 public:
 
   /** Structure that transports the results of a frame sorting operation
@@ -45,13 +49,13 @@ public:
   {
     /** Default constructor, initializes empty results
      */
-    Results() : 
+    Results() :
       errorCode(EC_Normal),
       frameNumbers(),
       key(DCM_UndefinedTagKey),
       fgSequenceKey(DCM_UndefinedTagKey),
       fgPrivateCreator() { }
-    
+
     void clear()
     {
       errorCode = EC_Normal;
@@ -60,7 +64,7 @@ public:
       fgSequenceKey = DCM_UndefinedTagKey;
       fgPrivateCreator = "";
     }
-    
+
     /// Error code: EC_Normal if sorting was successful, error code otherwise.
     /// The error code should be set in any case (default: EC_Normal)
     OFCondition errorCode;
@@ -82,11 +86,11 @@ public:
     /// is not used at all (default).
     OFString fgPrivateCreator;
   };
-  
+
   /** Default constructor, does nothing
    */
   FrameSorter(){};
-  
+
   /** Set input data for this sorter
    *  @param  fg The functional groups to work on. Ownership
    *          of pointer stays with the caller.
@@ -111,8 +115,8 @@ public:
    *  @return Free text description of the sorting algorithm used.
    */
   virtual OFString getDescription() =0;
-  
-  
+
+
   // Derived classes may add further functions, e.g. to provide further parameters,
   // like the main dataset, frame data, etc.
 
@@ -125,21 +129,21 @@ protected:
 class DCMTK_DCMFG_EXPORT FrameSorterIdentity : public FrameSorter
 {
 
-public: 
+public:
 
   FrameSorterIdentity(){};
-  
-  virtual ~FrameSorterIdentity() 
+
+  virtual ~FrameSorterIdentity()
   {
-    
+
   }
-  
-  virtual OFString getDescription() 
+
+  virtual OFString getDescription()
   {
     return "Returns frames in the order defined in the functional group, i.e. as defined in the image file";
   }
-  
-  
+
+
   virtual void sort(Results& results)
   {
     if (m_fg == NULL)
@@ -147,21 +151,21 @@ public:
       results.errorCode = FG_EC_InvalidData;
       return;
     }
-    
+
     size_t numFrames = m_fg->getNumberOfFrames();
     if (numFrames == 0)
     {
       results.errorCode = FG_EC_NotEnoughItems;
       return;
     }
-    
+
     for (Uint32 count = 0; count < numFrames; count++)
     {
       results.frameNumbers.push_back(count);
     }
     return;
-  }  
-  
+  }
+
 };
 
 class DCMTK_DCMFG_EXPORT FrameSorterIPP : public FrameSorter
