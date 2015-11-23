@@ -223,7 +223,6 @@ int main(int argc, char *argv[])
         std::cerr << "Failed to get segment for segment ID " << segmentId << std::endl;
         continue;
       }
-      std::cout << "Parsing relevant meta info for segment " << segmentId << std::endl;
 
       // get CIELab color for the segment
       Uint16 ciedcm[3];
