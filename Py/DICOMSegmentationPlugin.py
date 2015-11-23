@@ -11,19 +11,6 @@ from DICOMLib import DICOMLoadable
 class DICOMSegmentationPluginClass(DICOMPlugin):
 
   def __init__(self,epsilon=0.01):
-    # Get the location and initialize the DICOM DB used by Reporting logic
-    reportingLogic = slicer.modules.reporting.logic()
-    settings = qt.QSettings()
-    dbFileName = settings.value("DatabaseDirectory","")
-    if dbFileName == "":
-      print("DICOMSegmentationPlugin failed to initialize DICOM db location from settings")
-    else:
-      dbFileName = dbFileName+"/ctkDICOM.sql"
-      if reportingLogic.InitializeDICOMDatabase(dbFileName):
-        print("DICOMSegmentationPlugin initialized DICOM db OK")
-      else:
-        print('Failed to initialize DICOM database at '+dbFileName)
-
     super(DICOMSegmentationPluginClass,self).__init__()
     self.loadType = "DICOMSegmentation"
 
@@ -71,9 +58,6 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
       if number == '':
         number = "Unknown"
 
-      reportingLogic = None
-      reportingLogic = slicer.modules.reporting.logic()
-
       isDicomSeg = (slicer.dicomDatabase.fileValue(file, self.tags['modality']) == 'SEG')
 
       if isDicomSeg:
@@ -108,7 +92,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     return
 
   def load(self,loadable):
-    """ Call Reporting logic to load the DICOM SEG object
+    """ Load the DICOM SEG object
     """
     print('DICOM SEG load()')
     labelNodes = vtk.vtkCollection()
@@ -116,7 +100,6 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     uid = None
 
     try:
-      reportingLogic = slicer.modules.reporting.logic()
       uid = loadable.uid
       print 'in load(): uid = ', uid
     except AttributeError:
@@ -132,7 +115,24 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
     # produces output label map files, one per segment, and information files with
     # the terminology information for each segment
-    res = reportingLogic.DicomSegRead(labelNodes, uid)
+    segFileName = slicer.dicomDatabase.fileForInstance(uid)
+    if segFileName is None:
+      print 'Failed to get the filename from the DICOM database for ', uid
+      return False
+
+    parameters = {
+      "inputSEGFileName": segFileName,
+      "outputDirName": outputDir,
+      }
+    seg2nrrd = slicer.modules.seg2nrrd
+    if seg2nrrd == None:
+      print 'Unable to find CLI module SEG2NRRD, unable to load DICOM Segmentation object'
+      return False
+    cliNode = None
+    cliNode = slicer.cli.run(seg2nrrd, cliNode, parameters, wait_for_completion=True)
+    if cliNode.GetStatusString() != 'Completed':
+      print 'SEG2NRRD did not complete successfully, unable to load DICOM Segmentation'
+      return False
 
     # create a new color node to be set up with the colors in these segments
     colorLogic = slicer.modules.colors.logic()
@@ -282,7 +282,7 @@ class DICOMSegmentationPlugin:
     Plugin to the DICOM Module to parse and load DICOM SEG modality.
     No module interface here, only in the DICOM module
     """
-    parent.dependencies = ['DICOM', 'Colors', 'Reporting']
+    parent.dependencies = ['DICOM', 'Colors']
     parent.acknowledgementText = """
     This DICOM Plugin was developed by
     Andrey Fedorov, BWH.

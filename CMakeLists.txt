@@ -29,8 +29,8 @@ configure_file(
   )
 
 #-----------------------------------------------------------------------------
-add_subdirectory(MRML)
-add_subdirectory(Logic)
+# add_subdirectory(MRML)
+# add_subdirectory(Logic)
 add_subdirectory(Py)
 add_subdirectory(SEGSupport)
 
@@ -38,29 +38,29 @@ add_subdirectory(SEGSupport)
 set(MODULE_EXPORT_DIRECTIVE "Q_SLICER_QTMODULES_${MODULE_NAME_UPPER}_EXPORT")
 
 set(MODULE_INCLUDE_DIRECTORIES
-  ${CMAKE_CURRENT_SOURCE_DIR}/Logic
-  ${CMAKE_CURRENT_BINARY_DIR}/Logic
-  ${CMAKE_CURRENT_SOURCE_DIR}/MRML
-  ${CMAKE_CURRENT_BINARY_DIR}/MRML
+#  ${CMAKE_CURRENT_SOURCE_DIR}/Logic
+#  ${CMAKE_CURRENT_BINARY_DIR}/Logic
+#  ${CMAKE_CURRENT_SOURCE_DIR}/MRML
+#  ${CMAKE_CURRENT_BINARY_DIR}/MRML
   )
 
 set(MODULE_SRCS
-  qSlicer${MODULE_NAME}IO.cxx
-  qSlicer${MODULE_NAME}IO.h
-  qSlicer${MODULE_NAME}Module.cxx
-  qSlicer${MODULE_NAME}Module.h
+#  qSlicer${MODULE_NAME}IO.cxx
+#  qSlicer${MODULE_NAME}IO.h
+#  qSlicer${MODULE_NAME}Module.cxx
+#  qSlicer${MODULE_NAME}Module.h
   )
 
 set(MODULE_MOC_SRCS
-  qSlicer${MODULE_NAME}IO.h
-  qSlicer${MODULE_NAME}Module.h
+#  qSlicer${MODULE_NAME}IO.h
+#  qSlicer${MODULE_NAME}Module.h
   )
 
 set(MODULE_UI_SRCS
   )
 
 set(MODULE_TARGET_LIBRARIES
-  vtkSlicer${MODULE_NAME}ModuleLogic
+#  vtkSlicer${MODULE_NAME}ModuleLogic
   )
 
 set(MODULE_RESOURCES
@@ -81,15 +81,15 @@ slicerMacroBuildLoadableModule(
 
 #-----------------------------------------------------------------------------
 if(BUILD_TESTING)
-  add_subdirectory(Testing)
+#  add_subdirectory(Testing)
 endif()
 
 # add_subdirectory(Prototype)
-add_subdirectory(Util/LabelToDICOMSEGConverter)
+# add_subdirectory(Util/LabelToDICOMSEGConverter)
 
 #-----------------------------------------------------------------------------
 # Configure terminology dictionaries
-file(GLOB TMFILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "Resources/StandardTerminology/*csv")
+# file(GLOB TMFILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "Resources/StandardTerminology/*csv")
 message("Globbed files: ${TMFILES}")
 
 foreach(TMFILE ${TMFILES})
