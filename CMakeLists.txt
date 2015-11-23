@@ -88,19 +88,4 @@ endif()
 # add_subdirectory(Util/LabelToDICOMSEGConverter)
 
 #-----------------------------------------------------------------------------
-# Configure terminology dictionaries
-# file(GLOB TMFILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "Resources/StandardTerminology/*csv")
-message("Globbed files: ${TMFILES}")
-
-foreach(TMFILE ${TMFILES})
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/${TMFILE}
-    ${CMAKE_BINARY_DIR}/${Slicer_QTLOADABLEMODULES_SHARE_DIR}/${MODULE_NAME}/${TMFILE}
-    COPYONLY)
-  install(
-    FILES ${CMAKE_BINARY_DIR}/${Slicer_QTLOADABLEMODULES_SHARE_DIR}/${MODULE_NAME}/${TMFILE}
-    DESTINATION ${Slicer_INSTALL_QTLOADABLEMODULES_SHARE_DIR}/${MODULE_NAME}/Resources/StandardTerminology COMPONENT Runtime)
-endforeach()
-
-#-----------------------------------------------------------------------------
 include(${Slicer_EXTENSION_CPACK})
