@@ -43,7 +43,7 @@
 #include <itkImageDuplicator.h>
 
 
-#include "framesorter.h"
+//#include "framesorter.h"
 #include "SegmentAttributes.h"
 
 // CLP inclides
@@ -433,10 +433,15 @@ int computeVolumeExtent(FGInterface &fgInterface, vnl_vector<double> &sliceDirec
 
   unsigned numFrames = fgInterface.getNumberOfFrames();
 
+  /* Framesorter is to be moved to DCMTK at some point
+   * in the future. For now it is causing build issues on windows
+
   FrameSorterIPP fsIPP;
   FrameSorterIPP::Results sortResults;
   fsIPP.setSorterInput(&fgInterface);
   fsIPP.sort(sortResults);
+
+  */
 
   // Determine ordering of the frames, keep mapping from ImagePositionPatient string
   //   to the distance, and keep track (just out of curiousity) how many frames overlap
