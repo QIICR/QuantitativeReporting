@@ -38,7 +38,7 @@
 /** Abstract class for sorting a set of frames in a functional group. The
  *  sorting criteria are up to the actual implementation classes.
  */
-class DCMTK_DCMFG_EXPORT FrameSorter
+class FrameSorter
 {
 
 public:
@@ -126,7 +126,7 @@ protected:
   FGInterface* m_fg;
 };
 
-class DCMTK_DCMFG_EXPORT FrameSorterIdentity : public FrameSorter
+class FrameSorterIdentity : public FrameSorter
 {
 
 public:
@@ -168,7 +168,7 @@ public:
 
 };
 
-class DCMTK_DCMFG_EXPORT FrameSorterIPP : public FrameSorter
+class FrameSorterIPP : public FrameSorter
 {
 public:
 

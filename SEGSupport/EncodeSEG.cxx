@@ -48,13 +48,11 @@
 // CLP inclides
 #include "EncodeSEGCLP.h"
 
-static OFLogger locallogger = OFLog::getLogger("qiicr.apps.encodeSEG");
-
 #define CHECK_COND(condition) \
   do { \
     if (condition.bad()) { \
-      OFLOG_FATAL(locallogger, condition.text() << " in " __FILE__ << ":" << __LINE__ ); \
-      throw -1; \
+      std::cerr << condition.text() << " in " __FILE__ << ":" << __LINE__  << std::endl; \
+      return EXIT_FAILURE; \
     } \
   } while (0)
 
@@ -241,7 +239,7 @@ int main(int argc, char *argv[])
 
   int uidfound = 0, uidnotfound = 0;
 
-  Uint8 frameData[frameSize];
+  Uint8 *frameData = new Uint8[frameSize];
   for(int segFileNumber=0;segFileNumber<inputSegmentationsFileNames.size();segFileNumber++){
 
     std::cout << "Processing input label " << inputSegmentationsFileNames[segFileNumber] << std::endl;
