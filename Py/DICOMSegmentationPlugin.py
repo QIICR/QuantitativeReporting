@@ -134,8 +134,10 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
       "inputSEGFileName": segFileName,
       "outputDirName": outputDir,
       }
-    seg2nrrd = slicer.modules.seg2nrrd
-    if seg2nrrd == None:
+    seg2nrrd = None
+    try:
+      seg2nrrd = slicer.modules.seg2nrrd
+    except AttributeError:
       print 'Unable to find CLI module SEG2NRRD, unable to load DICOM Segmentation object'
       return False
     cliNode = None
