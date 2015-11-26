@@ -539,9 +539,25 @@ int main(int argc, char *argv[])
   CHECK_COND(segdocDataset.putAndInsertString(DCM_ClinicalTrialTimePointID, timePointId.c_str()));
   CHECK_COND(segdocDataset.putAndInsertString(DCM_ClinicalTrialCoordinatingCenterName, "UIowa"));
 
-  // anatomy
-  if(bodyPart.size())
-    CHECK_COND(segdocDataset.putAndInsertString(DCM_BodyPartExamined, bodyPart.c_str()));
+  // populate BodyPartExamined
+  {
+    DcmFileFormat sliceFF;
+    DcmDataset *sliceDataset = NULL;
+    OFString bodyPartStr;
+    std::string bodyPartAssigned = bodyPart;
+
+    CHECK_COND(sliceFF.loadFile(inputDICOMImageFileNames[0].c_str()));
+
+    sliceDataset = sliceFF.getDataset();
+
+    // inherit BodyPartExamined from the source image dataset, if available
+    if(sliceDataset->findAndGetOFString(DCM_BodyPartExamined, bodyPartStr).good())
+      if(std::string(bodyPartStr.c_str()).size())
+        bodyPartAssigned = bodyPartStr.c_str();
+
+    if(bodyPartAssigned.size())
+      CHECK_COND(segdocDataset.putAndInsertString(DCM_BodyPartExamined, bodyPartAssigned.c_str()));
+  }
 
   // StudyDate/Time should be of the series segmented, not when segmentation was made - this is initialized by DCMTK
 
