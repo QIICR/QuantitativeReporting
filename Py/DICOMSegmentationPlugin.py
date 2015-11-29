@@ -98,8 +98,9 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
         # - use the last referenced instance in the list - they should all be the same series
         refUID = str(ref.ReferencedSOPInstanceUID)
         refFilePath = slicer.dicomDatabase.fileForInstance(refUID)
-        refDCM = dicom.read_file(refFilePath)
-        loadable.referencedSeriesUID = str(refDCM.SeriesInstanceUID)
+        if refFilePath != '':
+          refDCM = dicom.read_file(refFilePath)
+          loadable.referencedSeriesUID = str(refDCM.SeriesInstanceUID)
 
   def load(self,loadable):
     """ Load the DICOM SEG object
