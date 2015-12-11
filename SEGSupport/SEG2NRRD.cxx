@@ -237,7 +237,7 @@ int main(int argc, char *argv[])
         ciedcm[0] = 43803;
         ciedcm[1] = 26565;
         ciedcm[2] = 37722;
-        std::cerr << "Failed to get CIELab values - initializing to default " << 
+        std::cerr << "Failed to get CIELab values - initializing to default " <<
           ciedcm[0] << "," << ciedcm[1] << "," << ciedcm[2] << std::endl;
       }
       cielabScaled[0] = unsigned(ciedcm[0]);
@@ -316,7 +316,7 @@ int main(int argc, char *argv[])
     for(int row=0;row<imageSize[1];row++){
       for(int col=0;col<imageSize[0];col++){
         ImageType::PixelType pixel;
-        unsigned bitCnt = row*imageSize[0]+col;
+        unsigned bitCnt = row*imageSize[1]+col;
         pixel = unpackedFrame->pixData[bitCnt];
 
         if(pixel!=0){
