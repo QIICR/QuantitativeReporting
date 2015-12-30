@@ -126,8 +126,8 @@ int main(int argc, char *argv[])
 
   CHECK_COND(DcmSegmentation::createBinarySegmentation(
     segdoc,   // resulting segmentation
-    inputSize[0],      // rows
-    inputSize[1],      // columns
+    inputSize[1],      // rows
+    inputSize[0],      // columns
     eq,       // equipment
     ident));   // content identification
 
@@ -460,11 +460,13 @@ int main(int argc, char *argv[])
           sliceRegion.SetSize(sliceSize);
 
           unsigned framePixelCnt = 0;
-          itk::ImageRegionConstIterator<ImageType> sliceIterator(labelImage, sliceRegion);
+          itk::ImageRegionConstIteratorWithIndex<ImageType> sliceIterator(labelImage, sliceRegion);
           for(sliceIterator.GoToBegin();!sliceIterator.IsAtEnd();++sliceIterator,++framePixelCnt){
-            if(sliceIterator.Get() == label)
+            if(sliceIterator.Get() == label){
               frameData[framePixelCnt] = 1;
-            else
+              ImageType::IndexType idx = sliceIterator.GetIndex();
+              std::cout << framePixelCnt << " " << idx[1] << "," << idx[0] << std::endl;
+            } else
               frameData[framePixelCnt] = 0;
           }
 

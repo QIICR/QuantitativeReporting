@@ -141,10 +141,10 @@ int main(int argc, char *argv[])
   {
     OFString str;
     if(segDataset->findAndGetOFString(DCM_Rows, str).good()){
-      imageSize[0] = atoi(str.c_str());
+      imageSize[1] = atoi(str.c_str());
     }
     if(segDataset->findAndGetOFString(DCM_Columns, str).good()){
-      imageSize[1] = atoi(str.c_str());
+      imageSize[0] = atoi(str.c_str());
     }
   }
   // number of slices should be computed, since segmentation may have empty frames
@@ -308,7 +308,9 @@ int main(int argc, char *argv[])
     unsigned slice = frameOriginIndex[2];
 
     if(segdoc->getSegmentationType() == DcmSegTypes::ST_BINARY)
-      unpackedFrame = DcmSegUtils::unpackBinaryFrame(frame, imageSize[0], imageSize[1]);
+      unpackedFrame = DcmSegUtils::unpackBinaryFrame(frame,
+        imageSize[1], // Rows
+        imageSize[0]); // Cols
     else
       unpackedFrame = new DcmIODTypes::Frame(*frame);
 
@@ -316,7 +318,7 @@ int main(int argc, char *argv[])
     for(int row=0;row<imageSize[1];row++){
       for(int col=0;col<imageSize[0];col++){
         ImageType::PixelType pixel;
-        unsigned bitCnt = row*imageSize[1]+col;
+        unsigned bitCnt = row*imageSize[0]+col;
         pixel = unpackedFrame->pixData[bitCnt];
 
         if(pixel!=0){
