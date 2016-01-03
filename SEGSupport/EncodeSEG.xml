@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <executable>
-  <category>Informatics</category>
-  <title>Convert non-DICOM segmentations into DICOM SEG</title>
-  <description></description>
+  <category>Informatics.Converters</category>
+  <title>Encode DICOM SEG</title>
+  <description>Create DICOM Segmentation Image object from non-DICOM segmentations</description>
   <version></version>
   <documentation-url></documentation-url>
   <license></license>
@@ -15,15 +15,15 @@
       <label>DICOM images file names</label>
       <channel>input</channel>
       <longflag>dicomImageFiles</longflag>
-      <description>List of DICOM images that were used for creating the segmentation</description>
+      <description>List of DICOM images that correspond to the image that was segmented.</description>
     </string-vector>
-      
+
     <string-vector>
       <name>inputSegmentationsFileNames</name>
       <label>Segmentation file names</label>
       <channel>input</channel>
       <longflag>segImageFiles</longflag>
-      <description>File names of the segmentation images</description>
+      <description>File names of the segmentation images in a format readable by ITK (NRRD, NIfTI, MHD, etc.).</description>
     </string-vector>
 
     <string-vector>
@@ -31,7 +31,7 @@
       <label>Label attributes file names</label>
       <channel>input</channel>
       <longflag>labelAttributesFiles</longflag>
-      <description>File names of the text files containing anatomical codes for each of the labels for the corresponding segmentation file. Order matters and must match that of the segmentations file list! Fomat of the text file:labelId;tag1:codeTuple1;tag2:codeTuple2</description>
+      <description>File names of the text files containing metadata attributes for each of the segments in the input segmentation file. The number of attribute files should match the number of the input segmentation files. The number of lines in each attribute file must match the number of segments in the corresponding segmentation file. Attributes should be separated by semicolon. For each segment label the attribute file should contain the following items separated by semicolon:\nLabelID - integer number of the segment label within the segmentation file (required);\nSegmentedPropertyCategory:code_tuple - code describing segmented property category of the segment. code_tuple consists of the code itself, coding scheme designator and code meaning. For example, T-D0050,SRT,Tissue. Required.\nSegmentedPropertyType:code_tuple - code further describing the segment. Required.\nSegmentedPropertyTypeModifier:code_tuple - code describing the modifier of the segmented property type (e.g., left vs right). Optional.\nSegmentAlgorithmType:type - code designation for the algorithm type, where type can be AUTOMATIC, MANUAL, or SEMIAUTOMATIC. Required.\nSegmentAlgorithmName:name - name of the algorithm, free text. Required if the algorithm usd is not MANUAL.\nRecommendedDisplayRGBValue:rgb - comma-separated recommended color for displaying the segment. Optional.</description>
     </string-vector>
 
     <string>
@@ -39,7 +39,7 @@
       <label>Reader Identifier</label>
       <channel>input</channel>
       <longflag>readerId</longflag>
-      <description>Reader identifier</description>
+      <description>Reader identifier. Optional. This will be assigned to ContentCreatorName DICOM attribute if specified.</description>
     </string>
 
     <string>
@@ -47,7 +47,7 @@
       <label>Session Identifier</label>
       <channel>input</channel>
       <longflag>sessionId</longflag>
-      <description>Session identifier</description>
+      <description>Session identifier. Optional. This will be assigned to ClinicalTrialSeriesID DICOM attribute if specified.</description>
     </string>
 
     <string>
@@ -55,7 +55,7 @@
       <label>Time Point Identifier</label>
       <channel>input</channel>
       <longflag>timepointId</longflag>
-      <description>Time point identifier</description>
+      <description>Time point identifier. Optional. This will be assigned to ClinicalTrialTimePointID DICOM attribute if specified.</description>
     </string>
 
     <string>
@@ -63,7 +63,7 @@
       <label>Series description</label>
       <channel>input</channel>
       <longflag>seriesDescription</longflag>
-      <description>Series description</description>
+      <description>Series description. Required. This will be assigned to SeriesDescription DICOM attribute.</description>
     </string>
 
     <string>
@@ -71,7 +71,7 @@
       <label>Series number</label>
       <channel>input</channel>
       <longflag>seriesNumber</longflag>
-      <description>Series number - make it unique for series wihin a study.</description>
+      <description>Series number. Reqired. This will be assigned to SeriesNumber DICOM attribute. Ideally, should be unique for series wihin a study.</description>
     </string>
 
     <string>
@@ -79,7 +79,7 @@
       <label>Instance number</label>
       <channel>input</channel>
       <longflag>instanceNumber</longflag>
-      <description>Instance number</description>
+      <description>Instance number. Optional. This will be assigned to InstanceNumber DICOM attribute if provided. Default is 1.</description>
       <default>1</default>
     </string>
 
@@ -88,16 +88,8 @@
       <label>Body part</label>
       <channel>input</channel>
       <longflag>bodyPart</longflag>
-      <description>Body part - optional - provide body part code to store in the input dataset.</description>
+      <description>Body part. Optional. Specifies the code for body part code to store in the output dataset.</description>
     </string>
-
-    <file>
-      <name>algorithmDescriptionFileName</name>
-      <label>Algorithm description file</label>
-      <channel>input</channel>
-      <longflag>algorithmDescriptionFile</longflag>
-      <description>File containing description of the algorithm. Format: type (MANUAL, AUTOMATIC or SEMIAUTOMATIC);SegmentSurfaceGenerationAlgorithm:codeTuple (if needed). UPDATE: this probably should be optional, as the algorithm should be specified per-segment, and thus provided using the meta-information files.</description>
-    </file>
 
     <file>
       <name>outputSEGFileName</name>
@@ -122,7 +114,6 @@
       <longflag>zip</longflag>
       <description>Apply compression to PixelData.</description>
     </boolean>
-
 
   </parameters>
 
