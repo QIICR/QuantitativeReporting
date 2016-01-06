@@ -252,6 +252,9 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
         # end of processing a line of terminology
       infoFile.close()
 
+      #TODO: Create logic class that both CLI and this plugin uses so that we don't need to have temporary NRRD files and labelmap nodes
+      #if not hasattr(slicer.modules, 'segmentations'):
+
       # load the segmentation volume file and name it for the reference series and segment color
       labelFileName = os.path.join(outputDir,str(segmentId+1)+".nrrd")
       segmentName = seriesName + "-" + colorName + "-label"
@@ -294,6 +297,51 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     segmentationColorNode.NamesInitialisedOn()
 
     # TODO: the outputDir should be cleaned up
+
+    if hasattr(slicer.modules, 'segmentations'):
+
+      import vtkSlicerSegmentationsModuleLogic
+      import vtkSlicerSegmentationsModuleMRML
+      import vtkSegmentationCore
+
+      segmentationNode = vtkSlicerSegmentationsModuleMRML.vtkMRMLSegmentationNode()
+      segmentationNode.SetName(seriesName)
+      slicer.mrmlScene.AddNode(segmentationNode)
+
+      segmentationDisplayNode = vtkSlicerSegmentationsModuleMRML.vtkMRMLSegmentationDisplayNode()
+      segmentationNode.SetAndObserveDisplayNodeID(segmentationDisplayNode.GetID())
+      slicer.mrmlScene.AddNode(segmentationDisplayNode)
+
+      segmentation = vtkSegmentationCore.vtkSegmentation()
+      segmentation.SetMasterRepresentationName(vtkSegmentationCore.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName())
+
+      segmentationNode.SetAndObserveSegmentation(segmentation)
+      self.addSeriesInSubjectHierarchy(loadable, segmentationNode)
+
+      colorID = 1
+      for segmentNode in segmentNodes:
+        segment = vtkSegmentationCore.vtkSegment()
+        segment.SetName(segmentNode.GetName())
+
+        segmentColor = [0,0,0,0]
+        segmentationColorNode.GetColor(colorID, segmentColor)
+        segment.SetDefaultColor(segmentColor[0:3])
+
+        colorID += 1
+
+        #TODO: when the logic class is created, this will need to be changed
+        logic = vtkSlicerSegmentationsModuleLogic.vtkSlicerSegmentationsModuleLogic()
+        orientedImage = logic.CreateOrientedImageDataFromVolumeNode(segmentNode)
+        segment.AddRepresentation(vtkSegmentationCore.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName(), orientedImage)
+        segmentation.AddSegment(segment)
+
+        segmentDisplayNode = segmentNode.GetDisplayNode()
+        slicer.mrmlScene.RemoveNode(segmentDisplayNode)
+        slicer.mrmlScene.RemoveNode(segmentNode)
+
+      segmentation.CreateRepresentation(vtkSegmentationCore.vtkSegmentationConverter.GetSegmentationClosedSurfaceRepresentationName(), True)
+      slicer.mrmlScene.RemoveNode(segmentationColorNode)
+      slicer.mrmlScene.RemoveNode(mergeNode)
 
     return True
 
