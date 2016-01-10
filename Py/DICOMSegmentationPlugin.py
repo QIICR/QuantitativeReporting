@@ -351,6 +351,17 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     exportable = None
 
     if node.GetAssociatedNode() and node.GetAssociatedNode().IsA('vtkMRMLSegmentationNode'):
+
+      # Check to make sure all referenced UIDs exist in the database.
+      instanceUIDs = node.GetAttribute("DICOM.ReferencedInstanceUIDs").split()
+      if instanceUIDs == "":
+          return []
+
+      for instanceUID in instanceUIDs:
+        inputDICOMImageFileName = slicer.dicomDatabase.fileForInstance(instanceUID)
+        if inputDICOMImageFileName == "":
+          return []
+
       exportable = slicer.qSlicerDICOMExportable()
       exportable.confidence = 1.0
       exportable.setTag('Modality', 'SEG')
