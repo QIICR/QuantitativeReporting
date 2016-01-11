@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
     segDataset = segFF.getDataset();
   } else {
     std::cerr << "Failed to read input " << std::endl;
-    return -1;
+    return EXIT_FAILURE;
   }
 
   OFCondition cond;
@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
   cond = DcmSegmentation::loadFile(inputSEGFileName.c_str(), segdoc);
   if(!segdoc){
     std::cerr << "Failed to load seg! " << cond.text() << std::endl;
-    return -1;
+    return EXIT_FAILURE;
   }
 
   DcmSegment *segment = segdoc->getSegment(1);
@@ -108,7 +108,7 @@ int main(int argc, char *argv[])
   ImageType::DirectionType dir;
   if(getImageDirections(fgInterface, dir)){
     std::cerr << "Failed to get image directions" << std::endl;
-    return -1;
+    return EXIT_FAILURE;
   }
 
   // Spacing and origin
@@ -119,20 +119,20 @@ int main(int argc, char *argv[])
   sliceDirection[2] = dir[2][2];
   if(computeVolumeExtent(fgInterface, sliceDirection, imageOrigin, computedSliceSpacing, computedVolumeExtent)){
     std::cerr << "Failed to compute origin and/or slice spacing!" << std::endl;
-    return -1;
+    return EXIT_FAILURE;
   }
 
   imageSpacing.Fill(0);
   if(getDeclaredImageSpacing(fgInterface, imageSpacing)){
     std::cerr << "Failed to get image spacing from DICOM!" << std::endl;
-    return -1;
+    return EXIT_FAILURE;
   }
 
-
+  const double tolerance = 1e-5;
   if(!imageSpacing[2]){
     imageSpacing[2] = computedSliceSpacing;
   }
-  else if(fabs(imageSpacing[2]-computedSliceSpacing)>0.00001){
+  else if(fabs(imageSpacing[2]-computedSliceSpacing)>tolerance){
     std::cerr << "WARNING: Declared slice spacing is significantly different from the one declared in DICOM!" <<
                  " Declared = " << imageSpacing[2] << " Computed = " << computedSliceSpacing << std::endl;
   }
@@ -148,7 +148,9 @@ int main(int argc, char *argv[])
     }
   }
   // number of slices should be computed, since segmentation may have empty frames
-  imageSize[2] = computedVolumeExtent/imageSpacing[2]+1;
+  // Small differences in image spacing could lead to computing number of slices incorrectly
+  // (it is always floored), round it with a tolerance instead.
+  imageSize[2] = int(computedVolumeExtent/imageSpacing[2]/tolerance+0.5)*tolerance+1;
 
   // Initialize the image
   imageRegion.SetSize(imageSize);
@@ -189,7 +191,7 @@ int main(int argc, char *argv[])
     Uint16 segmentId = -1;
     if(fgseg->getReferencedSegmentNumber(segmentId).bad()){
       std::cerr << "Failed to get seg number!";
-      abort();
+      return EXIT_FAILURE;
     }
 
 
@@ -197,7 +199,7 @@ int main(int argc, char *argv[])
     // (incorrectly!) segments starting from 0, should start from 1
     if(segmentId == 0){
       std::cerr << "Segment numbers should start from 1!" << std::endl;
-      abort();
+      return EXIT_FAILURE;
     }
 
     if(segment2image.find(segmentId) == segment2image.end()){
@@ -221,7 +223,7 @@ int main(int argc, char *argv[])
       DcmSegment* segment = segdoc->getSegment(segmentId);
       if(segment == NULL){
         std::cerr << "Failed to get segment for segment ID " << segmentId << std::endl;
-        continue;
+        return EXIT_FAILURE;
       }
 
       // get CIELab color for the segment
@@ -302,7 +304,7 @@ int main(int argc, char *argv[])
       std::cerr << "ERROR: Frame " << frameId << " origin " << frameOriginPoint <<
                    " is outside image geometry!" << frameOriginIndex << std::endl;
       std::cerr << "Image size: " << segment2image[segmentId]->GetBufferedRegion().GetSize() << std::endl;
-      //return -1;
+      return EXIT_FAILURE;
     }
 
     unsigned slice = frameOriginIndex[2];
@@ -367,7 +369,7 @@ int getImageDirections(FGInterface &fgInterface, ImageType::DirectionType &dir){
                                                       fgInterface.get(0, DcmFGTypes::EFG_PLANEORIENTPATIENT, isPerFrame));
   if(!planorfg){
     std::cerr << "Plane Orientation (Patient) is missing, cannot parse input " << std::endl;
-    return -1;
+    return EXIT_FAILURE;
   }
   OFString orientStr;
   for(int i=0;i<3;i++){
@@ -375,7 +377,7 @@ int getImageDirections(FGInterface &fgInterface, ImageType::DirectionType &dir){
       rowDirection[i] = atof(orientStr.c_str());
     } else {
       std::cerr << "Failed to get orientation " << i << std::endl;
-      return -1;
+      return EXIT_FAILURE;
     }
   }
   for(int i=3;i<6;i++){
@@ -383,7 +385,7 @@ int getImageDirections(FGInterface &fgInterface, ImageType::DirectionType &dir){
       colDirection[i-3] = atof(orientStr.c_str());
     } else {
       std::cerr << "Failed to get orientation " << i << std::endl;
-      return -1;
+      return EXIT_FAILURE;
     }
   }
   vnl_vector<double> sliceDirection = vnl_cross_3d(rowDirection, colDirection);
@@ -447,12 +449,12 @@ int computeVolumeExtent(FGInterface &fgInterface, vnl_vector<double> &sliceDirec
 
     if(!planposfg){
       std::cerr << "PlanePositionPatient is missing" << std::endl;
-      return -1;
+      return EXIT_FAILURE;
     }
 
     if(!isPerFrame){
       std::cerr << "PlanePositionPatient is required for each frame!" << std::endl;
-      return -1;
+      return EXIT_FAILURE;
     }
 
     vnl_vector<double> sOrigin;
@@ -467,7 +469,7 @@ int computeVolumeExtent(FGInterface &fgInterface, vnl_vector<double> &sliceDirec
             sOriginStr+='/';
       } else {
         std::cerr << "Failed to read patient position" << std::endl;
-        return -1;
+        return EXIT_FAILURE;
       }
     }
 
@@ -539,7 +541,7 @@ int getDeclaredImageSpacing(FGInterface &fgInterface, ImageType::SpacingType &sp
                                                       fgInterface.get(0, DcmFGTypes::EFG_PIXELMEASURES, isPerFrame));
   if(!pixm){
     std::cerr << "Pixel measures FG is missing!" << std::endl;
-    return -1;
+    return EXIT_FAILURE;
   }
 
   pixm->getPixelSpacing(spacing[0], 0);
