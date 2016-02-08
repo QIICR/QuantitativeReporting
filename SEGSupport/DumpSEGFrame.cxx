@@ -163,18 +163,21 @@ int main(int argc, char *argv[])
       unpackedFrame = new DcmIODTypes::Frame(*frame);
 
     // initialize slice with the frame content
+    unsigned pixelCnt = 0;
     for(int row=0;row<frameRows;row++){
       for(int col=0;col<frameColumns;col++){
         unsigned bitCnt = row*frameColumns+col;
         if(unpackedFrame->pixData[bitCnt])
-          std::cout << "X";
-        else
-          std::cout << ".";
+        //    std::cout << "X";
+          std::cout << pixelCnt << " " << row << "," << col << std::endl;
+       // else
+       //   std::cout << ".";
+        pixelCnt++;
       }
-      std::cout << std::endl;
+      //std::cout << std::endl;
     }
 
-    std::cout << std::endl << " ---- " << std::endl;
+    //std::cout << std::endl << " ---- " << std::endl;
 
     if(unpackedFrame != NULL)
       delete unpackedFrame;
