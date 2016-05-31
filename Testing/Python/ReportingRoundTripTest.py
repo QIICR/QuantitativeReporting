@@ -28,7 +28,6 @@ class ReportingRoundTripTest(unittest.TestCase):
     mainWindow = slicer.util.mainWindow()
     mainWindow.moduleSelector().selectModule('Reporting')
 
-    # l = slicer.modulelogic.vtkSlicerReportingModuleLogic()
     l = slicer.modules.reporting.logic() 
     l.GUIHiddenOff()
 
