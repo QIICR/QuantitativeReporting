@@ -301,9 +301,9 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
     if hasattr(slicer.modules, 'segmentations'):
 
-      import vtkSlicerSegmentationsModuleLogic
-      import vtkSlicerSegmentationsModuleMRML
-      import vtkSegmentationCore
+      import vtkSegmentationCorePython as vtkSegmentationCore
+      import vtkSlicerSegmentationsModuleMRMLPython as vtkSlicerSegmentationsModuleMRML
+      import vtkSlicerSegmentationsModuleLogicPython as vtkSlicerSegmentationsModuleLogic
 
       segmentationNode = vtkSlicerSegmentationsModuleMRML.vtkMRMLSegmentationNode()
       segmentationNode.SetName(seriesName)
