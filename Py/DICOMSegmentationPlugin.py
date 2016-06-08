@@ -141,7 +141,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     except AttributeError:
       print 'Unable to find CLI module SEG2NRRD, unable to load DICOM Segmentation object'
       return False
-    
+
     cliNode = None
     cliNode = slicer.cli.run(seg2nrrd, cliNode, parameters, wait_for_completion=True)
     if cliNode.GetStatusString() != 'Completed':
@@ -302,15 +302,13 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     if hasattr(slicer.modules, 'segmentations'):
 
       import vtkSegmentationCorePython as vtkSegmentationCore
-      import vtkSlicerSegmentationsModuleMRMLPython as vtkSlicerSegmentationsModuleMRML
-      import vtkSlicerSegmentationsModuleLogicPython as vtkSlicerSegmentationsModuleLogic
 
-      segmentationNode = vtkSlicerSegmentationsModuleMRML.vtkMRMLSegmentationNode()
+      segmentationNode = slicer.vtkMRMLSegmentationNode()
       segmentationNode.SetName(seriesName)
       segmentationNode.AddNodeReferenceID('colorNodeID', segmentationColorNode.GetID())
       slicer.mrmlScene.AddNode(segmentationNode)
 
-      segmentationDisplayNode = vtkSlicerSegmentationsModuleMRML.vtkMRMLSegmentationDisplayNode()
+      segmentationDisplayNode = slicer.vtkMRMLSegmentationDisplayNode()
       segmentationNode.SetAndObserveDisplayNodeID(segmentationDisplayNode.GetID())
       slicer.mrmlScene.AddNode(segmentationDisplayNode)
 
@@ -332,7 +330,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
         colorID += 1
 
         #TODO: when the logic class is created, this will need to be changed
-        logic = vtkSlicerSegmentationsModuleLogic.vtkSlicerSegmentationsModuleLogic()
+        logic = slicer.vtkSlicerSegmentationsModuleLogic()
         orientedImage = logic.CreateOrientedImageDataFromVolumeNode(segmentNode)
         segment.AddRepresentation(vtkSegmentationCore.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName(), orientedImage)
         segmentation.AddSegment(segment)
@@ -378,7 +376,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
     return []
 
-  def export(self, exportables): 
+  def export(self, exportables):
 
     exportablesCollection = vtk.vtkCollection()
     for exportable in exportables:
@@ -391,14 +389,14 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
   def exportAsDICOMSEG(self, exportablesCollection):
     """Export the given node to a segmentation object and load it in the
     DICOM database
-    
+
     This function was copied and modified from the EditUtil.py function of the same name in Slicer.
     """
 
     import logging
-    
+
     if hasattr(slicer.modules, 'segmentations'):
-    
+
       exportable = exportablesCollection.GetItemAsObject(0)
       subjectHierarchyNode = slicer.mrmlScene.GetNodeByID(exportable.GetNodeID())
 
