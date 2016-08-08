@@ -465,7 +465,7 @@ int main(int argc, char *argv[])
             if(sliceIterator.Get() == label){
               frameData[framePixelCnt] = 1;
               ImageType::IndexType idx = sliceIterator.GetIndex();
-              std::cout << framePixelCnt << " " << idx[1] << "," << idx[0] << std::endl;
+              //std::cout << framePixelCnt << " " << idx[1] << "," << idx[0] << std::endl;
             } else
               frameData[framePixelCnt] = 0;
           }
@@ -533,6 +533,7 @@ int main(int argc, char *argv[])
   COUT << "Saving the result to " << outputSEGFileName << OFendl;
   //segdoc->saveFile(outputSEGFileName.c_str(), EXS_LittleEndianExplicit);
 
+  CHECK_COND(segdoc->getSeries().setSeriesNumber(seriesNumber.c_str()));
   CHECK_COND(segdoc->writeDataset(segdocDataset));
 
   // Set reader/session/timepoint information
@@ -575,7 +576,6 @@ int main(int argc, char *argv[])
     segdocDataset.putAndInsertString(DCM_SeriesTime, contentTime.c_str());
 
     segdocDataset.putAndInsertString(DCM_SeriesDescription, seriesDescription.c_str());
-    segdocDataset.putAndInsertString(DCM_SeriesNumber, seriesNumber.c_str());
   }
 
   DcmFileFormat segdocFF(&segdocDataset);
