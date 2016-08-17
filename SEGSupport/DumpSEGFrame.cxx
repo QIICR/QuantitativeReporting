@@ -146,7 +146,7 @@ int main(int argc, char *argv[])
       frameCntWithinSegment[segmentId]++;
     }
 
-    if(segmentIdToShow != -1 and frameNumberToShow != frameCntWithinSegment[segmentId]-1)
+    if((segmentIdToShow != -1) and (frameNumberToShow != frameCntWithinSegment[segmentId]-1))
       // skip this segment
       continue;
 
