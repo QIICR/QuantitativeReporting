@@ -88,19 +88,18 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     in the node if this is loaded."""
     import dicom
     dcm = dicom.read_file(loadable.files[0])
+
     if hasattr(dcm, "ReferencedSeriesSequence"):
-      if hasattr(dcm.ReferencedSeriesSequence[0], "ReferencedInstanceSequence"):
-        # set the referenced UID list for the loadable
+      # look up all of the instances in the series, since segmentation frames
+      #  may be non-contiguous
+      if hasattr(dcm.ReferencedSeriesSequence[0], "SeriesInstanceUID"):
         loadable.referencedInstanceUIDs = []
-        for ref in dcm.ReferencedSeriesSequence[0].ReferencedInstanceSequence:
-          loadable.referencedInstanceUIDs.append(ref.ReferencedSOPInstanceUID)
-        # cache the referenced seriesUID for use in looking up the series name
-        # - use the last referenced instance in the list - they should all be the same series
-        refUID = str(ref.ReferencedSOPInstanceUID)
-        refFilePath = slicer.dicomDatabase.fileForInstance(refUID)
-        if refFilePath != '':
-          refDCM = dicom.read_file(refFilePath)
-          loadable.referencedSeriesUID = str(refDCM.SeriesInstanceUID)
+        for f in slicer.dicomDatabase.filesForSeries(dcm.ReferencedSeriesSequence[0].SeriesInstanceUID):
+          refDCM = dicom.read_file(f)
+          # this is a hack that should probablybe fixed in Slicer core - not all
+          #  of those instances are truly referenced!
+          loadable.referencedInstanceUIDs.append(refDCM.SOPInstanceUID)
+          loadable.referencedSeriesUID = dcm.ReferencedSeriesSequence[0].SeriesInstanceUID
 
   def load(self,loadable):
     """ Load the DICOM SEG object
