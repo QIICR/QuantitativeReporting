@@ -28,8 +28,8 @@ SEMMacroBuildCLI(
 )
 
 #-----------------------------------------------------------------------------
-SEMMacroBuildCLI(
-  NAME DumpSEGFrame
-  INCLUDE_DIRECTORIES ${MODULE_INCLUDE_DIRECTORIES}
-  TARGET_LIBRARIES ${MODULE_TARGET_LIBRARIES}
-)
+#SEMMacroBuildCLI(
+#  NAME DumpSEGFrame
+#  INCLUDE_DIRECTORIES ${MODULE_INCLUDE_DIRECTORIES}
+#  TARGET_LIBRARIES ${MODULE_TARGET_LIBRARIES}
+#)
