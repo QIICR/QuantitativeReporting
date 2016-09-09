@@ -148,6 +148,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
       return False
 
     # create a new color node to be set up with the colors in these segments
+    #TODO: Revise after new terminology support added
     colorLogic = slicer.modules.colors.logic()
     segmentationColorNode = slicer.vtkMRMLColorTableNode()
     segmentationColorNode.SetName(loadable.name)
@@ -304,12 +305,12 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
       segmentationNode = slicer.vtkMRMLSegmentationNode()
       segmentationNode.SetName(seriesName)
-      segmentationNode.AddNodeReferenceID('colorNodeID', segmentationColorNode.GetID())
       slicer.mrmlScene.AddNode(segmentationNode)
+      segmentationNode.AddNodeReferenceID('colorNodeID', segmentationColorNode.GetID())
 
       segmentationDisplayNode = slicer.vtkMRMLSegmentationDisplayNode()
-      segmentationNode.SetAndObserveDisplayNodeID(segmentationDisplayNode.GetID())
       slicer.mrmlScene.AddNode(segmentationDisplayNode)
+      segmentationNode.SetAndObserveDisplayNodeID(segmentationDisplayNode.GetID())
 
       segmentation = vtkSegmentationCore.vtkSegmentation()
       segmentation.SetMasterRepresentationName(vtkSegmentationCore.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName())
