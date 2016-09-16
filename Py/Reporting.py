@@ -6,6 +6,8 @@ from SlicerProstateUtils.mixins import *
 from SlicerProstateUtils.helpers import WatchBoxAttribute, DICOMBasedInformationWatchBox
 from SlicerProstateUtils.constants import DICOMTAGS
 
+from SegmentEditor import SegmentEditorWidget
+
 class Reporting(ScriptedLoadableModule):
   """Uses ScriptedLoadableModule base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
@@ -36,11 +38,16 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def __init__(self, parent=None):
     ScriptedLoadableModuleWidget.__init__(self, parent)
 
+  def initializeMembers(self):
+    self.tNode = None
+    self.segReferencedMasterVolume = {}
+
   def cleanup(self):
     pass
 
   def setup(self):
     ScriptedLoadableModuleWidget.setup(self)
+    self.initializeMembers()
     self.setupWatchbox()
     self.setupSelectionArea()
     self.setupViewSettingsArea()
@@ -71,7 +78,25 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     pass
 
   def setupSegmentationsArea(self):
-    pass
+    self.segmentationWidget = qt.QGroupBox("Segmentations")
+    self.segmentationWidgetLayout = qt.QFormLayout()
+    self.segmentationWidget.setLayout(self.segmentationWidgetLayout)
+    self.editorWidget = SegmentEditorWidget(parent=self.segmentationWidget)
+    self.editorWidget.setup()
+    # self.segmentationWidget.children()[1].hide()
+    self.editorWidget.editor.segmentationNodeSelectorVisible = False
+    self.editorWidget.editor.masterVolumeNodeSelectorVisible = False
+    self.clearSegmentationEditorSelectors()
+    self.layout.addWidget(self.segmentationWidget)
+
+  def clearSegmentationEditorSelectors(self):
+    self.editorWidget.editor.setSegmentationNode(None)
+    self.editorWidget.editor.setMasterVolumeNode(None)
+
+  def hideUnwantedEditorUIElements(self):
+    for widgetName in ['MRMLNodeComboBox_MasterVolume']:
+      widget = slicer.util.findChildren(self.editorWidget.volumes, widgetName)[0]
+      widget.hide()
 
   def setupMeasurementsArea(self):
     pass
@@ -95,11 +120,23 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
 
   def onImageVolumeSelectorChanged(self, node):
     # TODO: save, cleanup open sessions
+    if not node:
+      self.clearSegmentationEditorSelectors()
     try:
       dicomFileName = node.GetStorageNode().GetFileName()
       self.watchBox.sourceFile = dicomFileName if os.path.exists(dicomFileName) else None
     except AttributeError:
       self.watchBox.sourceFile = None
+    if node:
+      # TODO: check if there is a segmentation Node for the selected image volume available instead of creating a new one each time
+      if node in self.segReferencedMasterVolume.keys():
+        self.editorWidget.editor.setSegmentationNode(self.segReferencedMasterVolume[node])
+      else:
+        segNode = slicer.vtkMRMLSegmentationNode()
+        slicer.mrmlScene.AddNode(segNode)
+        self.editorWidget.editor.setSegmentationNode(segNode)
+        self.editorWidget.editor.setMasterVolumeNode(node)
+        self.segReferencedMasterVolume[node] = segNode
 
   def onSaveReportButtonClicked(self):
     print "on save report button clicked"
@@ -107,6 +144,13 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def onCompleteReportButtonClicked(self):
     print "on complete report button clicked"
 
+  def onAnnotationReady(self):
+    #TODO: calc measurements (logic) and set table node
+    pass
+
+  def updateTableNode(self):
+    # TODO: update table node for annotations
+    pass
 
 class ReportingLogic(ScriptedLoadableModuleLogic):
   """This class should implement all the actual
