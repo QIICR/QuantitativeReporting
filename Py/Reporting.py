@@ -3,10 +3,12 @@ import getpass
 from slicer.ScriptedLoadableModule import *
 
 from SlicerProstateUtils.mixins import *
+from SlicerProstateUtils.decorators import logmethod
 from SlicerProstateUtils.helpers import WatchBoxAttribute, DICOMBasedInformationWatchBox
 from SlicerProstateUtils.constants import DICOMTAGS
 
 from SegmentEditor import SegmentEditorWidget
+from LabelStatistics import LabelStatisticsWidget
 
 class Reporting(ScriptedLoadableModule):
   """Uses ScriptedLoadableModule base class, available at:
@@ -37,13 +39,24 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
 
   def __init__(self, parent=None):
     ScriptedLoadableModuleWidget.__init__(self, parent)
+    self.logic = ReportingLogic()
 
   def initializeMembers(self):
     self.tNode = None
-    self.segReferencedMasterVolume = {}
+    self.tableNode = None
+    self.segNode = None
+    self.segmentObservers = {}
+    self.segNodeObserverTag = None
+    self.segReferencedMasterVolume = {} # TODO: maybe also add created table so that there is no need to recalculate everything?
+
+  def onReload(self):
+    super(ReportingWidget, self).onReload()
+    self.cleanup()
 
   def cleanup(self):
-    pass
+    self.removeSegmentationObserver()
+    self.removeAllSegmentObservers()
+    self.initializeMembers()
 
   def setup(self):
     ScriptedLoadableModuleWidget.setup(self)
@@ -69,8 +82,9 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def setupSelectionArea(self):
     self.imageVolumeSelector = self.createComboBox(nodeTypes=["vtkMRMLScalarVolumeNode", ""], showChildNodeTypes=False,
                                                    selectNodeUponCreation=True, toolTip="Select image volume to annotate")
-    self.measurementReportSelector = self.createComboBox(nodeTypes=["vtkMRMLScriptedModuleNode", ""], showChildNodeTypes=False,
-                                                         selectNodeUponCreation=True, toolTip="Select measurement report")
+    self.measurementReportSelector = self.createComboBox(nodeTypes=["vtkMRMLTableNode", ""], showChildNodeTypes=False,
+                                                         selectNodeUponCreation=True, toolTip="Select measurement report",
+                                                         addEnabled=True)
     self.layout.addWidget(self.createHLayout([qt.QLabel("Image volume to annotate"), self.imageVolumeSelector]))
     self.layout.addWidget(self.createHLayout([qt.QLabel("Measurement report"), self.measurementReportSelector]))
 
@@ -83,7 +97,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.segmentationWidget.setLayout(self.segmentationWidgetLayout)
     self.editorWidget = SegmentEditorWidget(parent=self.segmentationWidget)
     self.editorWidget.setup()
-    # self.segmentationWidget.children()[1].hide()
+    self.segmentationWidget.children()[1].hide()
     self.editorWidget.editor.segmentationNodeSelectorVisible = False
     self.editorWidget.editor.masterVolumeNodeSelectorVisible = False
     self.clearSegmentationEditorSelectors()
@@ -99,7 +113,16 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       widget.hide()
 
   def setupMeasurementsArea(self):
-    pass
+    self.measurementsWidget = qt.QGroupBox("Measurements")
+    self.measurementsWidgetLayout = qt.QVBoxLayout()
+    self.measurementsWidget.setLayout(self.measurementsWidgetLayout)
+    self.labelStatisticsWidget = LabelStatisticsWidget(parent=self.measurementsWidget)
+    self.labelStatisticsWidget.setup()
+    self.measurementsWidget.children()[1].hide()
+    self.labelStatisticsWidget.grayscaleSelectorFrame.hide()
+    self.labelStatisticsWidget.labelSelectorFrame.hide()
+    self.labelStatisticsWidget.applyButton.hide()
+    self.layout.addWidget(self.measurementsWidget)
 
   def setupActionButtons(self):
     self.saveReportButton = self.createButton("Save Report")
@@ -118,7 +141,15 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     setupSelectorConnections()
     setupButtonConnections()
 
+  def removeSegmentationObserver(self):
+    if self.segNode and self.segNodeObserverTag:
+      self.segNode.removeObserver(self.segNodeObserverTag)
+      self.segNode = None
+      self.segNodeObserverTag = None
+    self.removeAllSegmentObservers()
+
   def onImageVolumeSelectorChanged(self, node):
+    self.removeSegmentationObserver()
     # TODO: save, cleanup open sessions
     if not node:
       self.clearSegmentationEditorSelectors()
@@ -130,13 +161,36 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     if node:
       # TODO: check if there is a segmentation Node for the selected image volume available instead of creating a new one each time
       if node in self.segReferencedMasterVolume.keys():
-        self.editorWidget.editor.setSegmentationNode(self.segReferencedMasterVolume[node])
+        self.segNode = self.segReferencedMasterVolume[node]
+        self.editorWidget.editor.setSegmentationNode(self.segNode)
       else:
-        segNode = slicer.vtkMRMLSegmentationNode()
-        slicer.mrmlScene.AddNode(segNode)
-        self.editorWidget.editor.setSegmentationNode(segNode)
+        self.segNode = slicer.vtkMRMLSegmentationNode()
+        slicer.mrmlScene.AddNode(self.segNode)
+        self.editorWidget.editor.setSegmentationNode(self.segNode)
         self.editorWidget.editor.setMasterVolumeNode(node)
-        self.segReferencedMasterVolume[node] = segNode
+        self.segReferencedMasterVolume[node] = self.segNode
+      self.labelStatisticsWidget.labelSelector.setCurrentNode(self.segNode)
+      self.labelStatisticsWidget.grayscaleSelector.setCurrentNode(node)
+      self.segNode.AddObserver(self.segNode.GetSegmentation().SegmentAdded, self.onSegmentCountChanged)
+      self.segNode.AddObserver(self.segNode.GetSegmentation().SegmentRemoved, self.onSegmentCountChanged)
+      self.segNode.AddObserver(self.segNode.GetSegmentation().SegmentModified, self.onSegmentationNodeChanged)
+
+  @logmethod()
+  def onSegmentCountChanged(self, observer=None, caller=None):
+    segmentIDs = vtk.vtkStringArray()
+    self.removeAllSegmentObservers()
+    for idx in range(segmentIDs.GetNumberOfValues()):
+      segmentID = segmentIDs.GetValue(idx)
+      segment = self.segNode.GetSegment(segmentID)
+      segment.AddObserver(vtk.vtkCommand.ModifiedEvent, self.onSegmentationNodeChanged)
+
+  def onSegmentationNodeChanged(self, observer=None, caller=None):
+    self.labelStatisticsWidget.applyButton.click()
+
+  def removeAllSegmentObservers(self):
+    for segment, tag in self.segmentObservers.iteritems():
+      segment.RemoveObserver(tag)
+    self.segmentObservers = {}
 
   def onSaveReportButtonClicked(self):
     print "on save report button clicked"
@@ -149,8 +203,13 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     pass
 
   def updateTableNode(self):
-    # TODO: update table node for annotations
-    pass
+    data = self.logic.calculateLabelStatistics(self.editorWidget.editor.segmentationNode())
+    # TODO: apply data to tableNode
+    if not self.tableNode:
+      self.tableNode = slicer.vtkMRMLTableNode()
+      slicer.mrmlScene.AddNode(self.tableNode)
+    if data is not None:
+      pass
 
 class ReportingLogic(ScriptedLoadableModuleLogic):
   """This class should implement all the actual
@@ -162,32 +221,10 @@ class ReportingLogic(ScriptedLoadableModuleLogic):
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
-  def hasImageData(self, volumeNode):
-    """This is an example logic method that
-    returns true if the passed in volume
-    node has valid image data
-    """
-    if not volumeNode:
-      logging.debug('hasImageData failed: no volume node')
-      return False
-    if volumeNode.GetImageData() is None:
-      logging.debug('hasImageData failed: no image data in volume node')
-      return False
-    return True
+  def calculateLabelStatistics(self, segmentationNode):
+    # TODO: need to think about what to deliver as parameters here
 
-  def isValidInputOutputData(self, inputVolumeNode, outputVolumeNode):
-    """Validates if the output is not the same as input
-    """
-    if not inputVolumeNode:
-      logging.debug('isValidInputOutputData failed: no input volume node defined')
-      return False
-    if not outputVolumeNode:
-      logging.debug('isValidInputOutputData failed: no output volume node defined')
-      return False
-    if inputVolumeNode.GetID()==outputVolumeNode.GetID():
-      logging.debug('isValidInputOutputData failed: input and output volume is the same. Create a new volume for output to avoid this error.')
-      return False
-    return True
+    return None
 
 
 class ReportingTest(ScriptedLoadableModuleTest):
