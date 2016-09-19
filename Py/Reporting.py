@@ -82,6 +82,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def setupSelectionArea(self):
     self.imageVolumeSelector = self.createComboBox(nodeTypes=["vtkMRMLScalarVolumeNode", ""], showChildNodeTypes=False,
                                                    selectNodeUponCreation=True, toolTip="Select image volume to annotate")
+    self.imageVolumeSelector.addAttribute("vtkMRMLScalarVolumeNode", "DICOM.instanceUIDs", None)
     self.measurementReportSelector = self.createComboBox(nodeTypes=["vtkMRMLTableNode", ""], showChildNodeTypes=False,
                                                          selectNodeUponCreation=True, toolTip="Select measurement report",
                                                          addEnabled=True)
