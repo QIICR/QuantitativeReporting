@@ -1,6 +1,7 @@
 import getpass
 
 from slicer.ScriptedLoadableModule import *
+import vtkSegmentationCorePython as vtkCoreSeg
 
 from SlicerProstateUtils.mixins import *
 from SlicerProstateUtils.decorators import logmethod
@@ -45,9 +46,8 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def initializeMembers(self):
     self.tNode = None
     self.tableNode = None
-    self.segNode = None
-    self.segmentObservers = {}
-    self.segNodeObserverTag = None
+    self.segmentation = None
+    self.segmentationObservers = []
     self.segReferencedMasterVolume = {} # TODO: maybe also add created table so that there is no need to recalculate everything?
 
   def onReload(self):
@@ -56,7 +56,6 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
 
   def cleanup(self):
     self.removeSegmentationObserver()
-    self.removeAllSegmentObservers()
     self.initializeMembers()
 
   def setup(self):
@@ -122,6 +121,12 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       buttons = [b for b in widget.children() if isinstance(b, qt.QPushButton)]
       self.segmentationWidgetLayout.addWidget(self.createHLayout(buttons))
       widget.hide()
+    undo = slicer.util.findChildren(self.editorWidget.editor, "UndoButton")[0]
+    redo = slicer.util.findChildren(self.editorWidget.editor, "RedoButton")[0]
+    if undo and redo:
+      undo.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Expanding)
+      redo.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Expanding)
+      self.segmentationWidgetLayout.addWidget(self.createHLayout([undo, redo]))
 
   def setupMeasurementsArea(self):
     self.measurementsWidget = qt.QGroupBox("Measurements")
@@ -153,11 +158,11 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     setupButtonConnections()
 
   def removeSegmentationObserver(self):
-    if self.segNode and self.segNodeObserverTag:
-      self.segNode.removeObserver(self.segNodeObserverTag)
-      self.segNode = None
-      self.segNodeObserverTag = None
-    self.removeAllSegmentObservers()
+    if self.segmentation and len(self.segmentationObservers):
+      for observer in self.segmentationObservers:
+        self.segmentation.RemoveObserver(observer)
+      self.segmentationObservers = []
+      self.segmentation = None
 
   def onImageVolumeSelectorChanged(self, node):
     self.removeSegmentationObserver()
@@ -172,36 +177,26 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     if node:
       # TODO: check if there is a segmentation Node for the selected image volume available instead of creating a new one each time
       if node in self.segReferencedMasterVolume.keys():
-        self.segNode = self.segReferencedMasterVolume[node]
-        self.editorWidget.editor.setSegmentationNode(self.segNode)
+        segNode = self.segReferencedMasterVolume[node]
+        self.editorWidget.editor.setSegmentationNode(segNode)
       else:
-        self.segNode = slicer.vtkMRMLSegmentationNode()
-        slicer.mrmlScene.AddNode(self.segNode)
-        self.editorWidget.editor.setSegmentationNode(self.segNode)
+        segNode = slicer.vtkMRMLSegmentationNode()
+        slicer.mrmlScene.AddNode(segNode)
+        self.editorWidget.editor.setSegmentationNode(segNode)
         self.editorWidget.editor.setMasterVolumeNode(node)
-        self.segReferencedMasterVolume[node] = self.segNode
-      self.labelStatisticsWidget.labelSelector.setCurrentNode(self.segNode)
+        self.segReferencedMasterVolume[node] = segNode
+      self.labelStatisticsWidget.labelSelector.setCurrentNode(segNode)
       self.labelStatisticsWidget.grayscaleSelector.setCurrentNode(node)
-      self.segNode.AddObserver(self.segNode.GetSegmentation().SegmentAdded, self.onSegmentCountChanged)
-      self.segNode.AddObserver(self.segNode.GetSegmentation().SegmentRemoved, self.onSegmentCountChanged)
-      self.segNode.AddObserver(self.segNode.GetSegmentation().SegmentModified, self.onSegmentationNodeChanged)
-
-  @logmethod()
-  def onSegmentCountChanged(self, observer=None, caller=None):
-    segmentIDs = vtk.vtkStringArray()
-    self.removeAllSegmentObservers()
-    for idx in range(segmentIDs.GetNumberOfValues()):
-      segmentID = segmentIDs.GetValue(idx)
-      segment = self.segNode.GetSegment(segmentID)
-      segment.AddObserver(vtk.vtkCommand.ModifiedEvent, self.onSegmentationNodeChanged)
+      self.segmentation = segNode.GetSegmentation()
+      self.segmentationObservers.append(self.segmentation.AddObserver(vtkCoreSeg.vtkSegmentation.SegmentAdded,
+                                                                      self.onSegmentationNodeChanged))
+      self.segmentationObservers.append(self.segmentation.AddObserver(vtkCoreSeg.vtkSegmentation.SegmentRemoved,
+                                                                      self.onSegmentationNodeChanged))
+      self.segmentationObservers.append(self.segmentation.AddObserver(vtkCoreSeg.vtkSegmentation.MasterRepresentationModified,
+                                                                      self.onSegmentationNodeChanged))
 
   def onSegmentationNodeChanged(self, observer=None, caller=None):
     self.labelStatisticsWidget.applyButton.click()
-
-  def removeAllSegmentObservers(self):
-    for segment, tag in self.segmentObservers.iteritems():
-      segment.RemoveObserver(tag)
-    self.segmentObservers = {}
 
   def onSaveReportButtonClicked(self):
     print "on save report button clicked"
