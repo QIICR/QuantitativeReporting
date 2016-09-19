@@ -10,6 +10,7 @@ from SlicerProstateUtils.constants import DICOMTAGS
 from SegmentEditor import SegmentEditorWidget
 from LabelStatistics import LabelStatisticsWidget
 
+
 class Reporting(ScriptedLoadableModule):
   """Uses ScriptedLoadableModule base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
@@ -72,7 +73,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
 
   def setupWatchbox(self):
     self.watchBoxInformation = [
-      WatchBoxAttribute('StudyID', 'Study ID: ', DICOMTAGS.PATIENT_BIRTH_DATE),
+      WatchBoxAttribute('StudyID', 'Study ID: ', DICOMTAGS.STUDY_ID),
       WatchBoxAttribute('PatientName', 'Patient Name: ', DICOMTAGS.PATIENT_NAME),
       WatchBoxAttribute('DOB', 'Date of Birth: ', DICOMTAGS.PATIENT_BIRTH_DATE),
       WatchBoxAttribute('Reader', 'Reader Name: ', callback=getpass.getuser)]
@@ -99,8 +100,8 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.editorWidget = SegmentEditorWidget(parent=self.segmentationWidget)
     self.editorWidget.setup()
     self.segmentationWidget.children()[1].hide()
-    self.editorWidget.editor.segmentationNodeSelectorVisible = False
-    self.editorWidget.editor.masterVolumeNodeSelectorVisible = False
+    self.hideUnwantedEditorUIElements()
+    self.reorganizeEffectButtons()
     self.clearSegmentationEditorSelectors()
     self.layout.addWidget(self.segmentationWidget)
 
@@ -109,8 +110,17 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.editorWidget.editor.setMasterVolumeNode(None)
 
   def hideUnwantedEditorUIElements(self):
-    for widgetName in ['MRMLNodeComboBox_MasterVolume']:
-      widget = slicer.util.findChildren(self.editorWidget.volumes, widgetName)[0]
+    self.editorWidget.editor.segmentationNodeSelectorVisible = False
+    self.editorWidget.editor.masterVolumeNodeSelectorVisible = False
+    for widgetName in ["OptionsGroupBox","MaskingGroupBox"]:
+      widget = slicer.util.findChildren(self.editorWidget.editor, widgetName)[0]
+      widget.hide()
+
+  def reorganizeEffectButtons(self):
+    widget = slicer.util.findChildren(self.editorWidget.editor, "EffectsGroupBox")[0]
+    if widget:
+      buttons = [b for b in widget.children() if isinstance(b, qt.QPushButton)]
+      self.segmentationWidgetLayout.addWidget(self.createHLayout(buttons))
       widget.hide()
 
   def setupMeasurementsArea(self):
