@@ -1,4 +1,5 @@
 import getpass
+import json
 
 from slicer.ScriptedLoadableModule import *
 import vtkSegmentationCorePython as vtkCoreSeg
@@ -9,7 +10,7 @@ from SlicerProstateUtils.helpers import WatchBoxAttribute, DICOMBasedInformation
 from SlicerProstateUtils.constants import DICOMTAGS
 
 from SegmentEditor import SegmentEditorWidget
-from LabelStatistics import LabelStatisticsWidget
+from LabelStatistics import LabelStatisticsLogic
 
 
 class Reporting(ScriptedLoadableModule):
@@ -134,16 +135,11 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       self.segmentationWidgetLayout.addWidget(self.createHLayout([undo, redo]))
 
   def setupMeasurementsArea(self):
+    # TODO: add tables here
     self.measurementsWidget = qt.QGroupBox("Measurements")
     self.measurementsWidgetLayout = qt.QVBoxLayout()
     self.measurementsWidget.setLayout(self.measurementsWidgetLayout)
-    self.labelStatisticsWidget = LabelStatisticsWidget(parent=self.measurementsWidget)
-    self.labelStatisticsWidget.setup()
-    self.measurementsWidget.children()[1].hide()
-    # self.labelStatisticsWidget.grayscaleSelectorFrame.hide()
-    # self.labelStatisticsWidget.labelSelectorFrame.hide()
-    # self.labelStatisticsWidget.applyButton.hide()
-    # self.layout.addWidget(self.measurementsWidget)
+    self.layout.addWidget(self.measurementsWidget)
 
   def setupActionButtons(self):
     self.saveReportButton = self.createButton("Save Report")
@@ -191,7 +187,6 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
         self.editorWidget.editor.setSegmentationNode(self.segNode)
         self.editorWidget.editor.setMasterVolumeNode(node)
         self.segReferencedMasterVolume[node] = self.segNode
-      self.labelStatisticsWidget.grayscaleSelector.setCurrentNode(node)
       self.segmentation = self.segNode.GetSegmentation()
       self.segmentationObservers.append(self.segmentation.AddObserver(vtkCoreSeg.vtkSegmentation.SegmentAdded,
                                                                       self.onSegmentationNodeChanged))
@@ -205,17 +200,14 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       slicer.mrmlScene.RemoveNode(self.segmentationLabelMapDummy)
     self.segmentationLabelMapDummy = slicer.vtkMRMLLabelMapVolumeNode()
     slicer.mrmlScene.AddNode(self.segmentationLabelMapDummy)
-    if self.tableNode and self.tableNode.GetID() == self.getActiveSlicerTableID():
+    if self.tableNode and self.tableNode.GetID() == self.logic.getActiveSlicerTableID():
       slicer.mrmlScene.RemoveNode(self.tableNode)
     if self.segmentationsLogic.ExportAllSegmentsToLabelmapNode(self.segNode, self.segmentationLabelMapDummy):
-      self.labelStatisticsWidget.labelSelector.setCurrentNode(self.segmentationLabelMapDummy)
-      self.labelStatisticsWidget.applyButton.click()
-      self.labelStatisticsWidget.logic.exportToTable()
-      self.tableNode = slicer.mrmlScene.GetNodeByID(self.getActiveSlicerTableID())
-      self.tableNode.SetAttribute("Reporting", "Yes")
-
-  def getActiveSlicerTableID(self):
-    return slicer.app.applicationLogic().GetSelectionNode().GetActiveTableID()
+      grayscaleNode = self.segReferencedMasterVolume.keys()[self.segReferencedMasterVolume.values().index(self.segNode)]
+      try:
+        self.tableNode = self.logic.calculateLabelStatistics(self.segmentationLabelMapDummy, grayscaleNode)
+      except ValueError as exc:
+        slicer.util.warnDisplay(exc.message, windowTitle="Label Statistics")
 
   def onSaveReportButtonClicked(self):
     print "on save report button clicked"
@@ -227,15 +219,6 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     #TODO: calc measurements (logic) and set table node
     pass
 
-  def updateTableNode(self):
-    # TODO: maybe remove this method and or move some code to logic. label statistics widget is not needed
-    data = self.logic.calculateLabelStatistics(self.editorWidget.editor.segmentationNode())
-    # TODO: apply data to tableNode
-    if not self.tableNode:
-      self.tableNode = slicer.vtkMRMLTableNode()
-      slicer.mrmlScene.AddNode(self.tableNode)
-    if data is not None:
-      pass
 
 class ReportingLogic(ScriptedLoadableModuleLogic):
   """This class should implement all the actual
@@ -247,10 +230,37 @@ class ReportingLogic(ScriptedLoadableModuleLogic):
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
-  def calculateLabelStatistics(self, segmentationNode):
-    # TODO: need to think about what to deliver as parameters here
+  def __init__(self, parent=None):
+    ScriptedLoadableModuleLogic.__init__(self, parent)
+    self.volumesLogic = slicer.modules.volumes.logic()
 
-    return None
+  def calculateLabelStatistics(self, labelNode, grayscaleNode):
+    warnings = self.volumesLogic.CheckForLabelVolumeValidity(grayscaleNode, labelNode)
+    if warnings != "":
+      if 'mismatch' in warnings:
+        resampledLabelNode = self.volumesLogic.ResampleVolumeToReferenceVolume(labelNode, grayscaleNode)
+        # resampledLabelNode does not have a display node, therefore the colorNode has to be passed to it
+        labelStatisticsLogic = LabelStatisticsLogic(grayscaleNode, resampledLabelNode,
+                                                    colorNode=labelNode.GetDisplayNode().GetColorNode(),
+                                                    nodeBaseName=labelNode.GetName())
+      else:
+        raise ValueError("Volumes do not have the same geometry.\n%s" % warnings)
+    else:
+      labelStatisticsLogic = LabelStatisticsLogic(grayscaleNode, labelNode)
+
+    labelStatisticsLogic.exportToTable()
+    tableNode = slicer.mrmlScene.GetNodeByID(self.getActiveSlicerTableID())
+    # TODO: uncommnent that once the new Slicer build is out
+    # self.tableNode = labelStatisticsLogic.logic.exportToTable()
+    # slicer.mrmlScene.AddNode(self.tableNode)
+    # slicer.app.layoutManager().setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpTableView)
+    # slicer.app.applicationLogic().GetSelectionNode().SetReferenceActiveTableID(self.tableNode.GetID())
+    # slicer.app.applicationLogic().PropagateTableSelection()
+    tableNode.SetAttribute("Reporting", "Yes")
+    return tableNode
+
+  def getActiveSlicerTableID(self):
+    return slicer.app.applicationLogic().GetSelectionNode().GetActiveTableID()
 
 
 class ReportingTest(ScriptedLoadableModuleTest):
