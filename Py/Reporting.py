@@ -46,9 +46,12 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def initializeMembers(self):
     self.tNode = None
     self.tableNode = None
+    self.segNode = None
     self.segmentation = None
     self.segmentationObservers = []
     self.segReferencedMasterVolume = {} # TODO: maybe also add created table so that there is no need to recalculate everything?
+    self.segmentationsLogic = slicer.modules.segmentations.logic()
+    self.segmentationLabelMapDummy = None
 
   def onReload(self):
     super(ReportingWidget, self).onReload()
@@ -56,6 +59,8 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
 
   def cleanup(self):
     self.removeSegmentationObserver()
+    if self.tableNode:
+      slicer.mrmlScene.RemoveNode(self.tableNode)
     self.initializeMembers()
 
   def setup(self):
@@ -84,8 +89,8 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
                                                    selectNodeUponCreation=True, toolTip="Select image volume to annotate")
     self.imageVolumeSelector.addAttribute("vtkMRMLScalarVolumeNode", "DICOM.instanceUIDs", None)
     self.measurementReportSelector = self.createComboBox(nodeTypes=["vtkMRMLTableNode", ""], showChildNodeTypes=False,
-                                                         selectNodeUponCreation=True, toolTip="Select measurement report",
-                                                         addEnabled=True)
+                                                         selectNodeUponCreation=True, toolTip="Select measurement report")
+    self.imageVolumeSelector.addAttribute("vtkMRMLTableNode", "Reporting", None)
     self.layout.addWidget(self.createHLayout([qt.QLabel("Image volume to annotate"), self.imageVolumeSelector]))
     self.layout.addWidget(self.createHLayout([qt.QLabel("Measurement report"), self.measurementReportSelector]))
 
@@ -135,10 +140,10 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.labelStatisticsWidget = LabelStatisticsWidget(parent=self.measurementsWidget)
     self.labelStatisticsWidget.setup()
     self.measurementsWidget.children()[1].hide()
-    self.labelStatisticsWidget.grayscaleSelectorFrame.hide()
-    self.labelStatisticsWidget.labelSelectorFrame.hide()
-    self.labelStatisticsWidget.applyButton.hide()
-    self.layout.addWidget(self.measurementsWidget)
+    # self.labelStatisticsWidget.grayscaleSelectorFrame.hide()
+    # self.labelStatisticsWidget.labelSelectorFrame.hide()
+    # self.labelStatisticsWidget.applyButton.hide()
+    # self.layout.addWidget(self.measurementsWidget)
 
   def setupActionButtons(self):
     self.saveReportButton = self.createButton("Save Report")
@@ -163,6 +168,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
         self.segmentation.RemoveObserver(observer)
       self.segmentationObservers = []
       self.segmentation = None
+    self.segNode = None
 
   def onImageVolumeSelectorChanged(self, node):
     self.removeSegmentationObserver()
@@ -177,17 +183,16 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     if node:
       # TODO: check if there is a segmentation Node for the selected image volume available instead of creating a new one each time
       if node in self.segReferencedMasterVolume.keys():
-        segNode = self.segReferencedMasterVolume[node]
-        self.editorWidget.editor.setSegmentationNode(segNode)
+        self.segNode = self.segReferencedMasterVolume[node]
+        self.editorWidget.editor.setSegmentationNode(self.segNode)
       else:
-        segNode = slicer.vtkMRMLSegmentationNode()
-        slicer.mrmlScene.AddNode(segNode)
-        self.editorWidget.editor.setSegmentationNode(segNode)
+        self.segNode = slicer.vtkMRMLSegmentationNode()
+        slicer.mrmlScene.AddNode(self.segNode)
+        self.editorWidget.editor.setSegmentationNode(self.segNode)
         self.editorWidget.editor.setMasterVolumeNode(node)
-        self.segReferencedMasterVolume[node] = segNode
-      self.labelStatisticsWidget.labelSelector.setCurrentNode(segNode)
+        self.segReferencedMasterVolume[node] = self.segNode
       self.labelStatisticsWidget.grayscaleSelector.setCurrentNode(node)
-      self.segmentation = segNode.GetSegmentation()
+      self.segmentation = self.segNode.GetSegmentation()
       self.segmentationObservers.append(self.segmentation.AddObserver(vtkCoreSeg.vtkSegmentation.SegmentAdded,
                                                                       self.onSegmentationNodeChanged))
       self.segmentationObservers.append(self.segmentation.AddObserver(vtkCoreSeg.vtkSegmentation.SegmentRemoved,
@@ -196,7 +201,21 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
                                                                       self.onSegmentationNodeChanged))
 
   def onSegmentationNodeChanged(self, observer=None, caller=None):
-    self.labelStatisticsWidget.applyButton.click()
+    if self.segmentationLabelMapDummy:
+      slicer.mrmlScene.RemoveNode(self.segmentationLabelMapDummy)
+    self.segmentationLabelMapDummy = slicer.vtkMRMLLabelMapVolumeNode()
+    slicer.mrmlScene.AddNode(self.segmentationLabelMapDummy)
+    if self.tableNode and self.tableNode.GetID() == self.getActiveSlicerTableID():
+      slicer.mrmlScene.RemoveNode(self.tableNode)
+    if self.segmentationsLogic.ExportAllSegmentsToLabelmapNode(self.segNode, self.segmentationLabelMapDummy):
+      self.labelStatisticsWidget.labelSelector.setCurrentNode(self.segmentationLabelMapDummy)
+      self.labelStatisticsWidget.applyButton.click()
+      self.labelStatisticsWidget.logic.exportToTable()
+      self.tableNode = slicer.mrmlScene.GetNodeByID(self.getActiveSlicerTableID())
+      self.tableNode.SetAttribute("Reporting", "Yes")
+
+  def getActiveSlicerTableID(self):
+    return slicer.app.applicationLogic().GetSelectionNode().GetActiveTableID()
 
   def onSaveReportButtonClicked(self):
     print "on save report button clicked"
@@ -209,6 +228,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     pass
 
   def updateTableNode(self):
+    # TODO: maybe remove this method and or move some code to logic. label statistics widget is not needed
     data = self.logic.calculateLabelStatistics(self.editorWidget.editor.segmentationNode())
     # TODO: apply data to tableNode
     if not self.tableNode:
