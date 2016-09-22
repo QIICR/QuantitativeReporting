@@ -1,6 +1,4 @@
 import getpass
-import SimpleITK as sitk
-import sitkUtils
 import json
 
 from slicer.ScriptedLoadableModule import *
@@ -355,27 +353,29 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
 
   def onSegmentSelected(self, item):
     try:
-      # TODO: center on the segmentation
       segmentation = self.segNode.GetSegmentation()
       segmentIDs = vtk.vtkStringArray()
       segmentation.GetSegmentIDs(segmentIDs)
       segmentID = segmentIDs.GetValue(item.indexes()[0].row()) # row
       segment = segmentation.GetSegment(segmentID)
-      segmentationsLogic = slicer.modules.segmentations.logic()
-      tempLabel=slicer.vtkMRMLLabelMapVolumeNode()
-      slicer.mrmlScene.AddNode(tempLabel)
-      tempLabel.SetName(segment.GetName()+"CentroidHelper")
-      binData = segment.GetRepresentation("Binary labelmap")
-      extent = binData.GetExtent()
-      if extent[1] != -1 and extent[3] != -1 and extent[5] != -1:
-        segmentationsLogic.CreateLabelmapVolumeFromOrientedImageData(binData, tempLabel)
-        centroid = self.getCentroidForLabel(tempLabel)
-        if centroid:
-          markupsLogic = slicer.modules.markups.logic()
-          markupsLogic.JumpSlicesToLocation(centroid[0], centroid[1], centroid[2], False)
-        slicer.mrmlScene.RemoveNode(tempLabel)
+      self.jumpToSegmentCenter(segment)
     except IndexError:
       pass
+
+  def jumpToSegmentCenter(self, segment):
+    segmentationsLogic = slicer.modules.segmentations.logic()
+    binData = segment.GetRepresentation("Binary labelmap")
+    extent = binData.GetExtent()
+    if extent[1] != -1 and extent[3] != -1 and extent[5] != -1:
+      tempLabel = slicer.vtkMRMLLabelMapVolumeNode()
+      slicer.mrmlScene.AddNode(tempLabel)
+      tempLabel.SetName(segment.GetName() + "CentroidHelper")
+      segmentationsLogic.CreateLabelmapVolumeFromOrientedImageData(binData, tempLabel)
+      centroid = ModuleLogicMixin.getCentroidForLabel(tempLabel, 1)
+      if centroid:
+        markupsLogic = slicer.modules.markups.logic()
+        markupsLogic.JumpSlicesToLocation(centroid[0], centroid[1], centroid[2], False)
+      slicer.mrmlScene.RemoveNode(tempLabel)
 
   def clearSegmentationEditorSelectors(self):
     self.editor.setSegmentationNode(None)
@@ -409,23 +409,3 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
     # Set parameter set node if absent
     self.selectParameterNode()
     self.editor.updateWidgetFromMRML()
-
-  def getCentroidForLabel(self, label, index=1):
-    ls = sitk.LabelShapeStatisticsImageFilter()
-    dstLabelAddress = sitkUtils.GetSlicerITKReadWriteAddress(label.GetName())
-    try:
-      dstLabelImage = sitk.ReadImage(dstLabelAddress)
-    except RuntimeError:
-      return None
-    ls.Execute(dstLabelImage)
-    centroid = ls.GetCentroid(index)
-    IJKtoRAS = vtk.vtkMatrix4x4()
-    label.GetIJKToRASMatrix(IJKtoRAS)
-    order = label.ComputeScanOrderFromIJKToRAS(IJKtoRAS)
-    if order == 'IS':
-      centroid = [-centroid[0], -centroid[1], centroid[2]]
-    elif order == 'AP':
-      centroid = [-centroid[0], -centroid[2], -centroid[1]]
-    elif order == 'LR':
-      centroid = [centroid[0], -centroid[2], -centroid[1]]
-    return centroid
