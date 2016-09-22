@@ -1,4 +1,6 @@
 import getpass
+import SimpleITK as sitk
+import sitkUtils
 import json
 
 from slicer.ScriptedLoadableModule import *
@@ -118,8 +120,8 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.segmentationWidget = qt.QGroupBox("Segmentations")
     self.segmentationWidgetLayout = qt.QFormLayout()
     self.segmentationWidget.setLayout(self.segmentationWidgetLayout)
-    self.editorWidget = ReportingSegmentEditorWidget(parent=self.segmentationWidget)
-    self.editorWidget.setup()
+    self.segmentEditorWidget = ReportingSegmentEditorWidget(parent=self.segmentationWidget)
+    self.segmentEditorWidget.setup()
     self.layout.addWidget(self.segmentationWidget)
 
   def setupMeasurementsArea(self):
@@ -173,13 +175,13 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.initializeWatchBox(node)
     if node:
       if node in self.segReferencedMasterVolume.keys():
-        self.editorWidget.editor.setSegmentationNode(self.segNode)
+        self.segmentEditorWidget.editor.setSegmentationNode(self.segNode)
       else:
         self.segReferencedMasterVolume[node] = self.createNewSegmentation(node)
       self.segNode = self.segReferencedMasterVolume[node]
       self.setupSegmentationObservers()
     else:
-      self.clearSegmentationEditorSelectors()
+      self.segmentEditorWidget.clearSegmentationEditorSelectors()
 
   def initializeWatchBox(self, node):
     try:
@@ -191,16 +193,15 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def createNewSegmentation(self, masterNode):
     segNode = slicer.vtkMRMLSegmentationNode()
     slicer.mrmlScene.AddNode(segNode)
-    self.editorWidget.editor.setSegmentationNode(segNode)
-    self.editorWidget.editor.setMasterVolumeNode(masterNode)
+    self.segmentEditorWidget.editor.setSegmentationNode(segNode)
+    self.segmentEditorWidget.editor.setMasterVolumeNode(masterNode)
     return segNode
 
   @logmethod()
   def onSegmentationNodeChanged(self, observer=None, caller=None):
-    if self.segmentationLabelMapDummy:
-      slicer.mrmlScene.RemoveNode(self.segmentationLabelMapDummy)
-    self.segmentationLabelMapDummy = slicer.vtkMRMLLabelMapVolumeNode()
-    slicer.mrmlScene.AddNode(self.segmentationLabelMapDummy)
+    if not self.segmentationLabelMapDummy:
+      self.segmentationLabelMapDummy = slicer.vtkMRMLLabelMapVolumeNode()
+      slicer.mrmlScene.AddNode(self.segmentationLabelMapDummy)
     if self.tableNode and self.tableNode.GetID() == self.logic.getActiveSlicerTableID():
       slicer.mrmlScene.RemoveNode(self.tableNode)
     if self.segmentationsLogic.ExportAllSegmentsToLabelmapNode(self.segNode, self.segmentationLabelMapDummy):
@@ -253,6 +254,7 @@ class ReportingLogic(ScriptedLoadableModuleLogic):
         labelStatisticsLogic = LabelStatisticsLogic(grayscaleNode, resampledLabelNode,
                                                     colorNode=labelNode.GetDisplayNode().GetColorNode(),
                                                     nodeBaseName=labelNode.GetName())
+        slicer.mrmlScene.RemoveNode(resampledLabelNode)
       else:
         raise ValueError("Volumes do not have the same geometry.\n%s" % warnings)
     else:
@@ -326,6 +328,17 @@ class ReportingTest(ScriptedLoadableModuleTest):
 
 class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
 
+  @property
+  def segNode(self):
+      return self.editor.segmentationNode()
+
+  @property
+  def table(self):
+    try:
+      return slicer.util.findChildren(self.editor, "SegmentsTableView")[0]
+    except IndexError:
+      return None
+
   def __init__(self, parent):
     super(ReportingSegmentEditorWidget, self).__init__(parent)
 
@@ -338,13 +351,29 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
     self.setupConnections()
 
   def setupConnections(self):
-    segmentsTableView = slicer.util.findChildren(self.editor, "SegmentsTableView")[0]
-    segmentsTableView.selectionChanged.connect(self.onSegmentSelected)
+    self.table.selectionChanged.connect(self.onSegmentSelected)
 
   def onSegmentSelected(self, item):
     try:
       # TODO: center on the segmentation
-      print item.indexes()[0]
+      segmentation = self.segNode.GetSegmentation()
+      segmentIDs = vtk.vtkStringArray()
+      segmentation.GetSegmentIDs(segmentIDs)
+      segmentID = segmentIDs.GetValue(item.indexes()[0].row()) # row
+      segment = segmentation.GetSegment(segmentID)
+      segmentationsLogic = slicer.modules.segmentations.logic()
+      tempLabel=slicer.vtkMRMLLabelMapVolumeNode()
+      slicer.mrmlScene.AddNode(tempLabel)
+      tempLabel.SetName(segment.GetName()+"CentroidHelper")
+      binData = segment.GetRepresentation("Binary labelmap")
+      extent = binData.GetExtent()
+      if extent[1] != -1 and extent[3] != -1 and extent[5] != -1:
+        segmentationsLogic.CreateLabelmapVolumeFromOrientedImageData(binData, tempLabel)
+        centroid = self.getCentroidForLabel(tempLabel)
+        if centroid:
+          markupsLogic = slicer.modules.markups.logic()
+          markupsLogic.JumpSlicesToLocation(centroid[0], centroid[1], centroid[2], False)
+        slicer.mrmlScene.RemoveNode(tempLabel)
     except IndexError:
       pass
 
@@ -380,3 +409,23 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
     # Set parameter set node if absent
     self.selectParameterNode()
     self.editor.updateWidgetFromMRML()
+
+  def getCentroidForLabel(self, label, index=1):
+    ls = sitk.LabelShapeStatisticsImageFilter()
+    dstLabelAddress = sitkUtils.GetSlicerITKReadWriteAddress(label.GetName())
+    try:
+      dstLabelImage = sitk.ReadImage(dstLabelAddress)
+    except RuntimeError:
+      return None
+    ls.Execute(dstLabelImage)
+    centroid = ls.GetCentroid(index)
+    IJKtoRAS = vtk.vtkMatrix4x4()
+    label.GetIJKToRASMatrix(IJKtoRAS)
+    order = label.ComputeScanOrderFromIJKToRAS(IJKtoRAS)
+    if order == 'IS':
+      centroid = [-centroid[0], -centroid[1], centroid[2]]
+    elif order == 'AP':
+      centroid = [-centroid[0], -centroid[2], -centroid[1]]
+    elif order == 'LR':
+      centroid = [centroid[0], -centroid[2], -centroid[1]]
+    return centroid
