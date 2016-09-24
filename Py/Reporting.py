@@ -8,6 +8,7 @@ from SlicerProstateUtils.mixins import *
 from SlicerProstateUtils.decorators import logmethod
 from SlicerProstateUtils.helpers import WatchBoxAttribute, DICOMBasedInformationWatchBox
 from SlicerProstateUtils.constants import DICOMTAGS
+from SlicerProstateUtils.buttons import *
 
 from SegmentEditor import SegmentEditorWidget
 from LabelStatistics import LabelStatisticsLogic
@@ -62,15 +63,23 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.segmentationLabelMapDummy = None
 
   def onReload(self):
+    self.cleanupUIElements()
+    self.removeAllUIElements()
     super(ReportingWidget, self).onReload()
-    self.cleanup()
 
-  def cleanup(self):
+  def cleanupUIElements(self):
     self.removeSegmentationObserver()
     self.removeConnections()
     if self.tableNode:
       slicer.mrmlScene.RemoveNode(self.tableNode)
     self.initializeMembers()
+
+  def removeAllUIElements(self):
+    for child in [c for c in self.parent.children() if not isinstance(c, qt.QVBoxLayout)]:
+      try:
+        child.delete()
+      except AttributeError:
+        pass
 
   def setup(self):
     ScriptedLoadableModuleWidget.setup(self)
@@ -112,7 +121,20 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.layout.addWidget(self.selectionAreaWidget)
 
   def setupViewSettingsArea(self):
-    pass
+    self.redSliceLayoutButton = RedSliceLayoutButton()
+    self.fourUpSliceLayoutButton = FourUpLayoutButton()
+    self.crosshairButton = CrosshairButton()
+    self.windowLevelEffectsButton = WindowLevelEffectsButton()
+
+    self.layoutButtonGroup = qt.QButtonGroup()
+    self.layoutButtonGroup.addButton(self.redSliceLayoutButton, self.redSliceLayoutButton.LAYOUT)
+    self.layoutButtonGroup.addButton(self.fourUpSliceLayoutButton, self.fourUpSliceLayoutButton.LAYOUT)
+    self.layoutButtonGroup.setExclusive(False)
+
+    hbox = self.createHLayout([self.redSliceLayoutButton, self.fourUpSliceLayoutButton, self.crosshairButton,
+                               self.windowLevelEffectsButton])
+    hbox.layout().addStretch(1)
+    self.layout.addWidget(hbox)
 
   def setupSegmentationsArea(self):
     self.segmentationWidget = qt.QGroupBox("Segmentations")
