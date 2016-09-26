@@ -86,6 +86,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
 
     self.initializeMembers()
     self.setupWatchbox()
+    self.setupTestArea()
     self.setupSelectionArea()
     self.setupViewSettingsArea()
     self.setupSegmentationsArea()
@@ -102,6 +103,30 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       WatchBoxAttribute('Reader', 'Reader Name: ', callback=getpass.getuser)]
     self.watchBox = DICOMBasedInformationWatchBox(self.watchBoxInformation)
     self.layout.addWidget(self.watchBox)
+
+  def setupTestArea(self):
+
+    def loadTestData():
+      from SEGExporterSelfTest import SEGExporterSelfTestLogic
+      sampleData = SEGExporterSelfTestLogic.downloadSampleData()
+      unzipped = SEGExporterSelfTestLogic.unzipSampleData(sampleData)
+      SEGExporterSelfTestLogic.importIntoDICOMDatabase(unzipped)
+      dicomWidget = slicer.modules.dicom.widgetRepresentation().self()
+      mrHeadSeriesUID = "2.16.840.1.113662.4.4168496325.1025306170.548651188813145058"
+      dicomWidget.detailsPopup.offerLoadables(mrHeadSeriesUID, 'Series')
+      dicomWidget.detailsPopup.examineForLoading()
+      print 'Loading Selection'
+      dicomWidget.detailsPopup.loadCheckedLoadables()
+      masterNode = slicer.util.getNode('2: SAG*')
+      self.imageVolumeSelector.setCurrentNode(masterNode)
+      self.retrieveTestDataButton.enabled = False
+
+    self.testArea = qt.QGroupBox("Test Area")
+    self.testAreaLayout = qt.QFormLayout(self.testArea)
+    self.retrieveTestDataButton = self.createButton("Retrieve and load test data")
+    self.testAreaLayout.addWidget(self.retrieveTestDataButton)
+    self.retrieveTestDataButton.clicked.connect(loadTestData)
+    self.layout.addWidget(self.testArea)
 
   def setupSelectionArea(self):
     self.imageVolumeSelector = self.createComboBox(nodeTypes=["vtkMRMLScalarVolumeNode", ""], showChildNodeTypes=False,
@@ -289,6 +314,18 @@ class ReportingLogic(ScriptedLoadableModuleLogic):
 
   def getActiveSlicerTableID(self):
     return slicer.app.applicationLogic().GetSelectionNode().GetActiveTableID()
+
+  def createJSON(self):
+    data = {}
+
+    print json.dumps(data, indent = 4, separators = (',', ': '))
+
+    return ""
+
+  def loadFromJSON(self, data):
+    # TODO: think about what and how to load the data
+
+    pass
 
 
 class ReportingTest(ScriptedLoadableModuleTest):
