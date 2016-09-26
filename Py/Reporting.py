@@ -415,9 +415,10 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
       segmentation = self.segNode.GetSegmentation()
       segmentIDs = vtk.vtkStringArray()
       segmentation.GetSegmentIDs(segmentIDs)
-      segmentID = segmentIDs.GetValue(item.indexes()[0].row()) # row
-      segment = segmentation.GetSegment(segmentID)
-      self.jumpToSegmentCenter(segment)
+      if segmentIDs.GetNumberOfValues():
+        segmentID = segmentIDs.GetValue(item.indexes()[0].row()) # row
+        segment = segmentation.GetSegment(segmentID)
+        self.jumpToSegmentCenter(segment)
     except IndexError:
       pass
 
