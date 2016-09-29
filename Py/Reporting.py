@@ -5,7 +5,7 @@ from slicer.ScriptedLoadableModule import *
 import vtkSegmentationCorePython as vtkCoreSeg
 
 from SlicerProstateUtils.mixins import *
-from SlicerProstateUtils.decorators import logmethod
+from SlicerProstateUtils.decorators import *
 from SlicerProstateUtils.helpers import WatchBoxAttribute, DICOMBasedInformationWatchBox
 from SlicerProstateUtils.constants import DICOMTAGS
 from SlicerProstateUtils.buttons import *
@@ -52,13 +52,12 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     ScriptedLoadableModuleWidget.__init__(self, parent)
     self.logic = ReportingLogic()
     self.segmentationsLogic = slicer.modules.segmentations.logic()
-    self.segReferencedMasterVolume = {} # TODO: maybe also add created table so that there is no need to recalculate everything?
 
   def initializeMembers(self):
+    self.segReferencedMasterVolume = {} # TODO: maybe also add created table so that there is no need to recalculate everything?
     self.tNode = None
     self.tableNode = None
     self.segNode = None
-    self.displayTableInSliceView = False
     self.segmentationObservers = []
     self.segmentationLabelMapDummy = None
 
@@ -81,6 +80,14 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       except AttributeError:
         pass
 
+  def exit(self):
+    # TODO: export SEG and SR
+    # TODO: disconnect from segment editor events
+    self.removeSegmentationObserver()
+
+  def enter(self):
+    self.setupSegmentationObservers()
+
   def setup(self):
     ScriptedLoadableModuleWidget.setup(self)
 
@@ -94,6 +101,10 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.setupActionButtons()
     self.setupConnections()
     self.layout.addStretch(1)
+    self.fourUpSliceLayoutButton.checked = True
+
+    # TEST MODE
+    # self.retrieveTestDataButton.click()
 
   def setupWatchbox(self):
     self.watchBoxInformation = [
@@ -139,24 +150,21 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.selectionAreaWidgetLayout = qt.QGridLayout()
     self.selectionAreaWidget.setLayout(self.selectionAreaWidgetLayout)
 
-    self.selectionAreaWidgetLayout.addWidget(qt.QLabel("Image volume to annotate"), 0, 0)
-    self.selectionAreaWidgetLayout.addWidget(self.imageVolumeSelector, 0, 1)
-    self.selectionAreaWidgetLayout.addWidget(qt.QLabel("Measurement report"), 1, 0)
-    self.selectionAreaWidgetLayout.addWidget(self.measurementReportSelector, 1, 1)
+    self.selectionAreaWidgetLayout.addWidget(qt.QLabel("Measurement report"), 0, 0)
+    self.selectionAreaWidgetLayout.addWidget(self.measurementReportSelector, 0, 1)
+    self.selectionAreaWidgetLayout.addWidget(qt.QLabel("Image volume to annotate"), 1, 0)
+    self.selectionAreaWidgetLayout.addWidget(self.imageVolumeSelector, 1, 1)
     self.layout.addWidget(self.selectionAreaWidget)
 
   def setupViewSettingsArea(self):
     self.redSliceLayoutButton = RedSliceLayoutButton()
     self.fourUpSliceLayoutButton = FourUpLayoutButton()
+    self.fourUpSliceTableViewLayoutButton = FourUpTableViewLayoutButton()
     self.crosshairButton = CrosshairButton()
     self.windowLevelEffectsButton = WindowLevelEffectsButton()
 
-    self.layoutButtonGroup = qt.QButtonGroup()
-    self.layoutButtonGroup.addButton(self.redSliceLayoutButton, self.redSliceLayoutButton.LAYOUT)
-    self.layoutButtonGroup.addButton(self.fourUpSliceLayoutButton, self.fourUpSliceLayoutButton.LAYOUT)
-    self.layoutButtonGroup.setExclusive(False)
-
-    hbox = self.createHLayout([self.redSliceLayoutButton, self.fourUpSliceLayoutButton, self.crosshairButton,
+    hbox = self.createHLayout([self.redSliceLayoutButton, self.fourUpSliceLayoutButton,
+                               self.fourUpSliceTableViewLayoutButton, self.crosshairButton,
                                self.windowLevelEffectsButton])
     hbox.layout().addStretch(1)
     self.layout.addWidget(hbox)
@@ -192,20 +200,13 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       getattr(self.saveReportButton.clicked, funcName)(self.onSaveReportButtonClicked)
       getattr(self.completeReportButton.clicked, funcName)(self.onCompleteReportButtonClicked)
 
+    getattr(self.layoutManager.layoutChanged, funcName)(self.onLayoutChanged)
+
     setupSelectorConnections()
     setupButtonConnections()
 
   def removeConnections(self):
     self.setupConnections(funcName="disconnect")
-
-  def setupSegmentationObservers(self):
-    if self.segmentation:
-      self.segmentationObservers.append(self.segmentation.AddObserver(vtkCoreSeg.vtkSegmentation.SegmentAdded,
-                                                                      self.onSegmentationNodeChanged))
-      self.segmentationObservers.append(self.segmentation.AddObserver(vtkCoreSeg.vtkSegmentation.SegmentRemoved,
-                                                                      self.onSegmentationNodeChanged))
-      self.segmentationObservers.append(self.segmentation.AddObserver(vtkCoreSeg.vtkSegmentation.MasterRepresentationModified,
-                                                                      self.onSegmentationNodeChanged))
 
   def removeSegmentationObserver(self):
     if self.segmentation and len(self.segmentationObservers):
@@ -213,6 +214,9 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
         self.segmentation.RemoveObserver(observer)
       self.segmentationObservers = []
     self.segNode = None
+
+  def onLayoutChanged(self, layout):
+    self.onDisplayMeasurementsTable()
 
   def onImageVolumeSelectorChanged(self, node):
     # TODO: save, cleanup open sessions
@@ -227,6 +231,15 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       self.setupSegmentationObservers()
     else:
       self.segmentEditorWidget.clearSegmentationEditorSelectors()
+
+  def setupSegmentationObservers(self):
+    if self.segmentation:
+      self.segmentationObservers.append(self.segmentation.AddObserver(vtkCoreSeg.vtkSegmentation.SegmentAdded,
+                                                                      self.onSegmentationNodeChanged))
+      self.segmentationObservers.append(self.segmentation.AddObserver(vtkCoreSeg.vtkSegmentation.SegmentRemoved,
+                                                                      self.onSegmentationNodeChanged))
+      self.segmentationObservers.append(self.segmentation.AddObserver(vtkCoreSeg.vtkSegmentation.MasterRepresentationModified,
+                                        self.onSegmentationNodeChanged))
 
   def initializeWatchBox(self, node):
     try:
@@ -255,17 +268,23 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
         if self.tableNode:
           slicer.mrmlScene.RemoveNode(self.tableNode)
         self.tableNode = self.logic.calculateLabelStatistics(self.segmentationLabelMapDummy, grayscaleNode)
+        self.tableNode.SetLocked(True)
         self.tableView.setMRMLTableNode(self.tableNode)
-        if self.displayTableInSliceView:
-          slicer.app.layoutManager().setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpTableView)
-          slicer.app.applicationLogic().GetSelectionNode().SetReferenceActiveTableID(self.tableNode.GetID())
-          slicer.app.applicationLogic().PropagateTableSelection()
+        self.onDisplayMeasurementsTable()
       except ValueError as exc:
         slicer.util.warnDisplay(exc.message, windowTitle="Label Statistics")
     else:
       self.tableView.setMRMLTableNode(None)
 
+  def onDisplayMeasurementsTable(self):
+    self.measurementsWidget.visible = not self.layoutManager.layout == self.fourUpSliceTableViewLayoutButton.LAYOUT
+    if self.layoutManager.layout == self.fourUpSliceTableViewLayoutButton.LAYOUT:
+      if self.tableNode:
+        slicer.app.applicationLogic().GetSelectionNode().SetReferenceActiveTableID(self.tableNode.GetID())
+        slicer.app.applicationLogic().PropagateTableSelection()
+
   def onSaveReportButtonClicked(self):
+    self.createJSON()
     print "on save report button clicked"
 
   def onCompleteReportButtonClicked(self):
@@ -274,6 +293,20 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def onAnnotationReady(self):
     #TODO: calc measurements (logic) and set table node
     pass
+
+  def createJSON(self):
+
+    data = {}
+    data["seriesAttributes"] = self._getSeriesAttributes()
+
+    print json.dumps(data, indent = 2, separators = (',', ': '))
+
+    return ""
+
+  def _getSeriesAttributes(self):
+    data = {}
+    data["ContentCreatorName"] = self.watchBox.getAttribute("Reader").value
+    return data
 
 
 class ReportingLogic(ScriptedLoadableModuleLogic):
@@ -314,13 +347,6 @@ class ReportingLogic(ScriptedLoadableModuleLogic):
 
   def getActiveSlicerTableID(self):
     return slicer.app.applicationLogic().GetSelectionNode().GetActiveTableID()
-
-  def createJSON(self):
-    data = {}
-
-    print json.dumps(data, indent = 4, separators = (',', ': '))
-
-    return ""
 
   def loadFromJSON(self, data):
     # TODO: think about what and how to load the data
@@ -391,13 +417,22 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
 
   @property
   def table(self):
-    try:
-      return slicer.util.findChildren(self.editor, "SegmentsTableView")[0]
-    except IndexError:
-      return None
+    return self.find("SegmentsTableView")
+
+  @property
+  @onExceptionReturnNone
+  def tableWidget(self):
+    return self.table.tableWidget()
 
   def __init__(self, parent):
     super(ReportingSegmentEditorWidget, self).__init__(parent)
+
+  @onExceptionReturnNone
+  def find(self, objectName):
+    return self.findAll(objectName)[0]
+
+  def findAll(self, objectName):
+    return slicer.util.findChildren(self.editor, objectName)
 
   def setup(self):
     super(ReportingSegmentEditorWidget, self).setup()
@@ -408,7 +443,7 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
     self.setupConnections()
 
   def setupConnections(self):
-    self.table.selectionChanged.connect(self.onSegmentSelected)
+    self.tableWidget.itemClicked.connect(self.onSegmentSelected)
 
   def onSegmentSelected(self, item):
     try:
@@ -416,7 +451,7 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
       segmentIDs = vtk.vtkStringArray()
       segmentation.GetSegmentIDs(segmentIDs)
       if segmentIDs.GetNumberOfValues():
-        segmentID = segmentIDs.GetValue(item.indexes()[0].row()) # row
+        segmentID = segmentIDs.GetValue(item.row()) # row
         segment = segmentation.GetSegment(segmentID)
         self.jumpToSegmentCenter(segment)
     except IndexError:
