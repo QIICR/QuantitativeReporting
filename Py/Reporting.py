@@ -88,6 +88,12 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def enter(self):
     self.setupSegmentationObservers()
 
+  def refreshUIElementsAvailability(self):
+    self.imageVolumeSelector.enabled = self.measurementReportSelector.currentNode() is not None
+    self.segmentationGroupBox.enabled = self.imageVolumeSelector.currentNode() is not None
+    self.measurementsGroupBox.enabled = False  # TODO: enabled if has measurements
+
+  @postCall(refreshUIElementsAvailability)
   def setup(self):
     ScriptedLoadableModuleWidget.setup(self)
 
@@ -129,6 +135,9 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       print 'Loading Selection'
       dicomWidget.detailsPopup.loadCheckedLoadables()
       masterNode = slicer.util.getNode('2: SAG*')
+      tableNode = slicer.vtkMRMLTableNode()
+      slicer.mrmlScene.AddNode(tableNode)
+      self.measurementReportSelector.setCurrentNode(tableNode)
       self.imageVolumeSelector.setCurrentNode(masterNode)
       self.retrieveTestDataButton.enabled = False
 
@@ -141,9 +150,11 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
 
   def setupSelectionArea(self):
     self.imageVolumeSelector = self.createComboBox(nodeTypes=["vtkMRMLScalarVolumeNode", ""], showChildNodeTypes=False,
-                                                   selectNodeUponCreation=True, toolTip="Select image volume to annotate")
+                                                   selectNodeUponCreation=True, enabled=False,
+                                                   toolTip="Select image volume to annotate")
     self.imageVolumeSelector.addAttribute("vtkMRMLScalarVolumeNode", "DICOM.instanceUIDs", None)
     self.measurementReportSelector = self.createComboBox(nodeTypes=["vtkMRMLTableNode", ""], showChildNodeTypes=False,
+                                                         addEnabled=True, removeEnabled=True, noneEnabled=True,
                                                          selectNodeUponCreation=True, toolTip="Select measurement report")
     self.imageVolumeSelector.addAttribute("vtkMRMLTableNode", "Reporting", None)
     self.selectionAreaWidget = qt.QWidget()
@@ -161,30 +172,28 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.fourUpSliceLayoutButton = FourUpLayoutButton()
     self.fourUpSliceTableViewLayoutButton = FourUpTableViewLayoutButton()
     self.crosshairButton = CrosshairButton()
-    self.windowLevelEffectsButton = WindowLevelEffectsButton()
 
     hbox = self.createHLayout([self.redSliceLayoutButton, self.fourUpSliceLayoutButton,
-                               self.fourUpSliceTableViewLayoutButton, self.crosshairButton,
-                               self.windowLevelEffectsButton])
+                               self.fourUpSliceTableViewLayoutButton, self.crosshairButton])
     hbox.layout().addStretch(1)
     self.layout.addWidget(hbox)
 
   def setupSegmentationsArea(self):
-    self.segmentationWidget = qt.QGroupBox("Segmentations")
-    self.segmentationWidgetLayout = qt.QFormLayout()
-    self.segmentationWidget.setLayout(self.segmentationWidgetLayout)
-    self.segmentEditorWidget = ReportingSegmentEditorWidget(parent=self.segmentationWidget)
+    self.segmentationGroupBox = qt.QGroupBox("Segmentations")
+    self.segmentationGroupBoxLayout = qt.QFormLayout()
+    self.segmentationGroupBox.setLayout(self.segmentationGroupBoxLayout)
+    self.segmentEditorWidget = ReportingSegmentEditorWidget(parent=self.segmentationGroupBox)
     self.segmentEditorWidget.setup()
-    self.layout.addWidget(self.segmentationWidget)
+    self.layout.addWidget(self.segmentationGroupBox)
 
   def setupMeasurementsArea(self):
-    self.measurementsWidget = qt.QGroupBox("Measurements")
-    self.measurementsWidgetLayout = qt.QVBoxLayout()
-    self.measurementsWidget.setLayout(self.measurementsWidgetLayout)
+    self.measurementsGroupBox = qt.QGroupBox("Measurements")
+    self.measurementsGroupBoxLayout = qt.QVBoxLayout()
+    self.measurementsGroupBox.setLayout(self.measurementsGroupBoxLayout)
     self.tableView = slicer.qMRMLTableView()
     self.tableView.minimumHeight = 150
-    self.measurementsWidgetLayout.addWidget(self.tableView)
-    self.layout.addWidget(self.measurementsWidget)
+    self.measurementsGroupBoxLayout.addWidget(self.tableView)
+    self.layout.addWidget(self.measurementsGroupBox)
 
   def setupActionButtons(self):
     self.saveReportButton = self.createButton("Save Report")
@@ -194,7 +203,8 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def setupConnections(self, funcName="connect"):
 
     def setupSelectorConnections():
-      getattr(self.imageVolumeSelector, funcName)('currentNodeChanged(vtkMRMLNode*)', self.onImageVolumeSelectorChanged)
+      getattr(self.imageVolumeSelector, funcName)('currentNodeChanged(vtkMRMLNode*)', self.onImageVolumeSelected)
+      getattr(self.measurementReportSelector, funcName)('currentNodeChanged(vtkMRMLNode*)', self.onMeasurementReportSelected)
 
     def setupButtonConnections():
       getattr(self.saveReportButton.clicked, funcName)(self.onSaveReportButtonClicked)
@@ -210,36 +220,44 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
 
   def removeSegmentationObserver(self):
     if self.segmentation and len(self.segmentationObservers):
-      for observer in self.segmentationObservers:
+      while len(self.segmentationObservers):
+        observer = self.segmentationObservers.pop()
         self.segmentation.RemoveObserver(observer)
-      self.segmentationObservers = []
     self.segNode = None
 
   def onLayoutChanged(self, layout):
     self.onDisplayMeasurementsTable()
 
-  def onImageVolumeSelectorChanged(self, node):
+  @priorCall(refreshUIElementsAvailability)
+  def onImageVolumeSelected(self, node):
     # TODO: save, cleanup open sessions
     self.removeSegmentationObserver()
     self.initializeWatchBox(node)
-    if node:
-      if node in self.segReferencedMasterVolume.keys():
-        self.segmentEditorWidget.editor.setSegmentationNode(self.segNode)
-      else:
-        self.segReferencedMasterVolume[node] = self.createNewSegmentation(node)
-      self.segNode = self.segReferencedMasterVolume[node]
-      self.setupSegmentationObservers()
-    else:
+    if not node:
       self.segmentEditorWidget.clearSegmentationEditorSelectors()
+      return
+    if node in self.segReferencedMasterVolume.keys():
+      self.segmentEditorWidget.editor.setSegmentationNode(self.segNode)
+    else:
+      self.segReferencedMasterVolume[node] = self.createNewSegmentation(node)
+    self.segNode = self.segReferencedMasterVolume[node]
+    self.setupSegmentationObservers()
+
+  @priorCall(refreshUIElementsAvailability)
+  def onMeasurementReportSelected(self, node):
+    if node is None:
+      self.imageVolumeSelector.setCurrentNode(None)
+    # TODO: create reference to segmentation node
+    # TODO: segmentationNode holds references to volume
+    pass
 
   def setupSegmentationObservers(self):
-    if self.segmentation:
-      self.segmentationObservers.append(self.segmentation.AddObserver(vtkCoreSeg.vtkSegmentation.SegmentAdded,
-                                                                      self.onSegmentationNodeChanged))
-      self.segmentationObservers.append(self.segmentation.AddObserver(vtkCoreSeg.vtkSegmentation.SegmentRemoved,
-                                                                      self.onSegmentationNodeChanged))
-      self.segmentationObservers.append(self.segmentation.AddObserver(vtkCoreSeg.vtkSegmentation.MasterRepresentationModified,
-                                        self.onSegmentationNodeChanged))
+    if not self.segmentation:
+      return
+    segmentationEvents = [vtkCoreSeg.vtkSegmentation.SegmentAdded, vtkCoreSeg.vtkSegmentation.SegmentRemoved,
+                          vtkCoreSeg.vtkSegmentation.MasterRepresentationModified]
+    for event in segmentationEvents:
+      self.segmentationObservers.append(self.segmentation.AddObserver(event, self.onSegmentationNodeChanged))
 
   def initializeWatchBox(self, node):
     try:
@@ -255,7 +273,6 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.segmentEditorWidget.editor.setMasterVolumeNode(masterNode)
     return segNode
 
-  @logmethod()
   def onSegmentationNodeChanged(self, observer=None, caller=None):
     if not self.segmentationLabelMapDummy:
       self.segmentationLabelMapDummy = slicer.vtkMRMLLabelMapVolumeNode()
@@ -277,7 +294,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       self.tableView.setMRMLTableNode(None)
 
   def onDisplayMeasurementsTable(self):
-    self.measurementsWidget.visible = not self.layoutManager.layout == self.fourUpSliceTableViewLayoutButton.LAYOUT
+    self.measurementsGroupBox.visible = not self.layoutManager.layout == self.fourUpSliceTableViewLayoutButton.LAYOUT
     if self.layoutManager.layout == self.fourUpSliceTableViewLayoutButton.LAYOUT:
       if self.tableNode:
         slicer.app.applicationLogic().GetSelectionNode().SetReferenceActiveTableID(self.tableNode.GetID())
@@ -479,9 +496,6 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
   def hideUnwantedEditorUIElements(self):
     self.editor.segmentationNodeSelectorVisible = False
     self.editor.masterVolumeNodeSelectorVisible = False
-    for widgetName in ["OptionsGroupBox", "MaskingGroupBox"]:
-      widget = slicer.util.findChildren(self.editor, widgetName)[0]
-      widget.hide()
 
   def reorganizeEffectButtons(self):
     widget = slicer.util.findChildren(self.editor, "EffectsGroupBox")[0]
