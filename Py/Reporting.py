@@ -509,6 +509,9 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
       undo.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Expanding)
       redo.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Expanding)
       self.layout.addWidget(self.createHLayout([undo, redo]))
+    for widgetName in ["OptionsGroupBox", "MaskingGroupBox"]:
+      widget = slicer.util.findChildren(self.editor, widgetName)[0]
+      self.layout.addWidget(widget)
 
   def enter(self):
     # overridden because SegmentEditorWidget automatically creates a new Segmentation upon instantiation
