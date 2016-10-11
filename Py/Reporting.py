@@ -91,7 +91,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def refreshUIElementsAvailability(self):
     self.imageVolumeSelector.enabled = self.measurementReportSelector.currentNode() is not None
     self.segmentationGroupBox.enabled = self.imageVolumeSelector.currentNode() is not None
-    self.measurementsGroupBox.enabled = False  # TODO: enabled if has measurements
+    self.measurementsGroupBox.enabled = self.imageVolumeSelector.currentNode() is not None  # TODO: enabled if has measurements
 
   @postCall(refreshUIElementsAvailability)
   def setup(self):
@@ -346,9 +346,9 @@ class ReportingLogic(ScriptedLoadableModuleLogic):
       if 'mismatch' in warnings:
         resampledLabelNode = self.volumesLogic.ResampleVolumeToReferenceVolume(labelNode, grayscaleNode)
         # resampledLabelNode does not have a display node, therefore the colorNode has to be passed to it
-        labelStatisticsLogic = LabelStatisticsLogic(grayscaleNode, resampledLabelNode,
-                                                    colorNode=labelNode.GetDisplayNode().GetColorNode(),
-                                                    nodeBaseName=labelNode.GetName())
+        labelStatisticsLogic = CustomLabelStatisticsLogic(grayscaleNode, resampledLabelNode,
+                                                          colorNode=labelNode.GetDisplayNode().GetColorNode(),
+                                                          nodeBaseName=labelNode.GetName())
         slicer.mrmlScene.RemoveNode(resampledLabelNode)
       else:
         raise ValueError("Volumes do not have the same geometry.\n%s" % warnings)
@@ -422,7 +422,7 @@ class ReportingTest(ScriptedLoadableModuleTest):
 
     volumeNode = slicer.util.getNode(pattern="FA")
     logic = ReportingLogic()
-    self.assertIsNotNone( logic.hasImageData(volumeNode) )
+    self.assertIsNotNone(logic.hasImageData(volumeNode))
     self.delayDisplay('Test passed!')
 
 
@@ -521,3 +521,45 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
     # Set parameter set node if absent
     self.selectParameterNode()
     self.editor.updateWidgetFromMRML()
+
+
+class CustomLabelStatisticsLogic(LabelStatisticsLogic):
+
+  def __init__(self, grayscaleNode, labelNode, colorNode=None, nodeBaseName=None, fileName=None):
+    LabelStatisticsLogic.__init__(self, grayscaleNode, labelNode, colorNode, nodeBaseName, fileName)
+    # TODO: maybe provide segments here in order to directly set the segment names for the output table
+
+  def exportToTable(self):
+    table = slicer.vtkMRMLTableNode()
+    table.SetUseColumnNameAsColumnHeader(True)
+    tableWasModified = table.StartModify()
+
+    table.SetName(slicer.mrmlScene.GenerateUniqueName(self.nodeBaseName + ' statistics'))
+
+    keys, labelStats = self.customizeLabelStats()
+    for k in keys:
+      col = table.AddColumn()
+      col.SetName(k)
+    for labelValue in labelStats["Labels"]:
+      if labelValue == 0:
+        continue
+      rowIndex = table.AddEmptyRow()
+      for columnIndex, k in enumerate(keys):
+        table.SetCellText(rowIndex, columnIndex, str(labelStats[labelValue, k]))
+
+    table.EndModify(tableWasModified)
+    return table
+
+  def customizeLabelStats(self):
+    colorNode = self.getColorNode()
+    if not colorNode:
+      return self.keys, self.labelStats
+
+    labelStats = self.labelStats.copy()
+    keys = ["Segment Name"] + list(self.keys)
+    keys.remove("Index")
+
+    for labelValue in labelStats["Labels"]:
+      # TODO: get segment name directly from segments
+      labelStats[labelValue, "Segment Name"] = self.colorNode.GetColorName(labelValue)
+    return keys, labelStats
