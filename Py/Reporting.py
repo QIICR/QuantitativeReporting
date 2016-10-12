@@ -284,7 +284,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       try:
         if self.tableNode:
           slicer.mrmlScene.RemoveNode(self.tableNode)
-        self.tableNode = self.logic.calculateLabelStatistics(self.segmentationLabelMapDummy, grayscaleNode)
+        self.tableNode = self.logic.calculateLabelStatistics(self.segNode, self.segmentationLabelMapDummy, grayscaleNode)
         self.tableNode.SetLocked(True)
         self.tableView.setMRMLTableNode(self.tableNode)
         self.onDisplayMeasurementsTable()
@@ -340,27 +340,34 @@ class ReportingLogic(ScriptedLoadableModuleLogic):
     ScriptedLoadableModuleLogic.__init__(self, parent)
     self.volumesLogic = slicer.modules.volumes.logic()
 
-  def calculateLabelStatistics(self, labelNode, grayscaleNode):
+  def calculateLabelStatistics(self, segNode, labelNode, grayscaleNode):
     warnings = self.volumesLogic.CheckForLabelVolumeValidity(grayscaleNode, labelNode)
     if warnings != "":
       if 'mismatch' in warnings:
         resampledLabelNode = self.volumesLogic.ResampleVolumeToReferenceVolume(labelNode, grayscaleNode)
         # resampledLabelNode does not have a display node, therefore the colorNode has to be passed to it
-        labelStatisticsLogic = CustomLabelStatisticsLogic(grayscaleNode, resampledLabelNode,
+        segments = self.getSegments(segNode)
+        self.labelStatisticsLogic = CustomLabelStatisticsLogic(segments, grayscaleNode, resampledLabelNode,
                                                           colorNode=labelNode.GetDisplayNode().GetColorNode(),
                                                           nodeBaseName=labelNode.GetName())
         slicer.mrmlScene.RemoveNode(resampledLabelNode)
       else:
         raise ValueError("Volumes do not have the same geometry.\n%s" % warnings)
     else:
-      labelStatisticsLogic = LabelStatisticsLogic(grayscaleNode, labelNode)
+      self.labelStatisticsLogic = LabelStatisticsLogic(grayscaleNode, labelNode)
 
     # TODO: manually pick information from labelStatisticsLogic.labelStats
 
-    tableNode = labelStatisticsLogic.exportToTable()
+    tableNode = self.labelStatisticsLogic.exportToTable()
     tableNode.SetAttribute("Reporting", "Yes")
     slicer.mrmlScene.AddNode(tableNode)
     return tableNode
+
+  def getSegments(self, segNode):
+    segmentation = segNode.GetSegmentation()
+    segmentIDs = vtk.vtkStringArray()
+    segmentation.GetSegmentIDs(segmentIDs)
+    return [segmentation.GetSegment(segmentIDs.GetValue(idx)) for idx in range(segmentIDs.GetNumberOfValues())]
 
   def getActiveSlicerTableID(self):
     return slicer.app.applicationLogic().GetSelectionNode().GetActiveTableID()
@@ -525,8 +532,9 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
 
 class CustomLabelStatisticsLogic(LabelStatisticsLogic):
 
-  def __init__(self, grayscaleNode, labelNode, colorNode=None, nodeBaseName=None, fileName=None):
+  def __init__(self, segments, grayscaleNode, labelNode, colorNode=None, nodeBaseName=None, fileName=None):
     LabelStatisticsLogic.__init__(self, grayscaleNode, labelNode, colorNode, nodeBaseName, fileName)
+    self.segments = segments
     # TODO: maybe provide segments here in order to directly set the segment names for the output table
 
   def exportToTable(self):
@@ -541,8 +549,6 @@ class CustomLabelStatisticsLogic(LabelStatisticsLogic):
       col = table.AddColumn()
       col.SetName(k)
     for labelValue in labelStats["Labels"]:
-      if labelValue == 0:
-        continue
       rowIndex = table.AddEmptyRow()
       for columnIndex, k in enumerate(keys):
         table.SetCellText(rowIndex, columnIndex, str(labelStats[labelValue, k]))
@@ -559,7 +565,11 @@ class CustomLabelStatisticsLogic(LabelStatisticsLogic):
     keys = ["Segment Name"] + list(self.keys)
     keys.remove("Index")
 
-    for labelValue in labelStats["Labels"]:
-      # TODO: get segment name directly from segments
-      labelStats[labelValue, "Segment Name"] = self.colorNode.GetColorName(labelValue)
+    try:
+      del labelStats["Labels"][0] # Black label
+    except KeyError:
+      pass
+
+    for segment, labelValue in zip(self.segments, labelStats["Labels"]):
+      labelStats[labelValue, "Segment Name"] = segment.GetName()
     return keys, labelStats
