@@ -91,7 +91,14 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def refreshUIElementsAvailability(self):
     self.imageVolumeSelector.enabled = self.measurementReportSelector.currentNode() is not None
     self.segmentationGroupBox.enabled = self.imageVolumeSelector.currentNode() is not None
-    self.measurementsGroupBox.enabled = self.imageVolumeSelector.currentNode() is not None  # TODO: enabled if has measurements
+    self.measurementsGroupBox.enabled = self.hasSegments()
+
+  def hasSegments(self):
+    if not self.segNode:
+      return False
+    segmentIDs = vtk.vtkStringArray()
+    self.segNode.GetSegmentation().GetSegmentIDs(segmentIDs)
+    return segmentIDs.GetNumberOfValues() > 0
 
   @postCall(refreshUIElementsAvailability)
   def setup(self):
@@ -196,8 +203,12 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.layout.addWidget(self.measurementsGroupBox)
 
   def setupActionButtons(self):
+    self.calculateMeasurementsButton = self.createButton("Calculate Measurements")
+    self.calculateAutomaticallyCheckbox = qt.QCheckBox("Auto Update")
+    self.calculateAutomaticallyCheckbox.checked = True
     self.saveReportButton = self.createButton("Save Report")
     self.completeReportButton = self.createButton("Complete Report")
+    self.layout.addWidget(self.createHLayout([self.calculateMeasurementsButton, self.calculateAutomaticallyCheckbox]))
     self.layout.addWidget(self.createHLayout([self.saveReportButton, self.completeReportButton]))
 
   def setupConnections(self, funcName="connect"):
@@ -211,9 +222,14 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       getattr(self.completeReportButton.clicked, funcName)(self.onCompleteReportButtonClicked)
 
     getattr(self.layoutManager.layoutChanged, funcName)(self.onLayoutChanged)
+    getattr(self.calculateAutomaticallyCheckbox.toggled, funcName)(self.onCalcAutomaticallyToggled)
 
     setupSelectorConnections()
     setupButtonConnections()
+
+  def onCalcAutomaticallyToggled(self, checked):
+    if checked:
+      self.onSegmentationNodeChanged()
 
   def removeConnections(self):
     self.setupConnections(funcName="disconnect")
@@ -255,7 +271,8 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     if not self.segmentation:
       return
     segmentationEvents = [vtkCoreSeg.vtkSegmentation.SegmentAdded, vtkCoreSeg.vtkSegmentation.SegmentRemoved,
-                          vtkCoreSeg.vtkSegmentation.MasterRepresentationModified]
+                          vtkCoreSeg.vtkSegmentation.SegmentModified,
+                          vtkCoreSeg.vtkSegmentation.RepresentationModified]
     for event in segmentationEvents:
       self.segmentationObservers.append(self.segmentation.AddObserver(event, self.onSegmentationNodeChanged))
 
@@ -273,12 +290,18 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.segmentEditorWidget.editor.setMasterVolumeNode(masterNode)
     return segNode
 
+  @postCall(refreshUIElementsAvailability)
   def onSegmentationNodeChanged(self, observer=None, caller=None):
     if not self.segmentationLabelMapDummy:
       self.segmentationLabelMapDummy = slicer.vtkMRMLLabelMapVolumeNode()
       slicer.mrmlScene.AddNode(self.segmentationLabelMapDummy)
     if self.tableNode and self.tableNode.GetID() == self.logic.getActiveSlicerTableID():
       slicer.mrmlScene.RemoveNode(self.tableNode)
+
+    if not self.calculateAutomaticallyCheckbox.checked:
+      # TODO: mark table as old (maybe with styling border red)
+      return
+
     if self.segmentationsLogic.ExportAllSegmentsToLabelmapNode(self.segNode, self.segmentationLabelMapDummy):
       grayscaleNode = self.segReferencedMasterVolume.keys()[self.segReferencedMasterVolume.values().index(self.segNode)]
       try:
