@@ -29,7 +29,7 @@ class qSlicerReportingModuleWidget:
     self.__logic  = slicer.modules.reporting.logic()
     if not self.__logic:
       # create a new instance
-      self.__logic = slicer.modulelogic.vtkSlicerReportingModuleLogic()
+      self.__logic = slicer.vtkSlicerReportingModuleLogic()
 
     # Get the location and initialize the DICOM DB
     settings = qt.QSettings()
@@ -507,7 +507,7 @@ class qSlicerReportingModuleWidget:
     Helper.Debug('onReportImport')    
 
     # For now, always create a new report node
-    newReport = slicer.modulemrml.vtkMRMLReportingReportNode()
+    newReport = slicer.vtkMRMLReportingReportNode()
 
     # always use the default color map
     newReport.SetColorNodeID(self.__defaultColorNode.GetID())
