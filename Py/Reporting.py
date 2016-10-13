@@ -41,25 +41,14 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
-  @property
-  def segmentation(self):
-    try:
-      return self.segNode.GetSegmentation()
-    except AttributeError:
-      return None
-
   def __init__(self, parent=None):
     ScriptedLoadableModuleWidget.__init__(self, parent)
-    self.logic = ReportingLogic()
     self.segmentationsLogic = slicer.modules.segmentations.logic()
 
   def initializeMembers(self):
     self.segReferencedMasterVolume = {} # TODO: maybe also add created table so that there is no need to recalculate everything?
-    self.tNode = None
     self.tableNode = None
-    self.segNode = None
     self.segmentationObservers = []
-    self.segmentationLabelMapDummy = None
 
   def onReload(self):
     self.cleanupUIElements()
@@ -91,14 +80,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def refreshUIElementsAvailability(self):
     self.imageVolumeSelector.enabled = self.measurementReportSelector.currentNode() is not None
     self.segmentationGroupBox.enabled = self.imageVolumeSelector.currentNode() is not None
-    self.measurementsGroupBox.enabled = self.hasSegments()
-
-  def hasSegments(self):
-    if not self.segNode:
-      return False
-    segmentIDs = vtk.vtkStringArray()
-    self.segNode.GetSegmentation().GetSegmentIDs(segmentIDs)
-    return segmentIDs.GetNumberOfValues() > 0
+    self.measurementsGroupBox.enabled = len(self.segmentEditorWidget.segments)
 
   @postCall(refreshUIElementsAvailability)
   def setup(self):
@@ -227,18 +209,18 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     setupSelectorConnections()
     setupButtonConnections()
 
+  def removeConnections(self):
+    self.setupConnections(funcName="disconnect")
+
   def onCalcAutomaticallyToggled(self, checked):
     if checked:
       self.onSegmentationNodeChanged()
 
-  def removeConnections(self):
-    self.setupConnections(funcName="disconnect")
-
   def removeSegmentationObserver(self):
-    if self.segmentation and len(self.segmentationObservers):
+    if self.segmentEditorWidget.segmentation and len(self.segmentationObservers):
       while len(self.segmentationObservers):
         observer = self.segmentationObservers.pop()
-        self.segmentation.RemoveObserver(observer)
+        self.segmentEditorWidget.segmentation.RemoveObserver(observer)
     self.segNode = None
 
   def onLayoutChanged(self, layout):
@@ -246,17 +228,15 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
 
   @priorCall(refreshUIElementsAvailability)
   def onImageVolumeSelected(self, node):
-    # TODO: save, cleanup open sessions
     self.removeSegmentationObserver()
+    self.segmentEditorWidget.clearSegmentationEditorSelectors()
     self.initializeWatchBox(node)
-    if not node:
-      self.segmentEditorWidget.clearSegmentationEditorSelectors()
-      return
     if node in self.segReferencedMasterVolume.keys():
-      self.segmentEditorWidget.editor.setSegmentationNode(self.segNode)
+      self.segmentEditorWidget.segmentationNode = self.segReferencedMasterVolume[node]
     else:
-      self.segReferencedMasterVolume[node] = self.createNewSegmentation(node)
-    self.segNode = self.segReferencedMasterVolume[node]
+      self.segReferencedMasterVolume[node] = self.createNewSegmentation()
+      self.segmentEditorWidget.segmentationNode = self.segReferencedMasterVolume[node]
+    self.segmentEditorWidget.masterVolumeNode = node
     self.setupSegmentationObservers()
 
   @priorCall(refreshUIElementsAvailability)
@@ -268,13 +248,14 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     pass
 
   def setupSegmentationObservers(self):
-    if not self.segmentation:
+    segNode = self.segmentEditorWidget.segmentation
+    if not segNode:
       return
     segmentationEvents = [vtkCoreSeg.vtkSegmentation.SegmentAdded, vtkCoreSeg.vtkSegmentation.SegmentRemoved,
                           vtkCoreSeg.vtkSegmentation.SegmentModified,
                           vtkCoreSeg.vtkSegmentation.RepresentationModified]
     for event in segmentationEvents:
-      self.segmentationObservers.append(self.segmentation.AddObserver(event, self.onSegmentationNodeChanged))
+      self.segmentationObservers.append(segNode.AddObserver(event, self.onSegmentationNodeChanged))
 
   def initializeWatchBox(self, node):
     try:
@@ -283,45 +264,32 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     except AttributeError:
       self.watchBox.sourceFile = None
 
-  def createNewSegmentation(self, masterNode):
+  def createNewSegmentation(self):
     segNode = slicer.vtkMRMLSegmentationNode()
     slicer.mrmlScene.AddNode(segNode)
-    self.segmentEditorWidget.editor.setSegmentationNode(segNode)
-    self.segmentEditorWidget.editor.setMasterVolumeNode(masterNode)
     return segNode
 
   @postCall(refreshUIElementsAvailability)
   def onSegmentationNodeChanged(self, observer=None, caller=None):
-    if not self.segmentationLabelMapDummy:
-      self.segmentationLabelMapDummy = slicer.vtkMRMLLabelMapVolumeNode()
-      slicer.mrmlScene.AddNode(self.segmentationLabelMapDummy)
-    if self.tableNode and self.tableNode.GetID() == self.logic.getActiveSlicerTableID():
-      slicer.mrmlScene.RemoveNode(self.tableNode)
-
     if not self.calculateAutomaticallyCheckbox.checked:
       # TODO: mark table as old (maybe with styling border red)
       return
 
-    if self.segmentationsLogic.ExportAllSegmentsToLabelmapNode(self.segNode, self.segmentationLabelMapDummy):
-      grayscaleNode = self.segReferencedMasterVolume.keys()[self.segReferencedMasterVolume.values().index(self.segNode)]
-      try:
-        if self.tableNode:
-          slicer.mrmlScene.RemoveNode(self.tableNode)
-        self.tableNode = self.logic.calculateLabelStatistics(self.segNode, self.segmentationLabelMapDummy, grayscaleNode)
-        self.tableNode.SetLocked(True)
-        self.tableView.setMRMLTableNode(self.tableNode)
-        self.onDisplayMeasurementsTable()
-      except ValueError as exc:
-        slicer.util.warnDisplay(exc.message, windowTitle="Label Statistics")
-    else:
-      self.tableView.setMRMLTableNode(None)
+    table = self.segmentEditorWidget.calculateLabelStatistics(self.tableNode)
+    if table:
+      self.tableNode = table
+      self.tableNode.SetLocked(True)
+      self.tableView.setMRMLTableNode(self.tableNode)
+    self.onDisplayMeasurementsTable()
+
+  def getActiveSlicerTableID(self):
+    return slicer.app.applicationLogic().GetSelectionNode().GetActiveTableID()
 
   def onDisplayMeasurementsTable(self):
     self.measurementsGroupBox.visible = not self.layoutManager.layout == self.fourUpSliceTableViewLayoutButton.LAYOUT
-    if self.layoutManager.layout == self.fourUpSliceTableViewLayoutButton.LAYOUT:
-      if self.tableNode:
-        slicer.app.applicationLogic().GetSelectionNode().SetReferenceActiveTableID(self.tableNode.GetID())
-        slicer.app.applicationLogic().PropagateTableSelection()
+    if self.layoutManager.layout == self.fourUpSliceTableViewLayoutButton.LAYOUT and self.tableNode:
+      slicer.app.applicationLogic().GetSelectionNode().SetReferenceActiveTableID(self.tableNode.GetID())
+      slicer.app.applicationLogic().PropagateTableSelection()
 
   def onSaveReportButtonClicked(self):
     self.createJSON()
@@ -347,58 +315,6 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     data = {}
     data["ContentCreatorName"] = self.watchBox.getAttribute("Reader").value
     return data
-
-
-class ReportingLogic(ScriptedLoadableModuleLogic):
-  """This class should implement all the actual
-  computation done by your module.  The interface
-  should be such that other python code can import
-  this class and make use of the functionality without
-  requiring an instance of the Widget.
-  Uses ScriptedLoadableModuleLogic base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
-  """
-
-  def __init__(self, parent=None):
-    ScriptedLoadableModuleLogic.__init__(self, parent)
-    self.volumesLogic = slicer.modules.volumes.logic()
-
-  def calculateLabelStatistics(self, segNode, labelNode, grayscaleNode):
-    warnings = self.volumesLogic.CheckForLabelVolumeValidity(grayscaleNode, labelNode)
-    if warnings != "":
-      if 'mismatch' in warnings:
-        resampledLabelNode = self.volumesLogic.ResampleVolumeToReferenceVolume(labelNode, grayscaleNode)
-        # resampledLabelNode does not have a display node, therefore the colorNode has to be passed to it
-        segments = self.getSegments(segNode)
-        self.labelStatisticsLogic = CustomLabelStatisticsLogic(segments, grayscaleNode, resampledLabelNode,
-                                                          colorNode=labelNode.GetDisplayNode().GetColorNode(),
-                                                          nodeBaseName=labelNode.GetName())
-        slicer.mrmlScene.RemoveNode(resampledLabelNode)
-      else:
-        raise ValueError("Volumes do not have the same geometry.\n%s" % warnings)
-    else:
-      self.labelStatisticsLogic = LabelStatisticsLogic(grayscaleNode, labelNode)
-
-    # TODO: manually pick information from labelStatisticsLogic.labelStats
-
-    tableNode = self.labelStatisticsLogic.exportToTable()
-    tableNode.SetAttribute("Reporting", "Yes")
-    slicer.mrmlScene.AddNode(tableNode)
-    return tableNode
-
-  def getSegments(self, segNode):
-    segmentation = segNode.GetSegmentation()
-    segmentIDs = vtk.vtkStringArray()
-    segmentation.GetSegmentIDs(segmentIDs)
-    return [segmentation.GetSegment(segmentIDs.GetValue(idx)) for idx in range(segmentIDs.GetNumberOfValues())]
-
-  def getActiveSlicerTableID(self):
-    return slicer.app.applicationLogic().GetSelectionNode().GetActiveTableID()
-
-  def loadFromJSON(self, data):
-    # TODO: think about what and how to load the data
-
-    pass
 
 
 class ReportingTest(ScriptedLoadableModuleTest):
@@ -451,16 +367,35 @@ class ReportingTest(ScriptedLoadableModuleTest):
     self.delayDisplay('Finished with download and loading')
 
     volumeNode = slicer.util.getNode(pattern="FA")
-    logic = ReportingLogic()
-    self.assertIsNotNone(logic.hasImageData(volumeNode))
     self.delayDisplay('Test passed!')
 
 
 class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
 
   @property
-  def segNode(self):
-      return self.editor.segmentationNode()
+  def segmentationNode(self):
+    return self.editor.segmentationNode()
+
+  @segmentationNode.setter
+  def segmentationNode(self, value):
+    self.editor.setSegmentationNode(value)
+
+  @property
+  def masterVolumeNode(self):
+    return self.editor.masterVolumeNode()
+
+  @masterVolumeNode.setter
+  def masterVolumeNode(self, value):
+    self.editor.setMasterVolumeNode(value)
+
+  @property
+  @onExceptionReturnNone
+  def segmentation(self):
+    return self.segmentationNode.GetSegmentation()
+
+  @property
+  def segments(self):
+    return self.logic.getSegments(self.segmentation)
 
   @property
   def table(self):
@@ -471,9 +406,6 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
   def tableWidget(self):
     return self.table.tableWidget()
 
-  def __init__(self, parent):
-    super(ReportingSegmentEditorWidget, self).__init__(parent)
-
   @onExceptionReturnNone
   def find(self, objectName):
     return self.findAll(objectName)[0]
@@ -481,11 +413,17 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
   def findAll(self, objectName):
     return slicer.util.findChildren(self.editor, objectName)
 
+  def __init__(self, parent):
+    SegmentEditorWidget.__init__(self, parent)
+    self.logic = ReportingSegmentEditorLogic()
+
   def setup(self):
     super(ReportingSegmentEditorWidget, self).setup()
     self.reloadCollapsibleButton.hide()
     self.hideUnwantedEditorUIElements()
     self.reorganizeEffectButtons()
+    self.changeUndoRedoSizePolicies()
+    self.appendOptionsAndMaskingGroupBoxAtTheEnd()
     self.clearSegmentationEditorSelectors()
     self.setupConnections()
 
@@ -494,30 +432,16 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
 
   def onSegmentSelected(self, item):
     try:
-      segmentation = self.segNode.GetSegmentation()
-      segmentIDs = vtk.vtkStringArray()
-      segmentation.GetSegmentIDs(segmentIDs)
-      if segmentIDs.GetNumberOfValues():
-        segmentID = segmentIDs.GetValue(item.row()) # row
-        segment = segmentation.GetSegment(segmentID)
-        self.jumpToSegmentCenter(segment)
+      segment = self.segments[item.row()]
+      self.jumpToSegmentCenter(segment)
     except IndexError:
       pass
 
   def jumpToSegmentCenter(self, segment):
-    segmentationsLogic = slicer.modules.segmentations.logic()
-    binData = segment.GetRepresentation("Binary labelmap")
-    extent = binData.GetExtent()
-    if extent[1] != -1 and extent[3] != -1 and extent[5] != -1:
-      tempLabel = slicer.vtkMRMLLabelMapVolumeNode()
-      slicer.mrmlScene.AddNode(tempLabel)
-      tempLabel.SetName(segment.GetName() + "CentroidHelper")
-      segmentationsLogic.CreateLabelmapVolumeFromOrientedImageData(binData, tempLabel)
-      centroid = ModuleLogicMixin.getCentroidForLabel(tempLabel, 1)
-      if centroid:
-        markupsLogic = slicer.modules.markups.logic()
-        markupsLogic.JumpSlicesToLocation(centroid[0], centroid[1], centroid[2], False)
-      slicer.mrmlScene.RemoveNode(tempLabel)
+    centroid = self.logic.getSegmentCentroid(segment)
+    if centroid:
+      markupsLogic = slicer.modules.markups.logic()
+      markupsLogic.JumpSlicesToLocation(centroid[0], centroid[1], centroid[2], False)
 
   def clearSegmentationEditorSelectors(self):
     self.editor.setSegmentationNode(None)
@@ -528,20 +452,24 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
     self.editor.masterVolumeNodeSelectorVisible = False
 
   def reorganizeEffectButtons(self):
-    widget = slicer.util.findChildren(self.editor, "EffectsGroupBox")[0]
+    widget = self.find("EffectsGroupBox")
     if widget:
       buttons = [b for b in widget.children() if isinstance(b, qt.QPushButton)]
       self.layout.addWidget(self.createHLayout(buttons))
       widget.hide()
-    undo = slicer.util.findChildren(self.editor, "UndoButton")[0]
-    redo = slicer.util.findChildren(self.editor, "RedoButton")[0]
+
+  def appendOptionsAndMaskingGroupBoxAtTheEnd(self):
+    for widgetName in ["OptionsGroupBox", "MaskingGroupBox"]:
+      widget = self.find(widgetName)
+      self.layout.addWidget(widget)
+
+  def changeUndoRedoSizePolicies(self):
+    undo = self.find("UndoButton")
+    redo = self.find("RedoButton")
     if undo and redo:
       undo.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Expanding)
       redo.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Expanding)
       self.layout.addWidget(self.createHLayout([undo, redo]))
-    for widgetName in ["OptionsGroupBox", "MaskingGroupBox"]:
-      widget = slicer.util.findChildren(self.editor, widgetName)[0]
-      self.layout.addWidget(widget)
 
   def enter(self):
     # overridden because SegmentEditorWidget automatically creates a new Segmentation upon instantiation
@@ -551,6 +479,74 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
     # Set parameter set node if absent
     self.selectParameterNode()
     self.editor.updateWidgetFromMRML()
+
+  def calculateLabelStatistics(self, tableNode):
+    return self.logic.calculateLabelStatistics(self.segmentationNode, self.masterVolumeNode, tableNode)
+
+
+class ReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
+
+  def __init__(self, parent=None):
+    ScriptedLoadableModuleLogic.__init__(self, parent)
+    self.parent = parent
+    self.volumesLogic = slicer.modules.volumes.logic()
+    self.segmentationsLogic = slicer.modules.segmentations.logic()
+
+  def getSegments(self, segmentation):
+    if not segmentation:
+      return []
+    segmentIDs = vtk.vtkStringArray()
+    segmentation.GetSegmentIDs(segmentIDs)
+    return [segmentation.GetSegment(segmentIDs.GetValue(idx)) for idx in range(segmentIDs.GetNumberOfValues())]
+
+  def getSegmentCentroid(self, segment):
+    binData = segment.GetRepresentation("Binary labelmap")
+    extent = binData.GetExtent()
+    if extent[1] != -1 and extent[3] != -1 and extent[5] != -1:
+      tempLabel = slicer.vtkMRMLLabelMapVolumeNode()
+      slicer.mrmlScene.AddNode(tempLabel)
+      tempLabel.SetName(segment.GetName() + "CentroidHelper")
+      self.segmentationsLogic.CreateLabelmapVolumeFromOrientedImageData(binData, tempLabel)
+      centroid = ModuleLogicMixin.getCentroidForLabel(tempLabel, 1)
+      slicer.mrmlScene.RemoveNode(tempLabel)
+      return centroid
+    return None
+
+  def labelMapFromSegmentationNode(self, segNode):
+    labelNode = slicer.vtkMRMLLabelMapVolumeNode()
+    slicer.mrmlScene.AddNode(labelNode)
+    if not self.segmentationsLogic.ExportAllSegmentsToLabelmapNode(segNode, labelNode):
+      slicer.mrmlScene.RemoveNode(labelNode)
+      return None
+    return labelNode
+
+  def calculateLabelStatistics(self, segNode, grayscaleNode, tableNode=None):
+    labelNode = self.labelMapFromSegmentationNode(segNode)
+    if not labelNode:
+      return None
+    segments = self.getSegments(segNode.GetSegmentation())
+    warnings = self.volumesLogic.CheckForLabelVolumeValidity(grayscaleNode, labelNode)
+    if warnings != "":
+      if 'mismatch' in warnings:
+        resampledLabelNode = self.volumesLogic.ResampleVolumeToReferenceVolume(labelNode, grayscaleNode)
+        labelStatisticsLogic = CustomLabelStatisticsLogic(segments, grayscaleNode, resampledLabelNode,
+                                                               colorNode=labelNode.GetDisplayNode().GetColorNode(),
+                                                               nodeBaseName=labelNode.GetName())
+        slicer.mrmlScene.RemoveNode(resampledLabelNode)
+      else:
+        raise ValueError("Volumes do not have the same geometry.\n%s" % warnings)
+    else:
+      labelStatisticsLogic = LabelStatisticsLogic(segments, grayscaleNode, labelNode)
+
+    tNode = labelStatisticsLogic.exportToTable()
+    tNode.SetAttribute("Reporting", "Yes")
+    if not tableNode:
+      slicer.mrmlScene.AddNode(tableNode)
+      tableNode = tNode
+    else:
+      tableNode.Copy(tNode)
+    slicer.mrmlScene.RemoveNode(labelNode)
+    return tableNode
 
 
 class CustomLabelStatisticsLogic(LabelStatisticsLogic):
