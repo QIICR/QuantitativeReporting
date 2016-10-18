@@ -58,8 +58,6 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def cleanupUIElements(self):
     self.removeSegmentationObserver()
     self.removeConnections()
-    if self.tableNode:
-      slicer.mrmlScene.RemoveNode(self.tableNode)
     self.initializeMembers()
 
   def removeAllUIElements(self):
@@ -72,7 +70,8 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def exit(self):
     # TODO: export SEG and SR
     # TODO: disconnect from segment editor events
-    self.removeSegmentationObserver()
+    # self.removeSegmentationObserver()
+    pass
 
   def enter(self):
     self.setupSegmentationObservers()
@@ -298,22 +297,31 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def onCompleteReportButtonClicked(self):
     print "on complete report button clicked"
 
-  def onAnnotationReady(self):
-    #TODO: calc measurements (logic) and set table node
-    pass
-
   def createJSON(self):
+    # TODO: Create Json
+    # TODO: Save Segmentation to DICOMDatabase
+    # TODO: Save Structured Report to DICOMDatabase
+    data = dict()
+    try:
+      data["seriesAttributes"] = self._getSeriesAttributes()
+      data["segmentAttributes"] = self.segmentEditorWidget.logic.labelStatisticsLogic.generateJSON4SEG()
+    except (ValueError, AttributeError) as exc:
+      slicer.util.warningDisplay(exc.message if isinstance(exc, ValueError) else "No segments found")
+      return
 
-    data = {}
-    data["seriesAttributes"] = self._getSeriesAttributes()
-
-    print json.dumps(data, indent = 2, separators = (',', ': '))
-
-    return ""
+    print json.dumps(data, indent=2, separators=(',', ': '))
 
   def _getSeriesAttributes(self):
-    data = {}
+    # TODO: populate
+    data = dict()
     data["ContentCreatorName"] = self.watchBox.getAttribute("Reader").value
+    data["ClinicalTrialSeriesID"] = "Session1"
+    data["ClinicalTrialTimePointID"] = "1"
+    data["ClinicalTrialCoordinatingCenterName"] = "BWH"
+    data["SeriesDescription"] = "Segmentation"
+    data["SeriesNumber"] = ModuleLogicMixin.getDICOMValue(self.watchBox.sourceFile, DICOMTAGS.SERIES_NUMBER)
+    data["InstanceNumber"] = ModuleLogicMixin.getDICOMValue(self.watchBox.sourceFile, DICOMTAGS.INSTANCE_NUMBER)
+
     return data
 
 
@@ -491,6 +499,7 @@ class ReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
     self.parent = parent
     self.volumesLogic = slicer.modules.volumes.logic()
     self.segmentationsLogic = slicer.modules.segmentations.logic()
+    self.labelStatisticsLogic = None
 
   def getSegments(self, segmentation):
     if not segmentation:
@@ -529,16 +538,16 @@ class ReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
     if warnings != "":
       if 'mismatch' in warnings:
         resampledLabelNode = self.volumesLogic.ResampleVolumeToReferenceVolume(labelNode, grayscaleNode)
-        labelStatisticsLogic = CustomLabelStatisticsLogic(segments, grayscaleNode, resampledLabelNode,
+        self.labelStatisticsLogic = CustomLabelStatisticsLogic(segments, grayscaleNode, resampledLabelNode,
                                                                colorNode=labelNode.GetDisplayNode().GetColorNode(),
                                                                nodeBaseName=labelNode.GetName())
         slicer.mrmlScene.RemoveNode(resampledLabelNode)
       else:
         raise ValueError("Volumes do not have the same geometry.\n%s" % warnings)
     else:
-      labelStatisticsLogic = LabelStatisticsLogic(segments, grayscaleNode, labelNode)
+      self.labelStatisticsLogic = CustomLabelStatisticsLogic(segments, grayscaleNode, labelNode)
 
-    tNode = labelStatisticsLogic.exportToTable()
+    tNode = self.labelStatisticsLogic.exportToTable()
     tNode.SetAttribute("Reporting", "Yes")
     if not tableNode:
       slicer.mrmlScene.AddNode(tableNode)
@@ -563,32 +572,83 @@ class CustomLabelStatisticsLogic(LabelStatisticsLogic):
 
     table.SetName(slicer.mrmlScene.GenerateUniqueName(self.nodeBaseName + ' statistics'))
 
-    keys, labelStats = self.customizeLabelStats()
-    for k in keys:
+    self.customizeLabelStats()
+    for k in self.keys:
       col = table.AddColumn()
       col.SetName(k)
-    for labelValue in labelStats["Labels"]:
+    for labelValue in self.labelStats["Labels"]:
       rowIndex = table.AddEmptyRow()
-      for columnIndex, k in enumerate(keys):
-        table.SetCellText(rowIndex, columnIndex, str(labelStats[labelValue, k]))
+      for columnIndex, k in enumerate(self.keys):
+        table.SetCellText(rowIndex, columnIndex, str(self.labelStats[labelValue, k]))
 
     table.EndModify(tableWasModified)
     return table
+
+  def filterEmptySegments(self):
+    return [s for s in self.segments if not self.isSegmentEmpty(s)]
 
   def customizeLabelStats(self):
     colorNode = self.getColorNode()
     if not colorNode:
       return self.keys, self.labelStats
 
-    labelStats = self.labelStats.copy()
-    keys = ["Segment Name"] + list(self.keys)
-    keys.remove("Index")
+    self.keys = ["Segment Name"] + list(self.keys)
+    self.keys.remove("Index")
 
     try:
-      del labelStats["Labels"][0] # Black label
+      del self.labelStats["Labels"][0]
     except KeyError:
       pass
 
-    for segment, labelValue in zip(self.segments, labelStats["Labels"]):
-      labelStats[labelValue, "Segment Name"] = segment.GetName()
-    return keys, labelStats
+    segments = self.filterEmptySegments()
+
+    for segment, labelValue in zip(segments, self.labelStats["Labels"]):
+      self.labelStats[labelValue, "Segment Name"] = segment.GetName()
+
+  def generateJSON4SEG(self):
+    self.validateSegments()
+    segmentsData = []
+    segments = self.filterEmptySegments()
+    if not len(segments):
+      raise ValueError("No segments with pixel data found.")
+    for segment, labelValue in zip(segments, self.labelStats["Labels"]):
+      segmentData = dict()
+      segmentData["LabelID"] = labelValue
+      category = self.getTagValue(segment, segment.GetTerminologyCategoryTagName())
+      segmentData["SegmentDescription"] = category if category != "" else segment.GetName()
+      segmentData["SegmentAlgorithmType"] = "MANUAL"
+      segmentData["recommendedDisplayRGBValue"] = segment.GetDefaultColor()
+      if category != "":
+        segmentData["SegmentedPropertyCategoryCodeSequence"] = {
+           "CodeValue": "T-D0050",  # where to get that code from????
+           "CodingSchemeDesignator": "SRT",
+           "CodeMeaning": category}
+      propType = self.getTagValue(segment, segment.GetTerminologyTypeTagName())
+      if propType:
+        segmentData["SegmentedPropertyTypeCodeSequence"] = {
+          "CodeValue": "T-D0050",
+          "CodingSchemeDesignator": "SRT",
+          "CodeMeaning": propType}
+        segmentsData.append(segmentData)
+    return [segmentsData]
+
+  def generateJSON4SR(self):
+    pass
+
+  def validateSegments(self):
+    segments = self.filterEmptySegments()
+    for segment, labelValue in zip(segments, self.labelStats["Labels"]):
+      category = self.getTagValue(segment, segment.GetTerminologyCategoryTagName())
+      propType = self.getTagValue(segment, segment.GetTerminologyTypeTagName())
+      if any(v == "" for v in [category, propType]):
+        raise ValueError("Segment {} has missing attributes. Make sure to set terminology.".format(segment.GetName()))
+
+  def isSegmentEmpty(self, segment):
+    bounds = [0.0,0.0,0.0,0.0,0.0,0.0]
+    segment.GetBounds(bounds)
+    return bounds[1] < 0 and bounds[3] < 0 and bounds[5] < 0
+
+  def getTagValue(self, segment, tagName):
+    value = vtk.mutable("")
+    segment.GetTag(tagName, value)
+    return value.get()
