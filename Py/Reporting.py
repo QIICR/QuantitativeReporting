@@ -619,11 +619,12 @@ class CustomLabelStatisticsLogic(LabelStatisticsLogic):
       segmentData["SegmentDescription"] = category if category != "" else segment.GetName()
       segmentData["SegmentAlgorithmType"] = "MANUAL"
       segmentData["recommendedDisplayRGBValue"] = segment.GetDefaultColor()
-      segmentData.update(self.createJSONFromTerminology(segment))
+      segmentData.update(self.createJSONFromTerminologyContext(segment))
+      segmentData.update(self.createJSONFromAnatomicContext(segment))
       segmentsData.append(segmentData)
     return [segmentsData]
 
-  def createJSONFromTerminology(self, segment):
+  def createJSONFromTerminologyContext(self, segment):
     segmentData = dict()
     contextName = self.getTagValue(segment, segment.GetTerminologyContextTagName())
     categoryName = self.getTagValue(segment, segment.GetTerminologyCategoryTagName())
@@ -634,7 +635,6 @@ class CustomLabelStatisticsLogic(LabelStatisticsLogic):
     segmentData["SegmentedPropertyCategoryCodeSequence"] = self.getJSONFromVtkSlicerCodeSequence(category)
 
     typeName = self.getTagValue(segment, segment.GetTerminologyTypeTagName())
-    print typeName
     pType = slicer.vtkSlicerTerminologyType()
     if not self.terminologyLogic.GetTypeInTerminologyCategory(contextName, categoryName, typeName, pType):
       raise ValueError("Error: Cannot get type from terminology")
@@ -647,6 +647,27 @@ class CustomLabelStatisticsLogic(LabelStatisticsLogic):
         segmentData["SegmentedPropertyTypeModifierCodeSequence"] = self.getJSONFromVtkSlicerCodeSequence(modifier)
 
     return segmentData
+
+  def createJSONFromAnatomicContext(self, segment):
+    segmentData = dict()
+    anatomicContextName = self.getTagValue(segment, segment.GetAnatomicContextTagName())
+    regionName = self.getTagValue(segment, segment.GetAnatomicRegionTagName())
+
+    if regionName == "":
+      return {}
+
+    region = slicer.vtkSlicerTerminologyType()
+    self.terminologyLogic.GetRegionInAnatomicContext(anatomicContextName, regionName, region)
+    segmentData["AnatomicRegionSequence"] = self.getJSONFromVtkSlicerCodeSequence(region)
+
+    modifierName = self.getTagValue(segment, segment.GetAnatomicRegionModifierTagName())
+    if modifierName != "":
+      modifier = slicer.vtkSlicerTerminologyType()
+      self.terminologyLogic.GetRegionModifierInAnatomicRegion(anatomicContextName, regionName, modifierName, modifier)
+      segmentData["AnatomicRegionModifierSequence"] = self.getJSONFromVtkSlicerCodeSequence(modifier)
+
+    return segmentData
+
 
   def getJSONFromVtkSlicerCodeSequence(self, codeSequence):
     return {"CodeValue": codeSequence.GetCodeValue(),
