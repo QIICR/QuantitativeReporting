@@ -562,6 +562,7 @@ class CustomLabelStatisticsLogic(LabelStatisticsLogic):
 
   def __init__(self, segments, grayscaleNode, labelNode, colorNode=None, nodeBaseName=None, fileName=None):
     LabelStatisticsLogic.__init__(self, grayscaleNode, labelNode, colorNode, nodeBaseName, fileName)
+    self.terminologyLogic = slicer.modules.terminologies.logic()
     self.segments = segments
     # TODO: maybe provide segments here in order to directly set the segment names for the output table
 
@@ -618,19 +619,39 @@ class CustomLabelStatisticsLogic(LabelStatisticsLogic):
       segmentData["SegmentDescription"] = category if category != "" else segment.GetName()
       segmentData["SegmentAlgorithmType"] = "MANUAL"
       segmentData["recommendedDisplayRGBValue"] = segment.GetDefaultColor()
-      if category != "":
-        segmentData["SegmentedPropertyCategoryCodeSequence"] = {
-           "CodeValue": "T-D0050",  # where to get that code from????
-           "CodingSchemeDesignator": "SRT",
-           "CodeMeaning": category}
-      propType = self.getTagValue(segment, segment.GetTerminologyTypeTagName())
-      if propType:
-        segmentData["SegmentedPropertyTypeCodeSequence"] = {
-          "CodeValue": "T-D0050",
-          "CodingSchemeDesignator": "SRT",
-          "CodeMeaning": propType}
-        segmentsData.append(segmentData)
+      segmentData.update(self.createJSONFromTerminology(segment))
+      segmentsData.append(segmentData)
     return [segmentsData]
+
+  def createJSONFromTerminology(self, segment):
+    segmentData = dict()
+    contextName = self.getTagValue(segment, segment.GetTerminologyContextTagName())
+    categoryName = self.getTagValue(segment, segment.GetTerminologyCategoryTagName())
+
+    category = slicer.vtkSlicerTerminologyCategory()
+    if not self.terminologyLogic.GetCategoryInTerminology(contextName, categoryName, category):
+      raise ValueError("Error: Cannot get category from terminology")
+    segmentData["SegmentedPropertyCategoryCodeSequence"] = self.getJSONFromVtkSlicerCodeSequence(category)
+
+    typeName = self.getTagValue(segment, segment.GetTerminologyTypeTagName())
+    print typeName
+    pType = slicer.vtkSlicerTerminologyType()
+    if not self.terminologyLogic.GetTypeInTerminologyCategory(contextName, categoryName, typeName, pType):
+      raise ValueError("Error: Cannot get type from terminology")
+    segmentData["SegmentedPropertyTypeCodeSequence"] = self.getJSONFromVtkSlicerCodeSequence(pType)
+
+    modifierName = self.getTagValue(segment, segment.GetTerminologyTypeModifierTagName())
+    if modifierName != "":
+      modifier = slicer.vtkSlicerTerminologyType()
+      if self.terminologyLogic.GetTypeModifierInTerminologyType(contextName, categoryName, typeName, modifierName, modifier):
+        segmentData["SegmentedPropertyTypeModifierCodeSequence"] = self.getJSONFromVtkSlicerCodeSequence(modifier)
+
+    return segmentData
+
+  def getJSONFromVtkSlicerCodeSequence(self, codeSequence):
+    return {"CodeValue": codeSequence.GetCodeValue(),
+            "CodingSchemeDesignator": codeSequence.GetCodingScheme(),
+            "CodeMeaning": codeSequence.GetCodeMeaning()}
 
   def generateJSON4SR(self):
     pass
