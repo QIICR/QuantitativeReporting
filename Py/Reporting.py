@@ -1,5 +1,6 @@
 import getpass
 import json
+import logging, os
 
 from slicer.ScriptedLoadableModule import *
 import vtkSegmentationCorePython as vtkCoreSeg
@@ -291,38 +292,100 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       slicer.app.applicationLogic().PropagateTableSelection()
 
   def onSaveReportButtonClicked(self):
-    self.createJSON()
+    dcmSegmentation = self.createSEG() # TODO: save to DICOM database and retrieve UID
+    # TODO: Save Structured Report to DICOMDatabase
+    # self.createDICOMSR(dcmSegmentation)
     print "on save report button clicked"
 
   def onCompleteReportButtonClicked(self):
     print "on complete report button clicked"
 
-  def createJSON(self):
+  def createSEG(self):
     # TODO: Create Json
-    # TODO: Save Segmentation to DICOMDatabase
-    # TODO: Save Structured Report to DICOMDatabase
     data = dict()
     try:
-      data["seriesAttributes"] = self._getSeriesAttributes()
-      data["segmentAttributes"] = self.segmentEditorWidget.logic.labelStatisticsLogic.generateJSON4SEG()
+      data.update(self._getSeriesAttributes())
+      data.update(self._getAdditionalSeriesAttributes())
+      data["segmentAttributes"] = self.segmentEditorWidget.logic.labelStatisticsLogic.generateJSON4DcmSEGExport()
     except (ValueError, AttributeError) as exc:
       slicer.util.warningDisplay(exc.message if isinstance(exc, ValueError) else "No segments found")
       return
 
+    logging.debug("DICOM SEG Metadata output:")
+    logging.debug(data)
+
+    segmentationVolume = slicer.vtkMRMLScalarVolumeNode()
+
+    segmentationVolume.SetName("Segmentation")
+
+    tempDir = slicer.util.tempDirectory()
+
+    labelNode = self.segmentEditorWidget.logic.labelMapFromSegmentationNode(self.segmentEditorWidget.segmentationNode)
+    slicer.mrmlScene.AddNode(labelNode)
+    slicer.util.saveNode(labelNode, os.path.join(tempDir, "labelmap.nrrd"))
+
+    outputSegmentatonPath = os.path.join(tempDir, "segmentation.dcm")
+
+    params = {"dicomImageFiles": ', '.join(self.getDICOMFileList(self.segmentEditorWidget.masterVolumeNode,
+                                                                 absolutePaths=True)).replace(', ', ","),
+              "segImageFiles": labelNode.GetStorageNode().GetFileName(),
+              "metaDataFileName": self.saveJSON(data, os.path.join(tempDir, "meta.json")),
+              "outputSEGFileName": outputSegmentatonPath}
+
+    logging.debug(params)
+    slicer.cli.run(slicer.modules.itkimage2segimage, None, params, wait_for_completion=True)
+
+    if not os.path.exists(outputSegmentatonPath):
+      raise RuntimeError("DICOM Segmentation was not created. Check Error Log for further information.")
+    indexer = ctk.ctkDICOMIndexer()
+    indexer.addFile(slicer.dicomDatabase, outputSegmentatonPath)
+    return segmentationVolume
+
+  def createDICOMSR(self, referencedSegmentation):  # TODO: we might have several segmentations
+    data = dict()
+    data.update(self._getSeriesAttributes())
+    # compositeContextDataDir, data["compositeContext"] = self.getDICOMFileList(referencedSegmentation)
+    imageLibraryDataDir, data["imageLibrary"] = self.getDICOMFileList(self.segmentEditorWidget.masterVolumeNode)
+
+    print "DICOM SR Metadata output:"
     print json.dumps(data, indent=2, separators=(',', ': '))
 
   def _getSeriesAttributes(self):
-    # TODO: populate
-    data = dict()
-    data["ContentCreatorName"] = self.watchBox.getAttribute("Reader").value
-    data["ClinicalTrialSeriesID"] = "Session1"
-    data["ClinicalTrialTimePointID"] = "1"
-    data["ClinicalTrialCoordinatingCenterName"] = "BWH"
-    data["SeriesDescription"] = "Segmentation"
-    data["SeriesNumber"] = ModuleLogicMixin.getDICOMValue(self.watchBox.sourceFile, DICOMTAGS.SERIES_NUMBER)
-    data["InstanceNumber"] = ModuleLogicMixin.getDICOMValue(self.watchBox.sourceFile, DICOMTAGS.INSTANCE_NUMBER)
+    return {"SeriesDescription": "Segmentation",
+            "SeriesNumber": ModuleLogicMixin.getDICOMValue(self.watchBox.sourceFile, DICOMTAGS.SERIES_NUMBER),
+            "InstanceNumber": ModuleLogicMixin.getDICOMValue(self.watchBox.sourceFile, DICOMTAGS.INSTANCE_NUMBER)}
 
-    return data
+  def _getAdditionalSeriesAttributes(self):
+    # TODO: populate
+    return {"ContentCreatorName": self.watchBox.getAttribute("Reader").value,
+            "ClinicalTrialSeriesID": "Session1",
+            "ClinicalTrialTimePointID": "1",
+            "ClinicalTrialCoordinatingCenterName": "BWH"}
+
+  def saveJSON(self, data, destination):
+    with open(os.path.join(destination), 'w') as outfile:
+      json.dump(data, outfile, indent=2)
+    return destination
+
+  def getDICOMFileList(self, volumeNode, absolutePaths=False):
+    # TODO: move to general class
+    attributeName = "DICOM.instanceUIDs"
+    instanceUIDs = volumeNode.GetAttribute(attributeName)
+    if not instanceUIDs:
+      raise ValueError("VolumeNode {0} has no attribute {1}".format(volumeNode.GetName(), attributeName))
+    fileList = []
+    rootDir = None
+    for uid in instanceUIDs.split():
+      rootDir, filename = self.getInstanceUIDDirectoryAndFileName(uid)
+      fileList.append(str(filename if not absolutePaths else os.path.join(rootDir, filename)))
+    if not absolutePaths:
+      return rootDir, fileList
+    return fileList
+
+  def getInstanceUIDDirectoryAndFileName(self, uid):
+    # TODO: move this method to a general class
+    path = slicer.dicomDatabase.fileForInstance(uid)
+    return os.path.dirname(path), os.path.basename(path)
 
 
 class ReportingTest(ScriptedLoadableModuleTest):
@@ -606,7 +669,7 @@ class CustomLabelStatisticsLogic(LabelStatisticsLogic):
     for segment, labelValue in zip(segments, self.labelStats["Labels"]):
       self.labelStats[labelValue, "Segment Name"] = segment.GetName()
 
-  def generateJSON4SEG(self):
+  def generateJSON4DcmSEGExport(self):
     self.validateSegments()
     segmentsData = []
     segments = self.filterEmptySegments()
@@ -667,7 +730,6 @@ class CustomLabelStatisticsLogic(LabelStatisticsLogic):
       segmentData["AnatomicRegionModifierSequence"] = self.getJSONFromVtkSlicerCodeSequence(modifier)
 
     return segmentData
-
 
   def getJSONFromVtkSlicerCodeSequence(self, codeSequence):
     return {"CodeValue": codeSequence.GetCodeValue(),
