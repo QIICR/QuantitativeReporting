@@ -1,6 +1,7 @@
 import getpass
 import json
 import logging, os
+import datetime
 
 from slicer.ScriptedLoadableModule import *
 import vtkSegmentationCorePython as vtkCoreSeg
@@ -292,16 +293,13 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       slicer.app.applicationLogic().PropagateTableSelection()
 
   def onSaveReportButtonClicked(self):
-    dcmSegmentation = self.createSEG() # TODO: save to DICOM database and retrieve UID
-    # TODO: Save Structured Report to DICOMDatabase
-    # self.createDICOMSR(dcmSegmentation)
-    print "on save report button clicked"
+    dcmSegmentation = self.createSEG()
+    self.createDICOMSR(dcmSegmentation)
 
   def onCompleteReportButtonClicked(self):
     print "on complete report button clicked"
 
   def createSEG(self):
-    # TODO: Create Json
     data = dict()
     try:
       data.update(self._getSeriesAttributes())
@@ -314,41 +312,64 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     logging.debug("DICOM SEG Metadata output:")
     logging.debug(data)
 
-    segmentationVolume = slicer.vtkMRMLScalarVolumeNode()
-
-    segmentationVolume.SetName("Segmentation")
-
     tempDir = slicer.util.tempDirectory()
 
     labelNode = self.segmentEditorWidget.logic.labelMapFromSegmentationNode(self.segmentEditorWidget.segmentationNode)
     slicer.mrmlScene.AddNode(labelNode)
     slicer.util.saveNode(labelNode, os.path.join(tempDir, "labelmap.nrrd"))
 
-    outputSegmentatonPath = os.path.join(tempDir, "segmentation.dcm")
+    currentDateTime = datetime.date.today().strftime("%Y%m%d")
+
+    metafilePath = self.saveJSON(data, os.path.join(tempDir, "meta.json"))
+    outputSegmentatonPath = os.path.join(tempDir, "seg_{}.dcm".format(currentDateTime))
 
     params = {"dicomImageFiles": ', '.join(self.getDICOMFileList(self.segmentEditorWidget.masterVolumeNode,
                                                                  absolutePaths=True)).replace(', ', ","),
               "segImageFiles": labelNode.GetStorageNode().GetFileName(),
-              "metaDataFileName": self.saveJSON(data, os.path.join(tempDir, "meta.json")),
+              "metaDataFileName": metafilePath,
               "outputSEGFileName": outputSegmentatonPath}
 
     logging.debug(params)
-    slicer.cli.run(slicer.modules.itkimage2segimage, None, params, wait_for_completion=True)
+
+    cliNode = None
+    cliNode = slicer.cli.run(slicer.modules.itkimage2segimage, cliNode, params, wait_for_completion=True)
+    waitCount = 0
+    while cliNode.IsBusy() and waitCount < 20:
+      slicer.util.delayDisplay("Running SEG Encoding... %d" % waitCount, 1000)
+      waitCount += 1
+
+    if cliNode.GetStatusString() != 'Completed':
+      raise Exception("encodeSEG CLI did not complete cleanly")
 
     if not os.path.exists(outputSegmentatonPath):
       raise RuntimeError("DICOM Segmentation was not created. Check Error Log for further information.")
-    indexer = ctk.ctkDICOMIndexer()
-    indexer.addFile(slicer.dicomDatabase, outputSegmentatonPath)
-    return segmentationVolume
+    slicer.dicomDatabase.insert(outputSegmentatonPath)
+    return slicer.dicomDatabase
 
-  def createDICOMSR(self, referencedSegmentation):  # TODO: we might have several segmentations
-    data = dict()
-    data.update(self._getSeriesAttributes())
-    # compositeContextDataDir, data["compositeContext"] = self.getDICOMFileList(referencedSegmentation)
+  def createDICOMSR(self, referencedSegmentation):
+    return
+
+    data = self._getSeriesAttributes()
+    compositeContextDataDir, data["compositeContext"] = self.getDICOMFileList(referencedSegmentation)
     imageLibraryDataDir, data["imageLibrary"] = self.getDICOMFileList(self.segmentEditorWidget.masterVolumeNode)
 
     print "DICOM SR Metadata output:"
-    print json.dumps(data, indent=2, separators=(',', ': '))
+    logging.debug(data)
+
+    json.dumps(data, indent=2, separators=(',', ': '))
+
+    logging.debug(params)
+    cliNode = None
+    cliNode = slicer.cli.run(slicer.modules.tid1500writer, cliNode, params, wait_for_completion=True)
+    waitCount = 0
+    while cliNode.IsBusy() and waitCount < 20:
+      slicer.util.delayDisplay("Running SR Encoding... %d" % waitCount, 1000)
+      waitCount += 1
+
+    if cliNode.GetStatusString() != 'Completed':
+      raise Exception("encodeSEG CLI did not complete cleanly")
+    # TODO: Save Structured Report to DICOMDatabase
+
 
   def _getSeriesAttributes(self):
     return {"SeriesDescription": "Segmentation",
@@ -587,7 +608,10 @@ class ReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
   def labelMapFromSegmentationNode(self, segNode):
     labelNode = slicer.vtkMRMLLabelMapVolumeNode()
     slicer.mrmlScene.AddNode(labelNode)
-    if not self.segmentationsLogic.ExportAllSegmentsToLabelmapNode(segNode, labelNode):
+
+    mergedImageData = vtkCoreSeg.vtkOrientedImageData()
+    segNode.GenerateMergedLabelmapForAllSegments(mergedImageData, 0)
+    if not self.segmentationsLogic.CreateLabelmapVolumeFromOrientedImageData(mergedImageData, labelNode):
       slicer.mrmlScene.RemoveNode(labelNode)
       return None
     return labelNode
