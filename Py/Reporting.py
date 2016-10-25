@@ -114,16 +114,13 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def setupTestArea(self):
 
     def loadTestData():
-      from SEGExporterSelfTest import SEGExporterSelfTestLogic
-      sampleData = SEGExporterSelfTestLogic.downloadSampleData()
-      unzipped = SEGExporterSelfTestLogic.unzipSampleData(sampleData)
-      SEGExporterSelfTestLogic.importIntoDICOMDatabase(unzipped)
-      dicomWidget = slicer.modules.dicom.widgetRepresentation().self()
       mrHeadSeriesUID = "2.16.840.1.113662.4.4168496325.1025306170.548651188813145058"
-      dicomWidget.detailsPopup.offerLoadables(mrHeadSeriesUID, 'Series')
-      dicomWidget.detailsPopup.examineForLoading()
-      print 'Loading Selection'
-      dicomWidget.detailsPopup.loadCheckedLoadables()
+      if not len(slicer.dicomDatabase.filesForSeries()):
+        from SEGExporterSelfTest import SEGExporterSelfTestLogic
+        sampleData = SEGExporterSelfTestLogic.downloadSampleData()
+        unzipped = SEGExporterSelfTestLogic.unzipSampleData(sampleData)
+        SEGExporterSelfTestLogic.importIntoDICOMDatabase(unzipped)
+      self.loadSeries(mrHeadSeriesUID)
       masterNode = slicer.util.getNode('2: SAG*')
       tableNode = slicer.vtkMRMLTableNode()
       slicer.mrmlScene.AddNode(tableNode)
@@ -137,6 +134,16 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.testAreaLayout.addWidget(self.retrieveTestDataButton)
     self.retrieveTestDataButton.clicked.connect(loadTestData)
     self.layout.addWidget(self.testArea)
+
+  def loadSeriesByFileName(self, filename):
+    seriesUID = slicer.dicomDatabase.seriesForFile(filename)
+    self.loadSeries(seriesUID)
+
+  def loadSeries(self, seriesUID):
+    dicomWidget = slicer.modules.dicom.widgetRepresentation().self()
+    dicomWidget.detailsPopup.offerLoadables(seriesUID, 'Series')
+    dicomWidget.detailsPopup.examineForLoading()
+    dicomWidget.detailsPopup.loadCheckedLoadables()
 
   def setupSelectionArea(self):
     self.imageVolumeSelector = self.createComboBox(nodeTypes=["vtkMRMLScalarVolumeNode", ""], showChildNodeTypes=False,
