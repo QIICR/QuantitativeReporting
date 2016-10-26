@@ -398,9 +398,9 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def _getAdditionalSeriesAttributes(self):
     # TODO: populate
     return {"ContentCreatorName": self.watchBox.getAttribute("Reader").value,
-            "ClinicalTrialSeriesID": "Session1",
+            "ClinicalTrialSeriesID": "1",
             "ClinicalTrialTimePointID": "1",
-            "ClinicalTrialCoordinatingCenterName": "BWH"}
+            "ClinicalTrialCoordinatingCenterName": "QIICR"}
 
   def _getAdditionalSRInformation(self):
     data = dict()
