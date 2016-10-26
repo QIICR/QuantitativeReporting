@@ -1,7 +1,7 @@
 import getpass
 import json
 import logging, os
-import datetime
+from datetime import datetime
 
 from slicer.ScriptedLoadableModule import *
 import vtkSegmentationCorePython as vtkCoreSeg
@@ -302,7 +302,6 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
 
   def onSaveReportButtonClicked(self):
     dcmSegmentationPath = self.createSEG()
-    self.loadSeriesByFileName(dcmSegmentationPath)
     self.createDICOMSR(dcmSegmentationPath)
 
   def onCompleteReportButtonClicked(self):
@@ -325,7 +324,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     slicer.mrmlScene.AddNode(labelNode)
     slicer.util.saveNode(labelNode, os.path.join(self.tempDir, "labelmap.nrrd"))
 
-    self.currentDateTime = datetime.date.today().strftime("%Y%m%d")
+    self.currentDateTime = datetime.now().strftime('%Y-%m-%d_%H%M%S')
 
     metaFilePath = self.saveJSON(data, os.path.join(self.tempDir, "seg_meta_{}.json".format(self.currentDateTime)))
     outputSegmentationPath = os.path.join(self.tempDir, "seg_{}.dcm".format(self.currentDateTime))
@@ -346,12 +345,14 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       waitCount += 1
 
     if cliNode.GetStatusString() != 'Completed':
-      raise Exception("encodeSEG CLI did not complete cleanly")
+      raise Exception("itkimage2segimage CLI did not complete cleanly")
 
     if not os.path.exists(outputSegmentationPath):
       raise RuntimeError("DICOM Segmentation was not created. Check Error Log for further information.")
     indexer = ctk.ctkDICOMIndexer()
     indexer.addFile(slicer.dicomDatabase, outputSegmentationPath)
+
+    logging.debug("Saved DICOM Segmentation to {}".format(outputSegmentationPath))
     return outputSegmentationPath
 
   def createDICOMSR(self, referencedSegmentation):
@@ -386,7 +387,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       waitCount += 1
 
     if cliNode.GetStatusString() != 'Completed':
-      raise Exception("encodeSEG CLI did not complete cleanly")
+      raise Exception("tid1500writer CLI did not complete cleanly")
     # # TODO: Save Structured Report to DICOMDatabase
 
   def _getSeriesAttributes(self):
@@ -404,7 +405,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def _getAdditionalSRInformation(self):
     data = dict()
     data["observerContext"] = {"ObserverType": "PERSON",
-                               "PersonObserverName": "Reader1"}
+                               "PersonObserverName": self.watchBox.getAttribute("Reader").value}
     data["VerificationFlag"] = "VERIFIED"
     data["CompletionFlag"] = "COMPLETE"
     data["activitySession"] = "1"
@@ -792,37 +793,44 @@ class CustomLabelStatisticsLogic(LabelStatisticsLogic):
 
     modality = ModuleLogicMixin.getDICOMValue(sourceVolumeNode, "0008,0060")
 
-    sourceImageSOPInstanceUID = ModuleLogicMixin.getDICOMValue(sourceVolumeNode, "0008,00018")
-    segmentationImageInstanceUID = ModuleLogicMixin.getDICOMValue(dcmSegmentationFile, "0008,00018")
+    sourceImageSeriesUID = ModuleLogicMixin.getDICOMValue(sourceVolumeNode, "0020,000E")
+    logging.debug("SourceImageSeriesUID: {}".format(sourceImageSeriesUID))
+    segmentationSOPInstanceUID = ModuleLogicMixin.getDICOMValue(dcmSegmentationFile, "0008,00018")
+    logging.debug("SegmentationSOPInstanceUID: {}".format(segmentationSOPInstanceUID))
 
     for segment, labelValue in zip(segments, self.labelStats["Labels"]):
       data = dict()
       data["TrackingIdentifier"] = segment.GetName()
       data["ReferencedSegment"] = labelValue
-      data["SourceSeriesForImageSegmentation"] = sourceImageSOPInstanceUID
-      data["segmentationSOPInstanceUID"] = segmentationImageInstanceUID  # TODO: for now the same for all
-      # data["Finding"] = None  # TODO
-      # data["FindingSite"] = None  # TODO
-      measurementItems = []
-      for key in [k for k in self.keys if k not in ["Index", "Segment Name", "Count"]]:
-        item = dict()
-        item["value"] = str(self.labelStats[labelValue, key])
-        item["quantity"] = self.getQuantityCSforKey(key)
-        item["units"] = self.getUnitsCSForKey(key, modality)
-        derivationModifier = self.getDerivatinModifierCSForKey(key)
-        if derivationModifier:
-          item["derivationModifier"] = derivationModifier
-        measurementItems.append(item)
-    data["measurementItems"] = measurementItems
-    measurements.append(data)
+      data["SourceSeriesForImageSegmentation"] = sourceImageSeriesUID
+      data["segmentationSOPInstanceUID"] = segmentationSOPInstanceUID
+      data["Finding"] = self.createJSONFromTerminologyContext(segment)["SegmentedPropertyTypeCodeSequence"]
+      anatomicContext = self.createJSONFromAnatomicContext(segment)
+      if anatomicContext.has_key("AnatomicRegionSequence"):
+        data["FindingSite"] = anatomicContext["AnatomicRegionSequence"]
+      data["measurementItems"] = self.createMeasurementItemsForLabelValue(labelValue, modality)
+      measurements.append(data)
     return measurements
+
+  def createMeasurementItemsForLabelValue(self, labelValue, modality):
+    measurementItems = []
+    for key in [k for k in self.keys if k not in ["Index", "Segment Name", "Count"]]:
+      item = dict()
+      item["value"] = str(self.labelStats[labelValue, key])
+      item["quantity"] = self.getQuantityCSforKey(key)
+      item["units"] = self.getUnitsCSForKey(key, modality)
+      derivationModifier = self.getDerivatinModifierCSForKey(key)
+      if derivationModifier:
+        item["derivationModifier"] = derivationModifier
+      measurementItems.append(item)
+    return measurementItems
 
   def getQuantityCSforKey(self, key, modality="CT"):
     if key in ["Min", "Max", "Mean", "StdDev"]:
       if modality == "CT":
         return self.createCodeSequence("122713", "DCM", "Attenuation Coefficient")
       elif modality == "MR":
-        return self.createCodeSequence("value", "designator", "meaning")  # TODO: find out how to adapt for MR
+        return self.createCodeSequence("110852", "DCM", "MR signal intensity")
     elif key in ["Volume mm^3", "Volume cc"]:
       return self.createCodeSequence("G-D705", "SRT", "Volume")
     raise ValueError("No matching quantity code sequence found for key {}".format(key))
@@ -833,7 +841,7 @@ class CustomLabelStatisticsLogic(LabelStatisticsLogic):
       if modality == "CT":
         return self.createCodeSequence("[hnsf'U]", "UCUM", "Hounsfield unit")
       elif modality == "MR":
-        return self.createCodeSequence("value", "designator", "meaning")   # TODO: find out how to adapt for MR
+        return self.createCodeSequence("1", "UCUM", "no units")
       raise ValueError("No matching units code sequence found for key {}".format(key))
     elif key == "Volume cc":
       return self.createCodeSequence("mm3", "UCUM", "cubic millimeter")
