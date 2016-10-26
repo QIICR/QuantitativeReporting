@@ -46,6 +46,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def __init__(self, parent=None):
     ScriptedLoadableModuleWidget.__init__(self, parent)
     self.segmentationsLogic = slicer.modules.segmentations.logic()
+    self.tempDir = slicer.util.tempDirectory()
 
   def initializeMembers(self):
     self.segReferencedMasterVolume = {} # TODO: maybe also add created table so that there is no need to recalculate everything?
@@ -115,7 +116,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
 
     def loadTestData():
       mrHeadSeriesUID = "2.16.840.1.113662.4.4168496325.1025306170.548651188813145058"
-      if not len(slicer.dicomDatabase.filesForSeries()):
+      if not len(slicer.dicomDatabase.filesForSeries(mrHeadSeriesUID)):
         from SEGExporterSelfTest import SEGExporterSelfTestLogic
         sampleData = SEGExporterSelfTestLogic.downloadSampleData()
         unzipped = SEGExporterSelfTestLogic.unzipSampleData(sampleData)
@@ -300,8 +301,9 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       slicer.app.applicationLogic().PropagateTableSelection()
 
   def onSaveReportButtonClicked(self):
-    dcmSegmentation = self.createSEG()
-    self.createDICOMSR(dcmSegmentation)
+    dcmSegmentationPath = self.createSEG()
+    self.loadSeriesByFileName(dcmSegmentationPath)
+    self.createDICOMSR(dcmSegmentationPath)
 
   def onCompleteReportButtonClicked(self):
     print "on complete report button clicked"
@@ -319,22 +321,20 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     logging.debug("DICOM SEG Metadata output:")
     logging.debug(data)
 
-    tempDir = slicer.util.tempDirectory()
-
     labelNode = self.segmentEditorWidget.logic.labelMapFromSegmentationNode(self.segmentEditorWidget.segmentationNode)
     slicer.mrmlScene.AddNode(labelNode)
-    slicer.util.saveNode(labelNode, os.path.join(tempDir, "labelmap.nrrd"))
+    slicer.util.saveNode(labelNode, os.path.join(self.tempDir, "labelmap.nrrd"))
 
-    currentDateTime = datetime.date.today().strftime("%Y%m%d")
+    self.currentDateTime = datetime.date.today().strftime("%Y%m%d")
 
-    metafilePath = self.saveJSON(data, os.path.join(tempDir, "meta.json"))
-    outputSegmentatonPath = os.path.join(tempDir, "seg_{}.dcm".format(currentDateTime))
+    metaFilePath = self.saveJSON(data, os.path.join(self.tempDir, "seg_meta_{}.json".format(self.currentDateTime)))
+    outputSegmentationPath = os.path.join(self.tempDir, "seg_{}.dcm".format(self.currentDateTime))
 
     params = {"dicomImageFiles": ', '.join(self.getDICOMFileList(self.segmentEditorWidget.masterVolumeNode,
                                                                  absolutePaths=True)).replace(', ', ","),
               "segImageFiles": labelNode.GetStorageNode().GetFileName(),
-              "metaDataFileName": metafilePath,
-              "outputSEGFileName": outputSegmentatonPath}
+              "metaDataFileName": metaFilePath,
+              "outputSEGFileName": outputSegmentationPath}
 
     logging.debug(params)
 
@@ -348,22 +348,34 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     if cliNode.GetStatusString() != 'Completed':
       raise Exception("encodeSEG CLI did not complete cleanly")
 
-    if not os.path.exists(outputSegmentatonPath):
+    if not os.path.exists(outputSegmentationPath):
       raise RuntimeError("DICOM Segmentation was not created. Check Error Log for further information.")
-    slicer.dicomDatabase.insert(outputSegmentatonPath)
-    return slicer.dicomDatabase
+    indexer = ctk.ctkDICOMIndexer()
+    indexer.addFile(slicer.dicomDatabase, outputSegmentationPath)
+    return outputSegmentationPath
 
   def createDICOMSR(self, referencedSegmentation):
-    return
-
     data = self._getSeriesAttributes()
-    compositeContextDataDir, data["compositeContext"] = self.getDICOMFileList(referencedSegmentation)
-    imageLibraryDataDir, data["imageLibrary"] = self.getDICOMFileList(self.segmentEditorWidget.masterVolumeNode)
 
-    print "DICOM SR Metadata output:"
+    compositeContextDataDir, data["compositeContext"] = os.path.dirname(referencedSegmentation), [os.path.basename(referencedSegmentation)]
+    imageLibraryDataDir, data["imageLibrary"] = self.getDICOMFileList(self.segmentEditorWidget.masterVolumeNode)
+    data.update(self._getAdditionalSRInformation())
+
+    data["Measurements"] = self.segmentEditorWidget.logic.labelStatisticsLogic.generateJSON4DcmSR(referencedSegmentation,
+                                                                                                  self.segmentEditorWidget.masterVolumeNode)
+
+    print json.dumps(data, indent=2, separators=(',', ': '))  # TODO: remove
+
+    logging.debug("DICOM SR Metadata output:")
     logging.debug(data)
 
-    json.dumps(data, indent=2, separators=(',', ': '))
+    metaFilePath = self.saveJSON(data, os.path.join(self.tempDir, "sr_meta_{}.json".format(self.currentDateTime)))
+    outputSRPath = os.path.join(self.tempDir, "sr_{}.dcm".format(self.currentDateTime))
+
+    params = {"metaDataFileName": metaFilePath,
+              "compositeContextDataDir": compositeContextDataDir,
+              "imageLibraryDataDir": imageLibraryDataDir,
+              "outputFileName": outputSRPath}
 
     logging.debug(params)
     cliNode = None
@@ -375,8 +387,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
 
     if cliNode.GetStatusString() != 'Completed':
       raise Exception("encodeSEG CLI did not complete cleanly")
-    # TODO: Save Structured Report to DICOMDatabase
-
+    # # TODO: Save Structured Report to DICOMDatabase
 
   def _getSeriesAttributes(self):
     return {"SeriesDescription": "Segmentation",
@@ -389,6 +400,16 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
             "ClinicalTrialSeriesID": "Session1",
             "ClinicalTrialTimePointID": "1",
             "ClinicalTrialCoordinatingCenterName": "BWH"}
+
+  def _getAdditionalSRInformation(self):
+    data = dict()
+    data["observerContext"] = {"ObserverType": "PERSON",
+                               "PersonObserverName": "Reader1"}
+    data["VerificationFlag"] = "VERIFIED"
+    data["CompletionFlag"] = "COMPLETE"
+    data["activitySession"] = "1"
+    data["timePoint"] = "1"
+    return data
 
   def saveJSON(self, data, destination):
     with open(os.path.join(destination), 'w') as outfile:
@@ -763,12 +784,80 @@ class CustomLabelStatisticsLogic(LabelStatisticsLogic):
     return segmentData
 
   def getJSONFromVtkSlicerCodeSequence(self, codeSequence):
-    return {"CodeValue": codeSequence.GetCodeValue(),
-            "CodingSchemeDesignator": codeSequence.GetCodingScheme(),
-            "CodeMeaning": codeSequence.GetCodeMeaning()}
+    return self.createCodeSequence(codeSequence.GetCodeValue(), codeSequence.GetCodingScheme(), codeSequence.GetCodeMeaning())
 
-  def generateJSON4SR(self):
-    pass
+  def generateJSON4DcmSR(self, dcmSegmentationFile, sourceVolumeNode):
+    measurements = []
+    segments = self.filterEmptySegments()
+
+    modality = ModuleLogicMixin.getDICOMValue(sourceVolumeNode, "0008,0060")
+
+    sourceImageSOPInstanceUID = ModuleLogicMixin.getDICOMValue(sourceVolumeNode, "0008,00018")
+    segmentationImageInstanceUID = ModuleLogicMixin.getDICOMValue(dcmSegmentationFile, "0008,00018")
+
+    for segment, labelValue in zip(segments, self.labelStats["Labels"]):
+      data = dict()
+      data["TrackingIdentifier"] = segment.GetName()
+      data["ReferencedSegment"] = labelValue
+      data["SourceSeriesForImageSegmentation"] = sourceImageSOPInstanceUID
+      data["segmentationSOPInstanceUID"] = segmentationImageInstanceUID  # TODO: for now the same for all
+      # data["Finding"] = None  # TODO
+      # data["FindingSite"] = None  # TODO
+      measurementItems = []
+      for key in [k for k in self.keys if k not in ["Index", "Segment Name", "Count"]]:
+        item = dict()
+        item["value"] = str(self.labelStats[labelValue, key])
+        item["quantity"] = self.getQuantityCSforKey(key)
+        item["units"] = self.getUnitsCSForKey(key, modality)
+        derivationModifier = self.getDerivatinModifierCSForKey(key)
+        if derivationModifier:
+          item["derivationModifier"] = derivationModifier
+        measurementItems.append(item)
+    data["measurementItems"] = measurementItems
+    measurements.append(data)
+    return measurements
+
+  def getQuantityCSforKey(self, key, modality="CT"):
+    if key in ["Min", "Max", "Mean", "StdDev"]:
+      if modality == "CT":
+        return self.createCodeSequence("122713", "DCM", "Attenuation Coefficient")
+      elif modality == "MR":
+        return self.createCodeSequence("value", "designator", "meaning")  # TODO: find out how to adapt for MR
+    elif key in ["Volume mm^3", "Volume cc"]:
+      return self.createCodeSequence("G-D705", "SRT", "Volume")
+    raise ValueError("No matching quantity code sequence found for key {}".format(key))
+
+  def getUnitsCSForKey(self, key, modality="CT"):
+    keys = ["Min", "Max", "Mean", "StdDev"]
+    if key in keys:
+      if modality == "CT":
+        return self.createCodeSequence("[hnsf'U]", "UCUM", "Hounsfield unit")
+      elif modality == "MR":
+        return self.createCodeSequence("value", "designator", "meaning")   # TODO: find out how to adapt for MR
+      raise ValueError("No matching units code sequence found for key {}".format(key))
+    elif key == "Volume cc":
+      return self.createCodeSequence("mm3", "UCUM", "cubic millimeter")
+    elif key == "Volume mm^3":
+      return self.createCodeSequence("cm3", "UCUM", "cubic centimeter")
+    return None
+
+  def getDerivatinModifierCSForKey(self, key):
+    keys = ["Min", "Max", "Mean", "StdDev"]
+    if key in keys:
+      if key == keys[0]:
+        return self.createCodeSequence("R-404FB", "SRT", "Minimum")
+      elif key == keys[1]:
+        return self.createCodeSequence("G-A437", "SRT", "Maximum")
+      elif key == keys[2]:
+        return self.createCodeSequence("R-00317", "SRT", "Mean")
+      else:
+        return self.createCodeSequence("R-10047", "SRT", "Standard Deviation")
+    return None
+
+  def createCodeSequence(self, value, designator, meaning):
+    return {"CodeValue": value,
+            "CodingSchemeDesignator": designator,
+            "CodeMeaning": meaning}
 
   def validateSegments(self):
     segments = self.filterEmptySegments()
