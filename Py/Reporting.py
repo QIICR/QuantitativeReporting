@@ -69,15 +69,6 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       except AttributeError:
         pass
 
-  def exit(self):
-    # TODO: export SEG and SR
-    # TODO: disconnect from segment editor events
-    # self.removeSegmentationObserver()
-    pass
-
-  def enter(self):
-    self.setupSegmentationObservers()
-
   def refreshUIElementsAvailability(self):
     self.imageVolumeSelector.enabled = self.measurementReportSelector.currentNode() is not None \
                                        and not self.getReferencedVolumeFromSegmentationNode(self.segmentEditorWidget.segmentationNode)
@@ -256,6 +247,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       self.tableNode.SetAttribute('ReferencedSegmentationNodeID', segmentationNode.GetID())
     self.segmentionNodeSelector.setCurrentNode(segmentationNode)
     self.setupSegmentationObservers()
+    self.onSegmentationNodeChanged()
 
   def getReferencedVolumeFromSegmentationNode(self, segmentationNode):
     if not segmentationNode:
@@ -287,7 +279,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   @postCall(refreshUIElementsAvailability)
   def onSegmentationNodeChanged(self, observer=None, caller=None):
     if not self.calculateAutomaticallyCheckbox.checked:
-      # TODO: mark table as old (maybe with styling border red)
+      self.tableView.setStyleSheet("QTableView{border:2px solid red;};")
       return
     self.updateMeasurementsTable()
 
@@ -297,6 +289,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       self.tableNode = table
       self.tableNode.SetLocked(True)
       self.tableView.setMRMLTableNode(self.tableNode)
+      self.tableView.setStyleSheet("QTableView{border:none};")
     self.onDisplayMeasurementsTable()
 
   def getActiveSlicerTableID(self):
