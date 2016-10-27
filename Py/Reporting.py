@@ -389,7 +389,8 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
 
     if cliNode.GetStatusString() != 'Completed':
       raise Exception("tid1500writer CLI did not complete cleanly")
-    # # TODO: Save Structured Report to DICOMDatabase
+    indexer = ctk.ctkDICOMIndexer()
+    indexer.addFile(slicer.dicomDatabase, outputSRPath)
 
   def _getSeriesAttributes(self):
     return {"SeriesDescription": "Segmentation",
@@ -793,7 +794,7 @@ class CustomLabelStatisticsLogic(LabelStatisticsLogic):
 
     sourceImageSeriesUID = ModuleLogicMixin.getDICOMValue(sourceVolumeNode, "0020,000E")
     logging.debug("SourceImageSeriesUID: {}".format(sourceImageSeriesUID))
-    segmentationSOPInstanceUID = ModuleLogicMixin.getDICOMValue(dcmSegmentationFile, "0008,00018")
+    segmentationSOPInstanceUID = ModuleLogicMixin.getDICOMValue(dcmSegmentationFile, "0008,0018")
     logging.debug("SegmentationSOPInstanceUID: {}".format(segmentationSOPInstanceUID))
 
     for segment, labelValue in zip(segments, self.labelStats["Labels"]):
