@@ -302,7 +302,11 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       slicer.app.applicationLogic().PropagateTableSelection()
 
   def onSaveReportButtonClicked(self):
-    dcmSegmentationPath = self.createSEG()
+    try:
+      dcmSegmentationPath = self.createSEG()
+    except (RuntimeError, ValueError, AttributeError) as exc:
+      slicer.util.warningDisplay(exc.message if isinstance(exc, ValueError) else "No segments found")
+      return
     self.createDICOMSR(dcmSegmentationPath)
 
   def onCompleteReportButtonClicked(self):
@@ -310,13 +314,9 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
 
   def createSEG(self):
     data = dict()
-    try:
-      data.update(self._getSeriesAttributes())
-      data.update(self._getAdditionalSeriesAttributes())
-      data["segmentAttributes"] = self.segmentEditorWidget.logic.labelStatisticsLogic.generateJSON4DcmSEGExport()
-    except (ValueError, AttributeError) as exc:
-      slicer.util.warningDisplay(exc.message if isinstance(exc, ValueError) else "No segments found")
-      return
+    data.update(self._getSeriesAttributes())
+    data.update(self._getAdditionalSeriesAttributes())
+    data["segmentAttributes"] = self.segmentEditorWidget.logic.labelStatisticsLogic.generateJSON4DcmSEGExport()
 
     logging.debug("DICOM SEG Metadata output:")
     logging.debug(data)
@@ -346,7 +346,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       waitCount += 1
 
     if cliNode.GetStatusString() != 'Completed':
-      raise Exception("itkimage2segimage CLI did not complete cleanly")
+      raise RuntimeError("itkimage2segimage CLI did not complete cleanly")
 
     if not os.path.exists(outputSegmentationPath):
       raise RuntimeError("DICOM Segmentation was not created. Check Error Log for further information.")
