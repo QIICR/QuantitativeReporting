@@ -290,6 +290,10 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       self.tableNode.SetLocked(True)
       self.tableView.setMRMLTableNode(self.tableNode)
       self.tableView.setStyleSheet("QTableView{border:none};")
+    else:
+      if self.tableNode:
+        self.tableNode.RemoveAllColumns()
+        self.tableView.setMRMLTableNode(self.tableNode)
     self.onDisplayMeasurementsTable()
 
   def getActiveSlicerTableID(self):
@@ -648,6 +652,8 @@ class ReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
     return labelNode
 
   def calculateLabelStatistics(self, segNode, grayscaleNode, tableNode=None):
+    if not len(self.getSegments(segNode.GetSegmentation())):
+      return None
     labelNode = self.labelMapFromSegmentationNode(segNode)
     if not labelNode:
       return None
