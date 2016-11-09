@@ -309,7 +309,8 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     try:
       dcmSegmentationPath = self.createSEG()
     except (RuntimeError, ValueError, AttributeError) as exc:
-      slicer.util.warningDisplay(exc.message if isinstance(exc, ValueError) else "No segments found")
+      slicer.util.warningDisplay(exc.message)
+      # slicer.util.warningDisplay(exc.message if isinstance(exc, ValueError) else "No segments found")
       return
     self.createDICOMSR(dcmSegmentationPath)
 
@@ -716,6 +717,7 @@ class CustomLabelStatisticsLogic(LabelStatisticsLogic):
 
     self.keys = ["Segment Name"] + list(self.keys)
     self.keys.remove("Index")
+    self.keys.remove("Count")
 
     try:
       del self.labelStats["Labels"][0]
