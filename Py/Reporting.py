@@ -13,7 +13,7 @@ from SlicerProstateUtils.constants import DICOMTAGS
 from SlicerProstateUtils.buttons import *
 
 from SegmentEditor import SegmentEditorWidget
-from LabelStatistics import LabelStatisticsLogic
+from SegmentStatistics import SegmentStatisticsLogic
 
 
 class Reporting(ScriptedLoadableModule):
@@ -46,7 +46,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def __init__(self, parent=None):
     ScriptedLoadableModuleWidget.__init__(self, parent)
     self.segmentationsLogic = slicer.modules.segmentations.logic()
-    self.tempDir = slicer.util.tempDirectory()
+    self.slicerTempDir = slicer.util.tempDirectory()
 
   def initializeMembers(self):
     self.tableNode = None
@@ -310,7 +310,6 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       dcmSegmentationPath = self.createSEG()
     except (RuntimeError, ValueError, AttributeError) as exc:
       slicer.util.warningDisplay(exc.message)
-      # slicer.util.warningDisplay(exc.message if isinstance(exc, ValueError) else "No segments found")
       return
     self.createDICOMSR(dcmSegmentationPath)
 
@@ -318,26 +317,36 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     print "on complete report button clicked"
 
   def createSEG(self):
+    import vtkSegmentationCorePython as vtkSegmentationCore
+    segmentStatisticsLogic = self.segmentEditorWidget.logic.segmentStatisticsLogic
     data = dict()
     data.update(self._getSeriesAttributes())
     data.update(self._getAdditionalSeriesAttributes())
-    data["segmentAttributes"] = self.segmentEditorWidget.logic.labelStatisticsLogic.generateJSON4DcmSEGExport()
+    data["segmentAttributes"] = segmentStatisticsLogic.generateJSON4DcmSEGExport()
 
     logging.debug("DICOM SEG Metadata output:")
     logging.debug(data)
 
-    labelNode = self.segmentEditorWidget.logic.labelMapFromSegmentationNode(self.segmentEditorWidget.segmentationNode)
-    slicer.mrmlScene.AddNode(labelNode)
-    slicer.util.saveNode(labelNode, os.path.join(self.tempDir, "labelmap.nrrd"))
-
     self.currentDateTime = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+    self.tempDir = os.path.join(self.slicerTempDir, self.currentDateTime)
+    os.mkdir(self.tempDir)
 
-    metaFilePath = self.saveJSON(data, os.path.join(self.tempDir, "seg_meta_{}.json".format(self.currentDateTime)))
-    outputSegmentationPath = os.path.join(self.tempDir, "seg_{}.dcm".format(self.currentDateTime))
+    # TODO: delete from temp afterwards
+    segmentFiles = []
+    for segmentID in segmentStatisticsLogic.statistics["SegmentIDs"]:
+      if not segmentStatisticsLogic.statistics[segmentID, "GS voxel count"] > 0:
+        continue
+      segmentLabelmap = segmentStatisticsLogic.statistics[segmentID, "LM label map"]
+      filename = os.path.join(self.tempDir, "{}.nrrd".format(segmentLabelmap.GetName()))
+      slicer.util.saveNode(segmentLabelmap, filename)
+      segmentFiles.append(filename)
+
+    metaFilePath = self.saveJSON(data, os.path.join(self.tempDir, "seg_meta.json"))
+    outputSegmentationPath = os.path.join(self.tempDir, "seg.dcm")
 
     params = {"dicomImageFiles": ', '.join(self.getDICOMFileList(self.segmentEditorWidget.masterVolumeNode,
                                                                  absolutePaths=True)).replace(', ', ","),
-              "segImageFiles": labelNode.GetStorageNode().GetFileName(),
+              "segImageFiles": ', '.join(segmentFiles).replace(', ', ","),
               "metaDataFileName": metaFilePath,
               "outputSEGFileName": outputSegmentationPath}
 
@@ -368,16 +377,16 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     imageLibraryDataDir, data["imageLibrary"] = self.getDICOMFileList(self.segmentEditorWidget.masterVolumeNode)
     data.update(self._getAdditionalSRInformation())
 
-    data["Measurements"] = self.segmentEditorWidget.logic.labelStatisticsLogic.generateJSON4DcmSR(referencedSegmentation,
-                                                                                                  self.segmentEditorWidget.masterVolumeNode)
+    data["Measurements"] = self.segmentEditorWidget.logic.segmentStatisticsLogic.generateJSON4DcmSR(referencedSegmentation,
+                                                                                                    self.segmentEditorWidget.masterVolumeNode)
 
     print json.dumps(data, indent=2, separators=(',', ': '))  # TODO: remove
 
     logging.debug("DICOM SR Metadata output:")
     logging.debug(data)
 
-    metaFilePath = self.saveJSON(data, os.path.join(self.tempDir, "sr_meta_{}.json".format(self.currentDateTime)))
-    outputSRPath = os.path.join(self.tempDir, "sr_{}.dcm".format(self.currentDateTime))
+    metaFilePath = self.saveJSON(data, os.path.join(self.tempDir, "sr_meta.json"))
+    outputSRPath = os.path.join(self.tempDir, "sr.dcm")
 
     params = {"metaDataFileName": metaFilePath,
               "compositeContextDataDir": compositeContextDataDir,
@@ -609,7 +618,7 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
     self.editor.updateWidgetFromMRML()
 
   def calculateLabelStatistics(self, tableNode):
-    return self.logic.calculateLabelStatistics(self.segmentationNode, self.masterVolumeNode, tableNode)
+    return self.logic.calculateSegmentStatistics(self.segmentationNode, self.masterVolumeNode, tableNode)
 
 
 class ReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
@@ -619,7 +628,8 @@ class ReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
     self.parent = parent
     self.volumesLogic = slicer.modules.volumes.logic()
     self.segmentationsLogic = slicer.modules.segmentations.logic()
-    self.labelStatisticsLogic = None
+    self.segmentStatisticsLogic = None
+    self.segmentStatisticsLogic = CustomSegmentStatisticsLogic()
 
   def getSegments(self, segmentation):
     if not segmentation:
@@ -641,110 +651,65 @@ class ReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
       return centroid
     return None
 
-  def labelMapFromSegmentationNode(self, segNode):
-    labelNode = slicer.vtkMRMLLabelMapVolumeNode()
-    slicer.mrmlScene.AddNode(labelNode)
+  def calculateSegmentStatistics(self, segNode, grayscaleNode, tableNode=None):
+    self.segmentStatisticsLogic.computeStatistics(segNode, grayscaleNode)
 
-    mergedImageData = vtkCoreSeg.vtkOrientedImageData()
-    segNode.GenerateMergedLabelmapForAllSegments(mergedImageData, 0)
-    if not self.segmentationsLogic.CreateLabelmapVolumeFromOrientedImageData(mergedImageData, labelNode):
-      slicer.mrmlScene.RemoveNode(labelNode)
-      return None
-    return labelNode
-
-  def calculateLabelStatistics(self, segNode, grayscaleNode, tableNode=None):
-    if not len(self.getSegments(segNode.GetSegmentation())):
-      return None
-    labelNode = self.labelMapFromSegmentationNode(segNode)
-    if not labelNode:
-      return None
-    segments = self.getSegments(segNode.GetSegmentation())
-    warnings = self.volumesLogic.CheckForLabelVolumeValidity(grayscaleNode, labelNode)
-    if warnings != "":
-      if 'mismatch' in warnings:
-        resampledLabelNode = self.volumesLogic.ResampleVolumeToReferenceVolume(labelNode, grayscaleNode)
-        self.labelStatisticsLogic = CustomLabelStatisticsLogic(segments, grayscaleNode, resampledLabelNode,
-                                                               colorNode=labelNode.GetDisplayNode().GetColorNode(),
-                                                               nodeBaseName=labelNode.GetName())
-        slicer.mrmlScene.RemoveNode(resampledLabelNode)
-      else:
-        raise ValueError("Volumes do not have the same geometry.\n%s" % warnings)
-    else:
-      self.labelStatisticsLogic = CustomLabelStatisticsLogic(segments, grayscaleNode, labelNode)
-
-    tableNode = self.labelStatisticsLogic.exportToTable(tableNode)
+    tableNode = self.segmentStatisticsLogic.exportToTable(tableNode)
     slicer.mrmlScene.AddNode(tableNode)
-    slicer.mrmlScene.RemoveNode(labelNode)
+    # slicer.mrmlScene.RemoveNode(labelNode)
     return tableNode
 
 
-class CustomLabelStatisticsLogic(LabelStatisticsLogic):
 
-  def __init__(self, segments, grayscaleNode, labelNode, colorNode=None, nodeBaseName=None, fileName=None):
-    LabelStatisticsLogic.__init__(self, grayscaleNode, labelNode, colorNode, nodeBaseName, fileName)
+
+class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
+
+  def __init__(self):
+    SegmentStatisticsLogic.__init__(self)
     self.terminologyLogic = slicer.modules.terminologies.logic()
-    self.segments = segments
+    self.segmentationsLogic = slicer.modules.segmentations.logic()
 
-  def exportToTable(self, table=None):
+  def reset(self):
+    if hasattr(self, "statistics"):
+      for segmentID in self.statistics["SegmentIDs"]:
+        try:
+          labelmap = self.statistics[segmentID, "LM label map"]
+          slicer.mrmlScene.RemoveNode(labelmap)
+        except Exception:
+          continue
+    SegmentStatisticsLogic.reset(self)
+
+  def exportToTable(self, table=None, nonEmptyKeysOnly = True):
     if not table:
       table = slicer.vtkMRMLTableNode()
-      table.SetName(slicer.mrmlScene.GenerateUniqueName(self.nodeBaseName + ' statistics'))
-
-    table.RemoveAllColumns()
-    table.SetUseColumnNameAsColumnHeader(True)
-
-    self.customizeLabelStats()
-
-    tableWasModified = table.StartModify()
-    for k in self.keys:
-      col = table.AddColumn()
-      col.SetName(k)
-    for labelValue in self.labelStats["Labels"]:
-      rowIndex = table.AddEmptyRow()
-      for columnIndex, k in enumerate(self.keys):
-        table.SetCellText(rowIndex, columnIndex, str(self.labelStats[labelValue, k]))
-
-    table.EndModify(tableWasModified)
+      table.SetName(slicer.mrmlScene.GenerateUniqueName(self.grayscaleNode.GetName() + ' statistics'))
+    self.keys = ("Segment", "GS voxel count", "GS volume mm3", "GS volume cc",
+                 "GS min", "GS max", "GS mean", "GS stdev")
+    SegmentStatisticsLogic.exportToTable(self, table, nonEmptyKeysOnly)
     return table
 
   def filterEmptySegments(self):
-    return [s for s in self.segments if not self.isSegmentEmpty(s)]
-
-  def customizeLabelStats(self):
-    colorNode = self.getColorNode()
-    if not colorNode:
-      return self.keys, self.labelStats
-
-    self.keys = ["Segment Name"] + list(self.keys)
-    self.keys.remove("Index")
-    self.keys.remove("Count")
-
-    try:
-      del self.labelStats["Labels"][0]
-    except KeyError:
-      pass
-
-    segments = self.filterEmptySegments()
-
-    for segment, labelValue in zip(segments, self.labelStats["Labels"]):
-      self.labelStats[labelValue, "Segment Name"] = segment.GetName()
+    return [self.segmentationNode.GetSegmentation().GetSegment(s) for s in self.statistics["SegmentIDs"]
+            if self.statistics[s, "GS voxel count"] > 0]
 
   def generateJSON4DcmSEGExport(self):
     self.validateSegments()
     segmentsData = []
-    segments = self.filterEmptySegments()
-    if not len(segments):
-      raise ValueError("No segments with pixel data found.")
-    for segment, labelValue in zip(segments, self.labelStats["Labels"]):
+    for segmentID in self.statistics["SegmentIDs"]:
+      if self.statistics[segmentID, "GS voxel count"] == 0:
+        continue
       segmentData = dict()
-      segmentData["LabelID"] = labelValue
+      segmentData["LabelID"] = self.statistics[segmentID, "LM pixel value"]
+      segment = self.segmentationNode.GetSegmentation().GetSegment(segmentID)
       category = self.getTagValue(segment, segment.GetTerminologyCategoryTagName())
-      segmentData["SegmentDescription"] = category if category != "" else segment.GetName()
+      segmentData["SegmentDescription"] = category if category != "" else self.statistics[segmentID, "Segment"]
       segmentData["SegmentAlgorithmType"] = "MANUAL"
       segmentData["recommendedDisplayRGBValue"] = segment.GetDefaultColor()
       segmentData.update(self.createJSONFromTerminologyContext(segment))
       segmentData.update(self.createJSONFromAnatomicContext(segment))
       segmentsData.append(segmentData)
+    if not len(segmentsData):
+      raise ValueError("No segments with pixel data found.")
     return [segmentsData]
 
   def createJSONFromTerminologyContext(self, segment):
@@ -794,10 +759,48 @@ class CustomLabelStatisticsLogic(LabelStatisticsLogic):
   def getJSONFromVtkSlicerCodeSequence(self, codeSequence):
     return self.createCodeSequence(codeSequence.GetCodeValue(), codeSequence.GetCodingScheme(), codeSequence.GetCodeMeaning())
 
+  def createLabelNodeFromSegment(self, segmentID):
+    labelNode = slicer.vtkMRMLLabelMapVolumeNode()
+    slicer.mrmlScene.AddNode(labelNode)
+
+    mergedImageData = vtkCoreSeg.vtkOrientedImageData()
+    self.segmentationNode.GenerateMergedLabelmapForAllSegments(mergedImageData, 0, None, self.vtkStringArrayFromList([segmentID]))
+    if not self.segmentationsLogic.CreateLabelmapVolumeFromOrientedImageData(mergedImageData, labelNode):
+      slicer.mrmlScene.RemoveNode(labelNode)
+      return None
+    labelNode.SetName("{}_label".format(segmentID))
+    return labelNode
+
+  def vtkStringArrayFromList(self, listToConvert):
+    stringArray = vtk.vtkStringArray()
+    for listElement in listToConvert:
+      stringArray.InsertNextValue(listElement)
+    return stringArray
+
+  def changePixelValue(self, labelNode, outValue):
+    imageData = labelNode.GetImageData()
+    backgroundValue = 0
+    thresh = vtk.vtkImageThreshold()
+    thresh.SetInputData(imageData)
+    thresh.ThresholdByLower(0)
+    thresh.SetInValue(backgroundValue)
+    thresh.SetOutValue(outValue)
+    thresh.SetOutputScalarType(vtk.VTK_UNSIGNED_CHAR)
+    thresh.Update()
+    labelNode.SetAndObserveImageData(thresh.GetOutput())
+
+  def addSegmentLabelmapStatistics(self):
+    SegmentStatisticsLogic.addSegmentLabelmapStatistics(self)
+    for pixelValue, segmentID in enumerate(self.statistics["SegmentIDs"], 1):
+      if not self.statistics[segmentID,"LM voxel count"] > 0:
+        continue
+      segmentLabelmap = self.createLabelNodeFromSegment(segmentID)
+      self.changePixelValue(segmentLabelmap, pixelValue)
+      self.statistics[segmentID, "LM pixel value"] = pixelValue
+      self.statistics[segmentID, "LM label map"] = segmentLabelmap
+
   def generateJSON4DcmSR(self, dcmSegmentationFile, sourceVolumeNode):
     measurements = []
-    segments = self.filterEmptySegments()
-
     modality = ModuleLogicMixin.getDICOMValue(sourceVolumeNode, "0008,0060")
 
     sourceImageSeriesUID = ModuleLogicMixin.getDICOMValue(sourceVolumeNode, "0020,000E")
@@ -805,25 +808,26 @@ class CustomLabelStatisticsLogic(LabelStatisticsLogic):
     segmentationSOPInstanceUID = ModuleLogicMixin.getDICOMValue(dcmSegmentationFile, "0008,0018")
     logging.debug("SegmentationSOPInstanceUID: {}".format(segmentationSOPInstanceUID))
 
-    for segment, labelValue in zip(segments, self.labelStats["Labels"]):
+    for segmentID in self.statistics["SegmentIDs"]:
       data = dict()
-      data["TrackingIdentifier"] = segment.GetName()
-      data["ReferencedSegment"] = labelValue
+      data["TrackingIdentifier"] = self.statistics[segmentID, "Segment"]
+      data["ReferencedSegment"] = self.statistics[segmentID, "LM pixel value"]
       data["SourceSeriesForImageSegmentation"] = sourceImageSeriesUID
       data["segmentationSOPInstanceUID"] = segmentationSOPInstanceUID
+      segment = self.segmentationNode.GetSegmentation().GetSegment(segmentID)
       data["Finding"] = self.createJSONFromTerminologyContext(segment)["SegmentedPropertyTypeCodeSequence"]
       anatomicContext = self.createJSONFromAnatomicContext(segment)
       if anatomicContext.has_key("AnatomicRegionSequence"):
         data["FindingSite"] = anatomicContext["AnatomicRegionSequence"]
-      data["measurementItems"] = self.createMeasurementItemsForLabelValue(labelValue, modality)
+      data["measurementItems"] = self.createMeasurementItemsForLabelValue(segmentID, modality)
       measurements.append(data)
     return measurements
 
-  def createMeasurementItemsForLabelValue(self, labelValue, modality):
+  def createMeasurementItemsForLabelValue(self, segmentValue, modality):
     measurementItems = []
-    for key in [k for k in self.keys if k not in ["Index", "Segment Name", "Count"]]:
+    for key in [k for k in self.keys if k not in ["Segment", "GS voxel count"]]:
       item = dict()
-      item["value"] = str(self.labelStats[labelValue, key])
+      item["value"] = str(self.statistics[segmentValue, key])
       item["quantity"] = self.getQuantityCSforKey(key)
       item["units"] = self.getUnitsCSForKey(key, modality)
       derivationModifier = self.getDerivatinModifierCSForKey(key)
@@ -833,31 +837,31 @@ class CustomLabelStatisticsLogic(LabelStatisticsLogic):
     return measurementItems
 
   def getQuantityCSforKey(self, key, modality="CT"):
-    if key in ["Min", "Max", "Mean", "StdDev"]:
+    if key in ["GS min", "GS max", "GS mean", "GS stdev"]:
       if modality == "CT":
         return self.createCodeSequence("122713", "DCM", "Attenuation Coefficient")
       elif modality == "MR":
         return self.createCodeSequence("110852", "DCM", "MR signal intensity")
-    elif key in ["Volume mm^3", "Volume cc"]:
+    elif key in ["GS volume mm3", "GS volume cc"]:
       return self.createCodeSequence("G-D705", "SRT", "Volume")
     raise ValueError("No matching quantity code sequence found for key {}".format(key))
 
   def getUnitsCSForKey(self, key, modality="CT"):
-    keys = ["Min", "Max", "Mean", "StdDev"]
+    keys = ["GS min", "GS max", "GS mean", "GS stdev"]
     if key in keys:
       if modality == "CT":
         return self.createCodeSequence("[hnsf'U]", "UCUM", "Hounsfield unit")
       elif modality == "MR":
         return self.createCodeSequence("1", "UCUM", "no units")
       raise ValueError("No matching units code sequence found for key {}".format(key))
-    elif key == "Volume cc":
+    elif key == "GS volume cc":
       return self.createCodeSequence("mm3", "UCUM", "cubic millimeter")
-    elif key == "Volume mm^3":
+    elif key == "GS volume mm3":
       return self.createCodeSequence("cm3", "UCUM", "cubic centimeter")
     return None
 
   def getDerivatinModifierCSForKey(self, key):
-    keys = ["Min", "Max", "Mean", "StdDev"]
+    keys = ["GS min", "GS max", "GS mean", "GS stdev"]
     if key in keys:
       if key == keys[0]:
         return self.createCodeSequence("R-404FB", "SRT", "Minimum")
@@ -875,8 +879,8 @@ class CustomLabelStatisticsLogic(LabelStatisticsLogic):
             "CodeMeaning": meaning}
 
   def validateSegments(self):
-    segments = self.filterEmptySegments()
-    for segment, labelValue in zip(segments, self.labelStats["Labels"]):
+    for segmentID in self.statistics["SegmentIDs"]:
+      segment = self.segmentationNode.GetSegmentation().GetSegment(segmentID)
       category = self.getTagValue(segment, segment.GetTerminologyCategoryTagName())
       propType = self.getTagValue(segment, segment.GetTerminologyTypeTagName())
       if any(v == "" for v in [category, propType]):
