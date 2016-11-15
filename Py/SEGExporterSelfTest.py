@@ -28,6 +28,7 @@ class SEGExporterSelfTest(ScriptedLoadableModule):
     QIICR, NIH National Cancer Institute, award U24 CA180918.
 """ # replace with organization, grant and thanks.
 
+
 class SEGExporterSelfTestWidget(ScriptedLoadableModuleWidget):
   """Uses ScriptedLoadableModuleWidget base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
@@ -37,8 +38,33 @@ class SEGExporterSelfTestWidget(ScriptedLoadableModuleWidget):
     ScriptedLoadableModuleWidget.setup(self)
 
 class SEGExporterSelfTestLogic(ScriptedLoadableModuleLogic):
+  @staticmethod
+  def importIntoDICOMDatabase(dicomFilesDirectory):
+    indexer = ctk.ctkDICOMIndexer()
+    indexer.addDirectory(slicer.dicomDatabase, dicomFilesDirectory, None)
+    indexer.waitForImportFinished()
 
-    pass
+  @staticmethod
+  def unzipSampleData(filePath):
+    dicomFilesDirectory = slicer.app.temporaryPath + '/dicomFiles'
+    qt.QDir().mkpath(dicomFilesDirectory)
+    slicer.app.applicationLogic().Unzip(filePath, dicomFilesDirectory)
+    return dicomFilesDirectory
+
+  @staticmethod
+  def downloadSampleData():
+    import urllib
+    downloads = (
+      ('http://slicer.kitware.com/midas3/download/item/220834/PieperMRHead.zip', 'PieperMRHead.zip'),
+    )
+    slicer.util.delayDisplay("Downloading", 1000)
+    for url, name in downloads:
+      filePath = slicer.app.temporaryPath + '/' + name
+      if not os.path.exists(filePath) or os.stat(filePath).st_size == 0:
+        slicer.util.delayDisplay('Requesting download %s from %s...\n' % (name, url), 1000)
+        urllib.urlretrieve(url, filePath)
+    return filePath
+
 
 class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
   """
@@ -49,6 +75,7 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
     """ Do whatever is needed to reset the state - typically a scene clear will be enough.
     """
     slicer.mrmlScene.Clear(0)
+    self.logic = SEGExporterSelfTestLogic
 
   def runTest(self):
     """Run as few or as many tests as needed here.
@@ -67,28 +94,20 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
     #
     # first, get the data - a zip file of dicom data
     #
-    import urllib
-    downloads = (
-        ('http://slicer.kitware.com/midas3/download/item/220834/PieperMRHead.zip', 'PieperMRHead.zip'),
-    )
-    self.delayDisplay("Downloading")
-    for url,name in downloads:
-      filePath = slicer.app.temporaryPath + '/' + name
-      if not os.path.exists(filePath) or os.stat(filePath).st_size == 0:
-        self.delayDisplay('Requesting download %s from %s...\n' % (name, url))
-        urllib.urlretrieve(url, filePath)
+    filePath = self.logic.downloadSampleData()
     self.delayDisplay('Finished with download\n')
 
     self.delayDisplay("Unzipping")
-    dicomFilesDirectory = slicer.app.temporaryPath + '/dicomFiles'
-    qt.QDir().mkpath(dicomFilesDirectory)
-    slicer.app.applicationLogic().Unzip(filePath, dicomFilesDirectory)
+    dicomFilesDirectory = self.logic.unzipSampleData(filePath)
 
     try:
       self.delayDisplay("Switching to temp database directory")
       tempDatabaseDirectory = slicer.app.temporaryPath + '/tempDICOMDatabase'
       import shutil
-      shutil.rmtree(tempDatabaseDirectory)
+      try:
+        shutil.rmtree(tempDatabaseDirectory)
+      except OSError:
+        pass
       qt.QDir().mkpath(tempDatabaseDirectory)
       if slicer.dicomDatabase:
         originalDatabaseDirectory = os.path.split(slicer.dicomDatabase.databaseFilename)[0]
@@ -103,9 +122,7 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
       mainWindow = slicer.util.mainWindow()
       mainWindow.moduleSelector().selectModule('DICOM')
 
-      indexer = ctk.ctkDICOMIndexer()
-      indexer.addDirectory(slicer.dicomDatabase, dicomFilesDirectory, None)
-      indexer.waitForImportFinished()
+      self.logic.importIntoDICOMDatabase(dicomFilesDirectory)
 
       dicomWidget.detailsPopup.open()
 
@@ -141,7 +158,7 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
       parameterNode.SetParameter("LabelEffect,paintThresholdMax", "279.75")
       parameterNode.SetParameter("PaintEffect,radius", "40")
       parameterNode.SetParameter("PaintEffect,sphere", "1")
-      
+
       self.delayDisplay("Paint some things")
       parameterNode = EditUtil.getParameterNode()
       lm = slicer.app.layoutManager()
@@ -178,6 +195,7 @@ class SEGExporterSelfTestTest(ScriptedLoadableModuleTest):
 
       # close scene re-load the input data and SEG
       slicer.mrmlScene.Clear(0)
+      indexer = ctk.ctkDICOMIndexer()
       indexer.addDirectory(slicer.dicomDatabase, tempSEGDirectory, None)
       indexer.waitForImportFinished()
 

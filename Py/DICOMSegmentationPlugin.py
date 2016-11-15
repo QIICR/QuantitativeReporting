@@ -41,25 +41,25 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     # just read the modality type; need to go to reporting logic, since DCMTK
     #   is not wrapped ...
 
-    for file in files:
+    for cFile in files:
 
-      uid = slicer.dicomDatabase.fileValue(file, self.tags['instanceUID'])
+      uid = slicer.dicomDatabase.fileValue(cFile, self.tags['instanceUID'])
       if uid == '':
         return []
 
-      desc = slicer.dicomDatabase.fileValue(file, self.tags['seriesDescription'])
-      if desc == "":
-        name = "Unknown"
+      desc = slicer.dicomDatabase.fileValue(cFile, self.tags['seriesDescription'])
+      if desc == '':
+        desc = "Unknown"
 
-      number = slicer.dicomDatabase.fileValue(file, self.tags['seriesNumber'])
+      number = slicer.dicomDatabase.fileValue(cFile, self.tags['seriesNumber'])
       if number == '':
         number = "Unknown"
 
-      isDicomSeg = (slicer.dicomDatabase.fileValue(file, self.tags['modality']) == 'SEG')
+      isDicomSeg = (slicer.dicomDatabase.fileValue(cFile, self.tags['modality']) == 'SEG')
 
       if isDicomSeg:
         loadable = DICOMLoadable()
-        loadable.files = [file]
+        loadable.files = [cFile]
         loadable.name = desc + ' - as a DICOM SEG object'
         loadable.tooltip = loadable.name
         loadable.selected = True
@@ -84,7 +84,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     return referencedName
 
   def addReferences(self,loadable):
-    """Puts a list of the referened UID into the loadable for use
+    """Puts a list of the referenced UID into the loadable for use
     in the node if this is loaded."""
     import dicom
     dcm = dicom.read_file(loadable.files[0])
@@ -96,7 +96,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
         loadable.referencedInstanceUIDs = []
         for f in slicer.dicomDatabase.filesForSeries(dcm.ReferencedSeriesSequence[0].SeriesInstanceUID):
           refDCM = dicom.read_file(f)
-          # this is a hack that should probablybe fixed in Slicer core - not all
+          # this is a hack that should probably fixed in Slicer core - not all
           #  of those instances are truly referenced!
           loadable.referencedInstanceUIDs.append(refDCM.SOPInstanceUID)
           loadable.referencedSeriesUID = dcm.ReferencedSeriesSequence[0].SeriesInstanceUID
@@ -105,22 +105,17 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     """ Load the DICOM SEG object
     """
     print('DICOM SEG load()')
-    labelNodes = vtk.vtkCollection()
-
-    uid = None
-
     try:
       uid = loadable.uid
       print ('in load(): uid = ', uid)
     except AttributeError:
       return False
 
-    res = False
     # make the output directory
     outputDir = os.path.join(slicer.app.temporaryPath,"QIICR","SEG",loadable.uid)
     try:
       os.makedirs(outputDir)
-    except:
+    except OSError:
       pass
 
     # produces output label map files, one per segment, and information files with
@@ -134,7 +129,6 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
       "inputSEGFileName": segFileName,
       "outputDirName": outputDir,
       }
-    seg2nrrd = None
     try:
       seg2nrrd = slicer.modules.seg2nrrd
     except AttributeError:
@@ -152,7 +146,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     colorLogic = slicer.modules.colors.logic()
     segmentationColorNode = slicer.vtkMRMLColorTableNode()
     segmentationColorNode.SetName(loadable.name)
-    segmentationColorNode.SetTypeToUser();
+    segmentationColorNode.SetTypeToUser()
     segmentationColorNode.SetHideFromEditors(0)
     segmentationColorNode.SetAttribute("Category", "File")
     segmentationColorNode.NamesInitialisedOff()
@@ -171,6 +165,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
     seriesName = self.referencedSeriesName(loadable)
     segmentNodes = []
+    labelNode = None
     for segmentId in range(numberOfSegments):
       # load each of the segments' segmentations
       # Initialize color and terminology from .info file
@@ -266,18 +261,27 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
       # point the label node to the color node we're creating
       labelDisplayNode = labelNode.GetDisplayNode()
-      if labelDisplayNode == None:
+      if labelDisplayNode is None:
         print ('Warning: no label map display node for segment ',segmentId,', creating!')
         labelNode.CreateDefaultDisplayNodes()
         labelDisplayNode = labelNode.GetDisplayNode()
       labelDisplayNode.SetAndObserveColorNodeID(segmentationColorNode.GetID())
 
       # TODO: initialize referenced UID (and segment number?) attribute(s)
+      # dataset = dicom.read_file(segFileName)
+      # referencedSeries = dict()
+      # for refSeriesItem in dataset.ReferencedSeriesSequence:
+      #   refSOPInstanceUIDs = []
+      #   for refSOPInstanceItem in refSeriesItem.ReferencedInstanceSequence:
+      #     refSOPInstanceUIDs.append(refSOPInstanceItem.ReferencedSOPInstanceUID)
+      #   referencedSeries[refSeriesItem.SeriesInstanceUID] = refSOPInstanceUIDs
+      # segmentationNode.SetAttribute("DICOM.referencedInstanceUIDs", str(referencedSeries))
 
       # create Subject hierarchy nodes for the loaded series
       self.addSeriesInSubjectHierarchy(loadable, labelNode)
 
     # create a combined (merge) label volume node (only if a segment was created)
+    mergeNode = None
     if labelNode:
       volumeLogic = slicer.modules.volumes.logic()
       mergeNode = volumeLogic.CloneVolume(labelNode, seriesName + "-label")
@@ -364,7 +368,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
       exportable.confidence = 1.0
       exportable.setTag('Modality', 'SEG')
 
-    if exportable != None:
+    if exportable is not None:
       exportable.name = self.loadType
       exportable.tooltip = "Create DICOM files from segmentation"
       exportable.nodeID = node.GetID()
@@ -403,7 +407,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
       instanceUIDs = subjectHierarchyNode.GetAttribute("DICOM.ReferencedInstanceUIDs").split()
 
       if instanceUIDs == "":
-          raise Exception("Editor master node does not have DICOM information")
+        raise Exception("Editor master node does not have DICOM information")
 
       # get the list of source DICOM files
       inputDICOMImageFileNames = ""
@@ -423,7 +427,6 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
       import vtkSlicerSegmentationsModuleLogic
       logic = vtkSlicerSegmentationsModuleLogic.vtkSlicerSegmentationsModuleLogic()
 
-      segmentationTransform = vtk.vtkMatrix4x4()
       segmentationNode = subjectHierarchyNode.GetAssociatedNode()
 
       mergedSegmentationImageData = segmentationNode.GetImageData()
@@ -489,7 +492,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
         colorNode.GetColor(labelIndex, rgbColor)
         rgbColor = map(lambda e: e*255., rgbColor)
 
-        # get the attributes and conver to format CodeValue,CodeMeaning,CodingSchemeDesignator
+        # get the attributes and convert to format CodeValue,CodeMeaning,CodingSchemeDesignator
         # or empty strings if not defined
         propertyCategoryWithColons = colorLogic.GetSegmentedPropertyCategory(labelIndex, terminologyName)
         if propertyCategoryWithColons == '':
@@ -525,7 +528,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
         if anatomicRegion != "":
           attributes += ";AnatomicRegion:" + anatomicRegion
         if anatomicRegionModifier != "":
-          attributes += ";AnatomicRegionModifer:" + anatomicRegionModifier
+          attributes += ";AnatomicRegionModifier:" + anatomicRegionModifier
         attributes += ";SegmentAlgorithmType:AUTOMATIC"
         attributes += ";SegmentAlgorithmName:SlicerSelfTest"
         attributes += ";RecommendedDisplayRGBValue:%g,%g,%g" % tuple(rgbColor[:-1])

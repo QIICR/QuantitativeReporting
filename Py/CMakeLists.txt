@@ -12,3 +12,8 @@ slicerMacroBuildScriptedModule(
   NAME SEGExporterSelfTest
   SCRIPTS SEGExporterSelfTest.py
   )
+
+slicerMacroBuildScriptedModule(
+  NAME Reporting
+  SCRIPTS Reporting.py
+  )
