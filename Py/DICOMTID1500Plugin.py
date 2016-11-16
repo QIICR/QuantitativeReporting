@@ -147,7 +147,6 @@ class DICOMTID1500PluginClass(DICOMPlugin):
     return self.metadata2vtkTableNode(outputFile)
 
   def metadata2vtkTableNode(self, metafile):
-    tableNode = None
     with open(metafile) as datafile:
       table = slicer.vtkMRMLTableNode()
       slicer.mrmlScene.AddNode(table)

@@ -176,10 +176,10 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
     with open(metaFileName) as metaFile:
       data = json.load(metaFile)
+      print ('number of segmentation files = ', numberOfSegments)
+      assert numberOfSegments == len(data["segmentAttributes"])
       for segmentAttributes in data["segmentAttributes"]:
         # TODO: only handles the first item of lists
-        print ('number of segments = ', numberOfSegments)
-        assert numberOfSegments == len(segmentAttributes)
         segmentationColorNode.SetNumberOfColors(numberOfSegments + 1)
         segmentationColorNode.SetColor(0, 'background', 0.0, 0.0, 0.0, 0.0)
         for segment in segmentAttributes:
@@ -237,6 +237,8 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
           (success, labelNode) = slicer.util.loadLabelVolume(labelFileName,
                                                              properties={'name': segmentName},
                                                              returnNode=True)
+          if not success:
+            raise ValueError("{} could not be loaded into Slicer!".format(labelFileName))
           segmentNodes.append(labelNode)
 
           # point the label node to the color node we're creating
@@ -246,6 +248,16 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
             labelNode.CreateDefaultDisplayNodes()
             labelDisplayNode = labelNode.GetDisplayNode()
           labelDisplayNode.SetAndObserveColorNodeID(segmentationColorNode.GetID())
+
+          # TODO: initialize referenced UID (and segment number?) attribute(s)
+          # dataset = dicom.read_file(segFileName)
+          # referencedSeries = dict()
+          # for refSeriesItem in dataset.ReferencedSeriesSequence:
+          #   refSOPInstanceUIDs = []
+          #   for refSOPInstanceItem in refSeriesItem.ReferencedInstanceSequence:
+          #     refSOPInstanceUIDs.append(refSOPInstanceItem.ReferencedSOPInstanceUID)
+          #   referencedSeries[refSeriesItem.SeriesInstanceUID] = refSOPInstanceUIDs
+          # segmentationNode.SetAttribute("DICOM.referencedInstanceUIDs", str(referencedSeries))
 
           # create Subject hierarchy nodes for the loaded series
           self.addSeriesInSubjectHierarchy(loadable, labelNode)
