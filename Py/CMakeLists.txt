@@ -1,11 +1,16 @@
-SET(KIT_PYTHON_SCRIPTS
-  DICOMSegmentationPlugin.py
+slicerMacroBuildScriptedModule(
+  NAME DICOMSegmentationPlugin
+  SCRIPTS DICOMSegmentationPlugin.py
   )
 
 slicerMacroBuildScriptedModule(
-  NAME DICOMSegmentationPlugin
-  SCRIPTS "${KIT_PYTHON_SCRIPTS}"
-  RESOURCES "${KIT_PYTHON_RESOURCES}"
+  NAME DICOMParametricMapPlugin
+  SCRIPTS DICOMParametricMapPlugin.py
+  )
+
+slicerMacroBuildScriptedModule(
+  NAME DICOMTID1500Plugin
+  SCRIPTS DICOMTID1500Plugin.py
   )
 
 slicerMacroBuildScriptedModule(
