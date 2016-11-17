@@ -157,24 +157,23 @@ class DICOMTID1500PluginClass(DICOMPlugin):
       data = json.load(datafile)
 
       tableWasModified = table.StartModify()
-      for measurement in data["Measurements"]:
+
+      measurement = data["Measurements"][0]
+      col = table.AddColumn()
+      col.SetName("Segment Name")
+
+      for measurementItem in measurement["measurementItems"]:
         col = table.AddColumn()
-        col.SetName("Segment Name")
+        if "derivationModifier" in measurementItem.keys():
+          col.SetName(measurementItem["derivationModifier"]["CodeMeaning"])
+        else:
+          col.SetName(measurementItem["quantity"]["CodeMeaning"]+" "+measurementItem["units"]["CodeValue"])
+
+      for measurement in data["Measurements"]:
         name = measurement["TrackingIdentifier"]
         value = measurement["ReferencedSegment"]
         rowIndex = table.AddEmptyRow()
-        # table.SetCellText(rowIndex, 1, name)
         table.SetCellText(rowIndex, 0, name)
-
-        # segmentationSOPInstanceUID = measurement["segmentationSOPInstanceUID"]
-        # ReportingWidget.loadSeries()
-
-        for measurementItem in measurement["measurementItems"]:
-          col = table.AddColumn()
-          if "derivationModifier" in measurementItem.keys():
-            col.SetName(measurementItem["derivationModifier"]["CodeMeaning"])
-          else:
-            col.SetName(measurementItem["quantity"]["CodeMeaning"]+" "+measurementItem["units"]["CodeValue"])
         for columnIndex, measurementItem in enumerate(measurement["measurementItems"]):
           table.SetCellText(rowIndex, columnIndex+1, measurementItem["value"])
 
