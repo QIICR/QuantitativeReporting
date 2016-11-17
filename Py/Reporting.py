@@ -681,8 +681,6 @@ class ReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
     return labelNode
 
 
-
-
 class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
 
   def __init__(self):
@@ -704,9 +702,10 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
     if not table:
       table = slicer.vtkMRMLTableNode()
       table.SetName(slicer.mrmlScene.GenerateUniqueName(self.grayscaleNode.GetName() + ' statistics'))
-    self.keys = ("Segment", "GS voxel count", "GS volume mm3", "GS volume cc",
-                 "GS min", "GS max", "GS mean", "GS stdev")
+    self.keys = ["Segment", "GS volume mm3", "GS volume cc",
+                 "GS min", "GS max", "GS mean", "GS stdev"]
     SegmentStatisticsLogic.exportToTable(self, table, nonEmptyKeysOnly)
+    self.keys.append("GS voxel count")
     return table
 
   def filterEmptySegments(self):
@@ -860,9 +859,9 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
       elif modality == "MR":
         return self.createCodeSequence("1", "UCUM", "no units")
       raise ValueError("No matching units code sequence found for key {}".format(key))
-    elif key == "GS volume cc":
-      return self.createCodeSequence("mm3", "UCUM", "cubic millimeter")
     elif key == "GS volume mm3":
+      return self.createCodeSequence("mm3", "UCUM", "cubic millimeter")
+    elif key == "GS volume cc":
       return self.createCodeSequence("cm3", "UCUM", "cubic centimeter")
     return None
 
