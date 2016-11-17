@@ -10,7 +10,7 @@ set(EXTENSION_DESCRIPTION "The purpose of the Reporting module is to provide Sli
 set(EXTENSION_ICONURL "http://wiki.slicer.org/slicerWiki/images/3/31/ReportingLogo.png")
 set(EXTENSION_SCREENSHOTURLS "http://wiki.slicer.org/slicerWiki/images/d/d6/Reporting-Prostate.png")
 set(EXTENSION_STATUS "Work in progress")
-set(EXTENSION_DEPENDS "SlicerProstate dcmqi")
+set(EXTENSION_DEPENDS "SlicerProstate DCMQI")
 
 #-----------------------------------------------------------------------------
 find_package(Slicer REQUIRED)
