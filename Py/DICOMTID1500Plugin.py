@@ -143,7 +143,12 @@ class DICOMTID1500PluginClass(DICOMPlugin):
       print 'tid1500reader did not complete successfully, unable to load DICOM SR TID1500'
       return False
 
-    return self.metadata2vtkTableNode(outputFile)
+    table = self.metadata2vtkTableNode(outputFile)
+    if table:
+      segmentationNodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode")
+      segmentationNodeID = segmentationNodes.GetItemAsObject(segmentationNodes.GetNumberOfItems()-1).GetID()
+      table.SetAttribute("ReferencedSegmentationNodeID", segmentationNodeID)
+    return table is not None
 
   def metadata2vtkTableNode(self, metafile):
     with open(metafile) as datafile:
@@ -180,8 +185,7 @@ class DICOMTID1500PluginClass(DICOMPlugin):
       table.EndModify(tableWasModified)
       slicer.app.applicationLogic().GetSelectionNode().SetReferenceActiveTableID(table.GetID())
       slicer.app.applicationLogic().PropagateTableSelection()
-
-    return table is not None
+    return table
 
 
 class SegmentStatisticsDICOMMeaningMapping(object):
