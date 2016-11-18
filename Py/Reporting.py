@@ -74,6 +74,9 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
                                        and not self.getReferencedVolumeFromSegmentationNode(self.segmentEditorWidget.segmentationNode)
     self.segmentationGroupBox.enabled = self.imageVolumeSelector.currentNode() is not None
     self.measurementsGroupBox.enabled = len(self.segmentEditorWidget.segments)
+    if not self.tableNode:
+      self.enableReportButtons(False)
+      self.updateMeasurementsTable(triggered=True)
 
   @postCall(refreshUIElementsAvailability)
   def setup(self):
@@ -90,6 +93,10 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.setupConnections()
     self.layout.addStretch(1)
     self.fourUpSliceLayoutButton.checked = True
+
+  def enableReportButtons(self, enabled):
+    self.saveReportButton.enabled = enabled
+    self.completeReportButton.enabled = enabled
 
   def setupWatchbox(self):
     self.watchBoxInformation = [
@@ -184,11 +191,12 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.layout.addWidget(self.measurementsGroupBox)
 
   def setupActionButtons(self):
-    self.calculateMeasurementsButton = self.createButton("Calculate Measurements")
+    self.calculateMeasurementsButton = self.createButton("Calculate Measurements", enabled=False)
     self.calculateAutomaticallyCheckbox = qt.QCheckBox("Auto Update")
     self.calculateAutomaticallyCheckbox.checked = True
     self.saveReportButton = self.createButton("Save Report")
     self.completeReportButton = self.createButton("Complete Report")
+    self.enableReportButtons(False)
     self.layout.addWidget(self.createHLayout([self.calculateMeasurementsButton, self.calculateAutomaticallyCheckbox]))
     self.layout.addWidget(self.createHLayout([self.saveReportButton, self.completeReportButton]))
 
@@ -201,7 +209,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     def setupButtonConnections():
       getattr(self.saveReportButton.clicked, funcName)(self.onSaveReportButtonClicked)
       getattr(self.completeReportButton.clicked, funcName)(self.onCompleteReportButtonClicked)
-      getattr(self.calculateMeasurementsButton.clicked, funcName)(self.updateMeasurementsTable)
+      getattr(self.calculateMeasurementsButton.clicked, funcName)(lambda: self.updateMeasurementsTable(triggered=True))
 
     getattr(self.layoutManager.layoutChanged, funcName)(self.onLayoutChanged)
     getattr(self.calculateAutomaticallyCheckbox.toggled, funcName)(self.onCalcAutomaticallyToggled)
@@ -213,41 +221,55 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.setupConnections(funcName="disconnect")
 
   def onCalcAutomaticallyToggled(self, checked):
-    if checked:
-      self.onSegmentationNodeChanged()
+    if checked and self.segmentEditorWidget.segmentation is not None:
+      self.updateMeasurementsTable(triggered=True)
+    self.calculateMeasurementsButton.enabled = not checked and self.tableNode
 
   def removeSegmentationObserver(self):
     if self.segmentEditorWidget.segmentation and len(self.segmentationObservers):
       while len(self.segmentationObservers):
         observer = self.segmentationObservers.pop()
         self.segmentEditorWidget.segmentation.RemoveObserver(observer)
-    self.segNode = None
 
-  def onLayoutChanged(self, layout):
+  def onLayoutChanged(self):
     self.onDisplayMeasurementsTable()
 
   @postCall(refreshUIElementsAvailability)
   def onImageVolumeSelected(self, node):
     self.initializeWatchBox(node)
 
-  @priorCall(refreshUIElementsAvailability)
+  @postCall(refreshUIElementsAvailability)
   def onMeasurementReportSelected(self, node):
     self.removeSegmentationObserver()
     self.imageVolumeSelector.setCurrentNode(None)
     self.tableNode = node
+    self.hideAllSegmentations()
     if node is None:
       self.segmentionNodeSelector.setCurrentNode(None)
       return
 
     segmentationNodeID = self.tableNode.GetAttribute('ReferencedSegmentationNodeID')
+    print "ReferencedSegmentationNodeID {}".format(segmentationNodeID)
     if segmentationNodeID:
       segmentationNode = slicer.mrmlScene.GetNodeByID(segmentationNodeID)
     else:
       segmentationNode = self.createNewSegmentationNode()
       self.tableNode.SetAttribute('ReferencedSegmentationNodeID', segmentationNode.GetID())
     self.segmentionNodeSelector.setCurrentNode(segmentationNode)
+    segmentationNode.SetDisplayVisibility(True)
     self.setupSegmentationObservers()
-    self.onSegmentationNodeChanged()
+    if self.tableNode.GetAttribute("readonly"):
+      print "Selected measurements report is readonly"
+      self.setMeasurementsTable(self.tableNode)
+      self.segmentEditorWidget.enabled = False
+    else:
+      self.segmentEditorWidget.enabled = True
+      self.onSegmentationNodeChanged()
+
+  def hideAllSegmentations(self):
+    segmentations = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode")
+    for segmentation in [segmentations.GetItemAsObject(idx) for idx in range(0, segmentations.GetNumberOfItems())]:
+      segmentation.SetDisplayVisibility(False)
 
   def getReferencedVolumeFromSegmentationNode(self, segmentationNode):
     if not segmentationNode:
@@ -278,13 +300,17 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
 
   @postCall(refreshUIElementsAvailability)
   def onSegmentationNodeChanged(self, observer=None, caller=None):
-    if not self.calculateAutomaticallyCheckbox.checked:
-      self.tableView.setStyleSheet("QTableView{border:2px solid red;};")
-      return
+    self.enableReportButtons(True)
     self.updateMeasurementsTable()
 
-  def updateMeasurementsTable(self):
-    table = self.segmentEditorWidget.calculateLabelStatistics(self.tableNode)
+  def updateMeasurementsTable(self, triggered=False):
+    if not self.calculateAutomaticallyCheckbox.checked and not triggered:
+      self.tableView.setStyleSheet("QTableView{border:2px solid red;};")
+      return
+    table = self.segmentEditorWidget.calculateSegmentStatistics(self.tableNode)
+    self.setMeasurementsTable(table)
+
+  def setMeasurementsTable(self, table):
     if table:
       self.tableNode = table
       self.tableNode.SetLocked(True)
@@ -293,7 +319,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     else:
       if self.tableNode:
         self.tableNode.RemoveAllColumns()
-        self.tableView.setMRMLTableNode(self.tableNode)
+      self.tableView.setMRMLTableNode(self.tableNode if self.tableNode else None)
     self.onDisplayMeasurementsTable()
 
   def getActiveSlicerTableID(self):
@@ -306,15 +332,26 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       slicer.app.applicationLogic().PropagateTableSelection()
 
   def onSaveReportButtonClicked(self):
+    success = self.saveReport()
+    self.saveReportButton.enabled = not success
+
+  def onCompleteReportButtonClicked(self):
+    print "on complete report button clicked"
+    # TODO: disable segment editor for further segmenting
+    success = self.saveReport(completed=True)
+    self.saveReportButton.enabled = not success
+    self.completeReportButton.enabled = not success
+    if success:
+      self.tableNode.SetAttribute("readonly", "Yes")
+
+  def saveReport(self, completed=False):
     try:
       dcmSegmentationPath = self.createSEG()
     except (RuntimeError, ValueError, AttributeError) as exc:
       slicer.util.warningDisplay(exc.message)
-      return
-    self.createDICOMSR(dcmSegmentationPath)
-
-  def onCompleteReportButtonClicked(self):
-    print "on complete report button clicked"
+      return False
+    self.createDICOMSR(dcmSegmentationPath, completed)
+    return True
 
   def createSEG(self):
     import vtkSegmentationCorePython as vtkSegmentationCore
@@ -370,12 +407,12 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     logging.debug("Saved DICOM Segmentation to {}".format(outputSegmentationPath))
     return outputSegmentationPath
 
-  def createDICOMSR(self, referencedSegmentation):
+  def createDICOMSR(self, referencedSegmentation, completed):
     data = self._getSeriesAttributes()
 
     compositeContextDataDir, data["compositeContext"] = os.path.dirname(referencedSegmentation), [os.path.basename(referencedSegmentation)]
     imageLibraryDataDir, data["imageLibrary"] = self.getDICOMFileList(self.segmentEditorWidget.masterVolumeNode)
-    data.update(self._getAdditionalSRInformation())
+    data.update(self._getAdditionalSRInformation(completed))
 
     data["Measurements"] = self.segmentEditorWidget.logic.segmentStatisticsLogic.generateJSON4DcmSR(referencedSegmentation,
                                                                                                     self.segmentEditorWidget.masterVolumeNode)
@@ -418,12 +455,12 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
             "ClinicalTrialTimePointID": "1",
             "ClinicalTrialCoordinatingCenterName": "QIICR"}
 
-  def _getAdditionalSRInformation(self):
+  def _getAdditionalSRInformation(self, completed=False):
     data = dict()
     data["observerContext"] = {"ObserverType": "PERSON",
                                "PersonObserverName": self.watchBox.getAttribute("Reader").value}
-    data["VerificationFlag"] = "VERIFIED"
-    data["CompletionFlag"] = "COMPLETE"
+    data["VerificationFlag"] = "VERIFIED" if completed else "UNVERIFIED"
+    data["CompletionFlag"] = "COMPLETE" if completed else "PARTIAL"
     data["activitySession"] = "1"
     data["timePoint"] = "1"
     return data
@@ -547,8 +584,22 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
   def find(self, objectName):
     return self.findAll(objectName)[0]
 
+  @property
+  def enabled(self):
+    return self.editor.enabled
+
+  @enabled.setter
+  def enabled(self, enabled):
+    self._enabled = enabled
+    for widgetName in ["UndoRedoButtonBox", "OptionsGroupBox", "MaskingGroupBox"]:
+      widget = self.find(widgetName)
+      if widget:
+        widget.enabled = enabled
+    self.effectGroupBox.enabled = enabled
+    self.editor.enabled = enabled
+
   def findAll(self, objectName):
-    return slicer.util.findChildren(self.editor, objectName)
+    return slicer.util.findChildren(self.layout.parent(), objectName)
 
   def __init__(self, parent):
     SegmentEditorWidget.__init__(self, parent)
@@ -592,7 +643,8 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
     widget = self.find("EffectsGroupBox")
     if widget:
       buttons = [b for b in widget.children() if isinstance(b, qt.QPushButton)]
-      self.layout.addWidget(self.createHLayout(buttons))
+      self.effectGroupBox = self.createHLayout(buttons)
+      self.layout.addWidget(self.effectGroupBox)
       widget.hide()
 
   def appendOptionsAndMaskingGroupBoxAtTheEnd(self):
@@ -606,7 +658,9 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
     if undo and redo:
       undo.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Expanding)
       redo.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Expanding)
-      self.layout.addWidget(self.createHLayout([undo, redo]))
+      undoRedoGroupBox = self.createHLayout([undo, redo])
+      undoRedoGroupBox.objectName = "UndoRedoButtonBox"
+      self.layout.addWidget(undoRedoGroupBox)
 
   def enter(self):
     # overridden because SegmentEditorWidget automatically creates a new Segmentation upon instantiation
@@ -617,7 +671,9 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
     self.selectParameterNode()
     self.editor.updateWidgetFromMRML()
 
-  def calculateLabelStatistics(self, tableNode):
+  def calculateSegmentStatistics(self, tableNode):
+    if not self.segmentationNode or not self.masterVolumeNode:
+      return None
     return self.logic.calculateSegmentStatistics(self.segmentationNode, self.masterVolumeNode, tableNode)
 
   def createLabelNodeFromSegment(self, segmentID):
