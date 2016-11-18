@@ -1,6 +1,11 @@
 import os
 import string
-import vtk, qt, ctk, slicer
+import vtk
+import qt
+import ctk
+import slicer
+import vtkTeem
+
 from DICOMLib import DICOMPlugin
 from DICOMLib import DICOMLoadable
 
@@ -285,7 +290,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     if labelNode:
       volumeLogic = slicer.modules.volumes.logic()
       mergeNode = volumeLogic.CloneVolume(labelNode, seriesName + "-label")
-      combiner = slicer.vtkImageLabelCombine()
+      combiner = vtkTeem.vtkImageLabelCombine()
       for segmentNode in segmentNodes:
         combiner.SetInputConnection(0, mergeNode.GetImageDataConnection() )
         combiner.SetInputConnection(1, segmentNode.GetImageDataConnection() )
