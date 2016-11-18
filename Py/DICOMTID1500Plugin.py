@@ -76,7 +76,6 @@ class DICOMTID1500PluginClass(DICOMPlugin):
     loadable.confidence = 0.95
 
     if hasattr(dataset, "CurrentRequestedProcedureEvidenceSequence"):
-      # dataset.CurrentRequestedProcedureEvidenceSequence[0].ReferencedSeriesSequence[0].ReferencedSOPSequence[0]
       loadable.referencedSeriesInstanceUIDs = []
       loadable.referencedSOPInstanceUIDs = []
       for refSeriesSequence in dataset.CurrentRequestedProcedureEvidenceSequence:
@@ -92,21 +91,21 @@ class DICOMTID1500PluginClass(DICOMPlugin):
                 # loadable.referencedSOPInstanceUID = refSOPSequence.ReferencedSOPInstanceUID
     return loadable
 
-  def loadSeries(self, seriesUID):
-    dicomWidget = slicer.modules.dicom.widgetRepresentation().self()
-    dicomWidget.detailsPopup.offerLoadables(seriesUID, 'Series')
-    dicomWidget.detailsPopup.examineForLoading()
-    dicomWidget.detailsPopup.loadCheckedLoadables()
-
   def load(self, loadable):
     print('DICOM SR TID1500 load()')
 
     segPlugin = slicer.modules.dicomPlugins["DICOMSegmentationPlugin"]()
-    for seriesInstanceUID in loadable.referencedSeriesInstanceUIDs:
-      # segLoadables = segPlugin.examine([slicer.dicomDatabase.filesForSeries(seriesInstanceUID)])
-      # for segLoadable in segLoadables:
-      #   segPlugin.load(segLoadable)
-      self.loadSeries(seriesInstanceUID)
+    scalarVolumePlugin = slicer.modules.dicomPlugins["DICOMScalarVolumePlugin"]()
+
+    for segSeriesInstanceUID in loadable.referencedSeriesInstanceUIDs:
+      segLoadables = segPlugin.examine([slicer.dicomDatabase.filesForSeries(segSeriesInstanceUID)])
+      for segLoadable in segLoadables:
+        segPlugin.load(segLoadable)
+        if hasattr(segLoadable, "referencedSeriesUID"):
+          scalarLoadables = scalarVolumePlugin.examine([slicer.dicomDatabase.filesForSeries(segLoadable.referencedSeriesUID)])
+          scalarLoadables.sort(key=lambda x: (len(x.files), x.confidence), reverse=True)
+          if len(scalarLoadables):
+            scalarVolumePlugin.load(scalarLoadables[0])
 
     try:
       uid = loadable.uid
@@ -144,7 +143,12 @@ class DICOMTID1500PluginClass(DICOMPlugin):
       print 'tid1500reader did not complete successfully, unable to load DICOM SR TID1500'
       return False
 
-    return self.metadata2vtkTableNode(outputFile)
+    table = self.metadata2vtkTableNode(outputFile)
+    if table:
+      segmentationNodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode")
+      segmentationNodeID = segmentationNodes.GetItemAsObject(segmentationNodes.GetNumberOfItems()-1).GetID()
+      table.SetAttribute("ReferencedSegmentationNodeID", segmentationNodeID)
+    return table is not None
 
   def metadata2vtkTableNode(self, metafile):
     with open(metafile) as datafile:
@@ -181,8 +185,7 @@ class DICOMTID1500PluginClass(DICOMPlugin):
       table.EndModify(tableWasModified)
       slicer.app.applicationLogic().GetSelectionNode().SetReferenceActiveTableID(table.GetID())
       slicer.app.applicationLogic().PropagateTableSelection()
-
-    return table is not None
+    return table
 
 
 class SegmentStatisticsDICOMMeaningMapping(object):
