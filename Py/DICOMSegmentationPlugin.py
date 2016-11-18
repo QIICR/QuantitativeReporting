@@ -1,4 +1,5 @@
-import os
+import glob, os, json
+from datetime import datetime
 import string
 import vtk, qt, ctk, slicer
 from DICOMLib import DICOMPlugin
@@ -101,6 +102,13 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
           loadable.referencedInstanceUIDs.append(refDCM.SOPInstanceUID)
           loadable.referencedSeriesUID = dcm.ReferencedSeriesSequence[0].SeriesInstanceUID
 
+  def getValuesFromCodeSequence(self, segment, codeSequenceName, defaults=None):
+    try:
+      cs = segment[codeSequenceName]
+      return cs["CodeValue"], cs["CodingSchemeDesignator"], cs["CodeMeaning"]
+    except KeyError:
+      return defaults if defaults else ['', '', '']
+
   def load(self,loadable):
     """ Load the DICOM SEG object
     """
@@ -112,7 +120,8 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
       return False
 
     # make the output directory
-    outputDir = os.path.join(slicer.app.temporaryPath,"QIICR","SEG",loadable.uid)
+    currentDateTime = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+    outputDir = os.path.join(slicer.app.temporaryPath, "QIICR", "SEG", currentDateTime, loadable.uid)
     try:
       os.makedirs(outputDir)
     except OSError:
@@ -129,14 +138,15 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
       "inputSEGFileName": segFileName,
       "outputDirName": outputDir,
       }
+
     try:
-      seg2nrrd = slicer.modules.seg2nrrd
+      segimage2itkimage = slicer.modules.segimage2itkimage
     except AttributeError:
-      print 'Unable to find CLI module SEG2NRRD, unable to load DICOM Segmentation object'
+      print 'Unable to find CLI module segimage2itkimage, unable to load DICOM Segmentation object'
       return False
 
     cliNode = None
-    cliNode = slicer.cli.run(seg2nrrd, cliNode, parameters, wait_for_completion=True)
+    cliNode = slicer.cli.run(segimage2itkimage, cliNode, parameters, wait_for_completion=True)
     if cliNode.GetStatusString() != 'Completed':
       print 'SEG2NRRD did not complete successfully, unable to load DICOM Segmentation'
       return False
@@ -155,130 +165,104 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     # also create a new terminology and associate it with this color node
     colorLogic.CreateNewTerminology(segmentationColorNode.GetName())
 
-    import glob
     numberOfSegments = len(glob.glob(os.path.join(outputDir,'*.nrrd')))
 
     # resize the color table to include the segments plus 0 for the background
-    print ('number of segments = ',numberOfSegments)
-    segmentationColorNode.SetNumberOfColors(numberOfSegments + 1)
-    segmentationColorNode.SetColor(0, 'background', 0.0, 0.0, 0.0, 0.0)
 
     seriesName = self.referencedSeriesName(loadable)
     segmentNodes = []
     labelNode = None
-    for segmentId in range(numberOfSegments):
-      # load each of the segments' segmentations
-      # Initialize color and terminology from .info file
-      # See SEG2NRRD.cxx and EncodeSEG.cxx for how it's written.
-      # Format of the .info file (no leading spaces, labelNum, RGBColor, SegmentedPropertyCategory and
-      # SegmentedPropertyCategory are required):
-      # labelNum;RGB:R,G,B;SegmentedPropertyCategory:code,scheme,meaning;SegmentedPropertyType:code,scheme,meaning;SegmentedPropertyTypeModifier:code,scheme,meaning;AnatomicRegion:code,scheme,meaning;AnatomicRegionModifier:code,scheme,meaning
-      # R, G, B are 0-255 in file, but mapped to 0-1 for use in color node
-      # set defaults in case of missing fields, modifiers are optional
-      rgb = (0., 0., 0.)
-      colorIndex = segmentId + 1
-      categoryCode = 'T-D0050'
-      categoryCodingScheme = 'SRT'
-      categoryCodeMeaning = 'Tissue'
-      typeCode = 'T-D0050'
-      typeCodeMeaning = 'Tissue'
-      typeCodingScheme = 'SRT'
-      typeModCode = ''
-      typeModCodingScheme = ''
-      typeModCodeMeaning = ''
-      regionCode = 'T-D0010'
-      regionCodingScheme = 'SRT'
-      regionCodeMeaning = 'Entire Body'
-      regionModCode = ''
-      regionModCodingScheme = ''
-      regionModCodeMeaning = ''
-      infoFileName = os.path.join(outputDir,str(segmentId+1)+".info")
-      print ('Parsing info file', infoFileName)
-      with open(infoFileName, 'r') as infoFile:
-        for line in infoFile:
-          line = line.rstrip()
-          if len(line) == 0:
-            # empty line
-            continue
-          terms = line.split(';')
-          for term in terms:
-            # label number is the first thing, no key
-            if len(term.split(':')) == 1:
-              colorIndex = int(term)
-            else:
-              key = term.split(':')[0]
-              if key == "RGB":
-                rgb255 = term.split(':')[1].split(',')
-                rgb = map(lambda c: float(c) / 255., rgb255)
-              elif key == "AnatomicRegion":
-                # Get the Region information
-                region = term.split(':')[1]
-                # use partition to deal with any commas in the meaning
-                regionCode, sep, regionCodingSchemeAndCodeMeaning = region.partition(',')
-                regionCodingScheme, sep, regionCodeMeaning = regionCodingSchemeAndCodeMeaning.partition(',')
-              elif key == "AnatomicRegionModifier":
-                regionMod = term.split(':')[1]
-                regionModCode, sep, regionModCodingSchemeAndCodeMeaning = regionMod.partition(',')
-                regionModCodingScheme, sep, regionModCodeMeaning = regionModCodingSchemeAndCodeMeaning.partition(',')
-              elif key == "SegmentedPropertyCategory":
-                # Get the Category information
-                category = term.split(':')[1]
-                categoryCode, sep, categoryCodingSchemeAndCodeMeaning = category.partition(',')
-                categoryCodingScheme, sep, categoryCodeMeaning = categoryCodingSchemeAndCodeMeaning.partition(',')
-              elif key == "SegmentedPropertyType":
-                # Get the Type information
-                types = term.split(':')[1]
-                typeCode, sep, typeCodingSchemeAndCodeMeaning = types.partition(',')
-                typeCodingScheme, sep, typeCodeMeaning = typeCodingSchemeAndCodeMeaning.partition(',')
-              elif key == "SegmentedPropertyTypeModifier":
-                typeMod = term.split(':')[1]
-                typeModCode, sep, typeModCodingSchemeAndCodeMeaning = typeMod.partition(',')
-                typeModCodingScheme, sep, typeModCodeMeaning = typeModCodingSchemeAndCodeMeaning.partition(',')
+    metaFileName = os.path.join(outputDir,"meta.json")
 
-        # set the color name from the terminology
-        colorName = typeCodeMeaning
-        segmentationColorNode.SetColor(colorIndex, colorName, *rgb)
+    with open(metaFileName) as metaFile:
+      data = json.load(metaFile)
+      print ('number of segmentation files = ', numberOfSegments)
+      assert numberOfSegments == len(data["segmentAttributes"])
+      for segmentAttributes in data["segmentAttributes"]:
+        # TODO: only handles the first item of lists
+        segmentationColorNode.SetNumberOfColors(numberOfSegments + 1)
+        segmentationColorNode.SetColor(0, 'background', 0.0, 0.0, 0.0, 0.0)
+        for segment in segmentAttributes:
+          # load each of the segments' segmentations
+          # Initialize color and terminology from .info file
+          # See SEG2NRRD.cxx and EncodeSEG.cxx for how it's written.
+          # Format of the .info file (no leading spaces, labelNum, RGBColor, SegmentedPropertyCategory and
+          # SegmentedPropertyCategory are required):
+          # labelNum;RGB:R,G,B;SegmentedPropertyCategory:code,scheme,meaning;SegmentedPropertyType:code,scheme,meaning;SegmentedPropertyTypeModifier:code,scheme,meaning;AnatomicRegion:code,scheme,meaning;AnatomicRegionModifier:code,scheme,meaning
+          # R, G, B are 0-255 in file, but mapped to 0-1 for use in color node
+          # set defaults in case of missing fields, modifiers are optional
 
-        colorLogic.AddTermToTerminology(segmentationColorNode.GetName(), colorIndex,
-                                        categoryCode, categoryCodingScheme, categoryCodeMeaning,
-                                        typeCode, typeCodingScheme, typeCodeMeaning,
-                                        typeModCode, typeModCodingScheme, typeModCodeMeaning,
-                                        regionCode, regionCodingScheme, regionCodeMeaning,
-                                        regionModCode, regionModCodingScheme, regionModCodeMeaning)
+          try:
+            rgb255 = segment["recommendedDisplayRGBValue"]
+            rgb = map(lambda c: float(c) / 255., rgb255)
+          except KeyError:
+            rgb = (0., 0., 0.)
+
+          segmentId = segment["LabelID"]
+
+          defaults = ['T-D0050', 'Tissue', 'SRT']
+          categoryCode, categoryCodingScheme, categoryCodeMeaning = \
+            self.getValuesFromCodeSequence(segment, "SegmentedPropertyCategoryCodeSequence", defaults)
+
+          typeCode, typeCodeMeaning, typeCodingScheme = \
+            self.getValuesFromCodeSequence(segment, "SegmentedPropertyTypeCodeSequence", defaults)
+
+          typeModCode, typeModCodingScheme, typeModCodeMeaning = \
+            self.getValuesFromCodeSequence(segment, "SegmentedPropertyTypeModifierCodeSequence")
+
+          anatomicRegionDefaults = ['T-D0010', 'SRT', 'Entire Body']
+          regionCode, regionCodingScheme, regionCodeMeaning = \
+            self.getValuesFromCodeSequence(segment, "AnatomicRegionSequence", anatomicRegionDefaults)
+
+          regionModCode, regionModCodingScheme, regionModCodeMeaning = \
+            self.getValuesFromCodeSequence(segment, "AnatomicRegionModifierSequence")
+
+          colorName = typeCodeMeaning
+          segmentationColorNode.SetColor(segmentId, colorName, *rgb)
+
+          colorLogic.AddTermToTerminology(segmentationColorNode.GetName(), segmentId,
+                                          categoryCode, categoryCodingScheme, categoryCodeMeaning,
+                                          typeCode, typeCodingScheme, typeCodeMeaning,
+                                          typeModCode, typeModCodingScheme, typeModCodeMeaning,
+                                          regionCode, regionCodingScheme, regionCodeMeaning,
+                                          regionModCode, regionModCodingScheme, regionModCodeMeaning)
         # end of processing a line of terminology
-      infoFile.close()
 
-      #TODO: Create logic class that both CLI and this plugin uses so that we don't need to have temporary NRRD files and labelmap nodes
-      #if not hasattr(slicer.modules, 'segmentations'):
+          # TODO: Create logic class that both CLI and this plugin uses so that we don't need to have temporary NRRD files and labelmap nodes
+          # if not hasattr(slicer.modules, 'segmentations'):
 
-      # load the segmentation volume file and name it for the reference series and segment color
-      labelFileName = os.path.join(outputDir,str(segmentId+1)+".nrrd")
-      segmentName = seriesName + "-" + colorName + "-label"
-      (success,labelNode) = slicer.util.loadLabelVolume(labelFileName,
-                                                        properties = {'name' : segmentName},
-                                                        returnNode=True)
-      segmentNodes.append(labelNode)
+          # load the segmentation volume file and name it for the reference series and segment color
+          labelFileName = os.path.join(outputDir, str(segmentId) + ".nrrd")
+          segmentName = seriesName + "-" + colorName + "-label"
+          (success, labelNode) = slicer.util.loadLabelVolume(labelFileName,
+                                                             properties={'name': segmentName},
+                                                             returnNode=True)
+          if not success:
+            raise ValueError("{} could not be loaded into Slicer!".format(labelFileName))
+          segmentNodes.append(labelNode)
 
-      # point the label node to the color node we're creating
-      labelDisplayNode = labelNode.GetDisplayNode()
-      if labelDisplayNode is None:
-        print ('Warning: no label map display node for segment ',segmentId,', creating!')
-        labelNode.CreateDefaultDisplayNodes()
-        labelDisplayNode = labelNode.GetDisplayNode()
-      labelDisplayNode.SetAndObserveColorNodeID(segmentationColorNode.GetID())
+          # point the label node to the color node we're creating
+          labelDisplayNode = labelNode.GetDisplayNode()
+          if labelDisplayNode is None:
+            print ('Warning: no label map display node for segment ', segmentId, ', creating!')
+            labelNode.CreateDefaultDisplayNodes()
+            labelDisplayNode = labelNode.GetDisplayNode()
+          labelDisplayNode.SetAndObserveColorNodeID(segmentationColorNode.GetID())
 
-      # TODO: initialize referenced UID (and segment number?) attribute(s)
-      # dataset = dicom.read_file(segFileName)
-      # referencedSeries = dict()
-      # for refSeriesItem in dataset.ReferencedSeriesSequence:
-      #   refSOPInstanceUIDs = []
-      #   for refSOPInstanceItem in refSeriesItem.ReferencedInstanceSequence:
-      #     refSOPInstanceUIDs.append(refSOPInstanceItem.ReferencedSOPInstanceUID)
-      #   referencedSeries[refSeriesItem.SeriesInstanceUID] = refSOPInstanceUIDs
-      # segmentationNode.SetAttribute("DICOM.referencedInstanceUIDs", str(referencedSeries))
+          # TODO: initialize referenced UID (and segment number?) attribute(s)
+          # dataset = dicom.read_file(segFileName)
+          # referencedSeries = dict()
+          # for refSeriesItem in dataset.ReferencedSeriesSequence:
+          #   refSOPInstanceUIDs = []
+          #   for refSOPInstanceItem in refSeriesItem.ReferencedInstanceSequence:
+          #     refSOPInstanceUIDs.append(refSOPInstanceItem.ReferencedSOPInstanceUID)
+          #   referencedSeries[refSeriesItem.SeriesInstanceUID] = refSOPInstanceUIDs
+          # segmentationNode.SetAttribute("DICOM.referencedInstanceUIDs", str(referencedSeries))
 
-      # create Subject hierarchy nodes for the loaded series
-      self.addSeriesInSubjectHierarchy(loadable, labelNode)
+          # create Subject hierarchy nodes for the loaded series
+          self.addSeriesInSubjectHierarchy(loadable, labelNode)
+
+      metaFile.close()
 
     # create a combined (merge) label volume node (only if a segment was created)
     mergeNode = None
