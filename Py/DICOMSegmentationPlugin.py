@@ -4,6 +4,7 @@ import string
 import vtk, qt, ctk, slicer
 from DICOMLib import DICOMPlugin
 from DICOMLib import DICOMLoadable
+import logging
 
 #
 # This is the plugin to handle translation of DICOM SEG objects
@@ -131,7 +132,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     # the terminology information for each segment
     segFileName = slicer.dicomDatabase.fileForInstance(uid)
     if segFileName is None:
-      print 'Failed to get the filename from the DICOM database for ', uid
+      logging.error('Failed to get the filename from the DICOM database for ' + uid)
       return False
 
     parameters = {
@@ -142,46 +143,36 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     try:
       segimage2itkimage = slicer.modules.segimage2itkimage
     except AttributeError:
-      print 'Unable to find CLI module segimage2itkimage, unable to load DICOM Segmentation object'
+      logging.error('Unable to find CLI module segimage2itkimage, unable to load DICOM Segmentation object')
       return False
 
     cliNode = None
     cliNode = slicer.cli.run(segimage2itkimage, cliNode, parameters, wait_for_completion=True)
     if cliNode.GetStatusString() != 'Completed':
-      print 'SEG2NRRD did not complete successfully, unable to load DICOM Segmentation'
+      logging.error('SEG2NRRD did not complete successfully, unable to load DICOM Segmentation')
       return False
-
-    # create a new color node to be set up with the colors in these segments
-    #TODO: Revise after new terminology support added
-    colorLogic = slicer.modules.colors.logic()
-    segmentationColorNode = slicer.vtkMRMLColorTableNode()
-    segmentationColorNode.SetName(loadable.name)
-    segmentationColorNode.SetTypeToUser()
-    segmentationColorNode.SetHideFromEditors(0)
-    segmentationColorNode.SetAttribute("Category", "File")
-    segmentationColorNode.NamesInitialisedOff()
-    slicer.mrmlScene.AddNode(segmentationColorNode)
-
-    # also create a new terminology and associate it with this color node
-    colorLogic.CreateNewTerminology(segmentationColorNode.GetName())
 
     numberOfSegments = len(glob.glob(os.path.join(outputDir,'*.nrrd')))
 
     # resize the color table to include the segments plus 0 for the background
 
     seriesName = self.referencedSeriesName(loadable)
-    segmentNodes = []
+    segmentLabelNodes = []
     labelNode = None
     metaFileName = os.path.join(outputDir,"meta.json")
+    
+    # Load terminology in the metafile into context
+    terminologiesLogic = slicer.modules.terminologies.logic()
+    terminologiesLogic.LoadTerminologyFromSegmentDescriptorFile(loadable.name, metaFileName)
 
     with open(metaFileName) as metaFile:
       data = json.load(metaFile)
-      print ('number of segmentation files = ', numberOfSegments)
-      assert numberOfSegments == len(data["segmentAttributes"])
+      logging.debug('number of segmentation files = ' + str(numberOfSegments))
+      if numberOfSegments != len(data["segmentAttributes"]):
+        logging.error('Loading failed: Inconsistent number of segments in the descriptor file and on disk')
+        return
       for segmentAttributes in data["segmentAttributes"]:
         # TODO: only handles the first item of lists
-        segmentationColorNode.SetNumberOfColors(numberOfSegments + 1)
-        segmentationColorNode.SetColor(0, 'background', 0.0, 0.0, 0.0, 0.0)
         for segment in segmentAttributes:
           # load each of the segments' segmentations
           # Initialize color and terminology from .info file
@@ -204,7 +195,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
           categoryCode, categoryCodingScheme, categoryCodeMeaning = \
             self.getValuesFromCodeSequence(segment, "SegmentedPropertyCategoryCodeSequence", defaults)
 
-          typeCode, typeCodeMeaning, typeCodingScheme = \
+          typeCode, typeCodingScheme, typeCodeMeaning = \
             self.getValuesFromCodeSequence(segment, "SegmentedPropertyTypeCodeSequence", defaults)
 
           typeModCode, typeModCodingScheme, typeModCodeMeaning = \
@@ -217,37 +208,34 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
           regionModCode, regionModCodingScheme, regionModCodeMeaning = \
             self.getValuesFromCodeSequence(segment, "AnatomicRegionModifierSequence")
 
-          colorName = typeCodeMeaning
-          segmentationColorNode.SetColor(segmentId, colorName, *rgb)
-
-          colorLogic.AddTermToTerminology(segmentationColorNode.GetName(), segmentId,
+          dummyTerminologyWidget = slicer.qSlicerTerminologyNavigatorWidget() #TODO: Still cannot call static methods from python
+          segmentTerminologyTag = dummyTerminologyWidget.serializeTerminologyEntry(loadable.name,
                                           categoryCode, categoryCodingScheme, categoryCodeMeaning,
                                           typeCode, typeCodingScheme, typeCodeMeaning,
                                           typeModCode, typeModCodingScheme, typeModCodeMeaning,
                                           regionCode, regionCodingScheme, regionCodeMeaning,
                                           regionModCode, regionModCodingScheme, regionModCodeMeaning)
-        # end of processing a line of terminology
+          # end of processing a line of terminology
 
           # TODO: Create logic class that both CLI and this plugin uses so that we don't need to have temporary NRRD files and labelmap nodes
           # if not hasattr(slicer.modules, 'segmentations'):
 
           # load the segmentation volume file and name it for the reference series and segment color
           labelFileName = os.path.join(outputDir, str(segmentId) + ".nrrd")
-          segmentName = seriesName + "-" + colorName + "-label"
+          segmentName = seriesName + "-" + typeCodeMeaning + "-label"
           (success, labelNode) = slicer.util.loadLabelVolume(labelFileName,
                                                              properties={'name': segmentName},
                                                              returnNode=True)
           if not success:
             raise ValueError("{} could not be loaded into Slicer!".format(labelFileName))
-          segmentNodes.append(labelNode)
-
-          # point the label node to the color node we're creating
-          labelDisplayNode = labelNode.GetDisplayNode()
-          if labelDisplayNode is None:
-            print ('Warning: no label map display node for segment ', segmentId, ', creating!')
-            labelNode.CreateDefaultDisplayNodes()
-            labelDisplayNode = labelNode.GetDisplayNode()
-          labelDisplayNode.SetAndObserveColorNodeID(segmentationColorNode.GetID())
+          segmentLabelNodes.append(labelNode)
+          
+          # Set terminology properties as attributes to the label node (which is a temporary node)
+          #TODO: This is a quick solution, maybe there is a better one
+          labelNode.SetAttribute("Terminology", segmentTerminologyTag)
+          labelNode.SetAttribute("ColorR", str(rgb[0]))
+          labelNode.SetAttribute("ColorG", str(rgb[1]))
+          labelNode.SetAttribute("ColorB", str(rgb[2]))
 
           # TODO: initialize referenced UID (and segment number?) attribute(s)
           # dataset = dicom.read_file(segFileName)
@@ -264,71 +252,44 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
       metaFile.close()
 
-    # create a combined (merge) label volume node (only if a segment was created)
-    mergeNode = None
-    if labelNode:
-      volumeLogic = slicer.modules.volumes.logic()
-      mergeNode = volumeLogic.CloneVolume(labelNode, seriesName + "-label")
-      combiner = slicer.vtkImageLabelCombine()
-      for segmentNode in segmentNodes:
-        combiner.SetInputConnection(0, mergeNode.GetImageDataConnection() )
-        combiner.SetInputConnection(1, segmentNode.GetImageDataConnection() )
-        combiner.Update()
-        mergeNode.GetImageData().DeepCopy( combiner.GetOutput() )
-      for segmentNode in segmentNodes:
-        segmentNode.Modified() # sets the MTime so the editor won't think they are older than mergeNode
-      # display the mergeNode
-      selectionNode = slicer.app.applicationLogic().GetSelectionNode()
-      selectionNode.SetReferenceActiveLabelVolumeID( mergeNode.GetID() )
-      slicer.app.applicationLogic().PropagateVolumeSelection(0)
-
-    # finalize the color node
-    segmentationColorNode.NamesInitialisedOn()
-
     # TODO: the outputDir should be cleaned up
 
-    if hasattr(slicer.modules, 'segmentations'):
+    import vtkSegmentationCorePython as vtkSegmentationCore
 
-      import vtkSegmentationCorePython as vtkSegmentationCore
+    segmentationNode = slicer.vtkMRMLSegmentationNode()
+    segmentationNode.SetName(seriesName)
+    slicer.mrmlScene.AddNode(segmentationNode)
 
-      segmentationNode = slicer.vtkMRMLSegmentationNode()
-      segmentationNode.SetName(seriesName)
-      slicer.mrmlScene.AddNode(segmentationNode)
-      segmentationNode.AddNodeReferenceID('colorNodeID', segmentationColorNode.GetID())
+    segmentationDisplayNode = slicer.vtkMRMLSegmentationDisplayNode()
+    slicer.mrmlScene.AddNode(segmentationDisplayNode)
+    segmentationNode.SetAndObserveDisplayNodeID(segmentationDisplayNode.GetID())
 
-      segmentationDisplayNode = slicer.vtkMRMLSegmentationDisplayNode()
-      slicer.mrmlScene.AddNode(segmentationDisplayNode)
-      segmentationNode.SetAndObserveDisplayNodeID(segmentationDisplayNode.GetID())
+    segmentation = vtkSegmentationCore.vtkSegmentation()
+    segmentation.SetMasterRepresentationName(vtkSegmentationCore.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName())
 
-      segmentation = vtkSegmentationCore.vtkSegmentation()
-      segmentation.SetMasterRepresentationName(vtkSegmentationCore.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName())
+    segmentationNode.SetAndObserveSegmentation(segmentation)
+    self.addSeriesInSubjectHierarchy(loadable, segmentationNode)
 
-      segmentationNode.SetAndObserveSegmentation(segmentation)
-      self.addSeriesInSubjectHierarchy(loadable, segmentationNode)
+    for segmentLabelNode in segmentLabelNodes:
+      segment = vtkSegmentationCore.vtkSegment()
+      segment.SetName(segmentLabelNode.GetName())
 
-      colorID = 1
-      for segmentNode in segmentNodes:
-        segment = vtkSegmentationCore.vtkSegment()
-        segment.SetName(segmentNode.GetName())
+      segmentColor = [float(segmentLabelNode.GetAttribute("ColorR")), float(segmentLabelNode.GetAttribute("ColorG")), float(segmentLabelNode.GetAttribute("ColorB"))]
+      segment.SetDefaultColor(segmentColor)
+      
+      segment.SetTag(vtkSegmentationCore.vtkSegment.GetTerminologyEntryTagName(), segmentLabelNode.GetAttribute("Terminology"))
 
-        segmentColor = [0,0,0,0]
-        segmentationColorNode.GetColor(colorID, segmentColor)
-        segment.SetDefaultColor(segmentColor[0:3])
+      #TODO: when the logic class is created, this will need to be changed
+      orientedImage = slicer.vtkSlicerSegmentationsModuleLogic.CreateOrientedImageDataFromVolumeNode(segmentLabelNode)
+      segment.AddRepresentation(vtkSegmentationCore.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName(), orientedImage)
+      segmentation.AddSegment(segment)
 
-        colorID += 1
-
-        #TODO: when the logic class is created, this will need to be changed
-        logic = slicer.vtkSlicerSegmentationsModuleLogic()
-        orientedImage = logic.CreateOrientedImageDataFromVolumeNode(segmentNode)
-        segment.AddRepresentation(vtkSegmentationCore.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName(), orientedImage)
-        segmentation.AddSegment(segment)
-
-        segmentDisplayNode = segmentNode.GetDisplayNode()
+      segmentDisplayNode = segmentLabelNode.GetDisplayNode()
+      if segmentDisplayNode is not None:
         slicer.mrmlScene.RemoveNode(segmentDisplayNode)
-        slicer.mrmlScene.RemoveNode(segmentNode)
+      slicer.mrmlScene.RemoveNode(segmentLabelNode)
 
-      segmentation.CreateRepresentation(vtkSegmentationCore.vtkSegmentationConverter.GetSegmentationClosedSurfaceRepresentationName(), True)
-      slicer.mrmlScene.RemoveNode(mergeNode)
+    segmentation.CreateRepresentation(vtkSegmentationCore.vtkSegmentationConverter.GetSegmentationClosedSurfaceRepresentationName(), True)
 
     return True
 
