@@ -823,12 +823,12 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
 
     segmentData = dict()
 
-    regionObject = self.terminologyEntry.GetAnatomicRegionObject()
+    regionObject = terminologyEntry.GetAnatomicRegionObject()
     if regionObject is None:
       return {}
     segmentData["AnatomicRegionSequence"] = self.getJSONFromVtkSlicerTerminology(regionObject)
 
-    regionModifierObject = self.terminologyEntry.GetAnatomicRegionModifierObject()
+    regionModifierObject = terminologyEntry.GetAnatomicRegionModifierObject()
     if regionModifierObject is not None:
       segmentData["AnatomicRegionModifierSequence"] = self.getJSONFromVtkSlicerTerminology(regionModifierObject)
 
@@ -950,7 +950,7 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
       if any(v == "" for v in [category, propType]):
         raise ValueError("Segment {} has missing attributes. Make sure to set terminology.".format(segment.GetName()))
   '''
-  
+
   def isSegmentEmpty(self, segment):
     bounds = [0.0,0.0,0.0,0.0,0.0,0.0]
     segment.GetBounds(bounds)
