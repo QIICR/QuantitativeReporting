@@ -880,18 +880,27 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
     for segmentID in self.statistics["SegmentIDs"]:
       if self.statistics[segmentID, "GS voxel count"] == 0:
         continue
+
       data = dict()
       data["TrackingIdentifier"] = self.statistics[segmentID, "Segment"]
       data["ReferencedSegment"] = len(measurements)+1
       data["SourceSeriesForImageSegmentation"] = sourceImageSeriesUID
       data["segmentationSOPInstanceUID"] = segmentationSOPInstanceUID
       segment = self.segmentationNode.GetSegmentation().GetSegment(segmentID)
-      data["Finding"] = self.createJSONFromTerminologyContext(segment)["SegmentedPropertyTypeCodeSequence"]
-      anatomicContext = self.createJSONFromAnatomicContext(segment)
+
+      terminologyWidget = slicer.qSlicerTerminologyNavigatorWidget()
+      terminologyEntry = slicer.vtkSlicerTerminologyEntry()
+      tag = vtk.mutable("")
+      segment.GetTag(segment.GetTerminologyEntryTagName(), tag)
+      terminologyWidget.deserializeTerminologyEntry(tag, terminologyEntry)
+
+      data["Finding"] = self.createJSONFromTerminologyContext(segment,terminologyEntry)["SegmentedPropertyTypeCodeSequence"]
+      anatomicContext = self.createJSONFromAnatomicContext(segment,terminologyEntry)
       if anatomicContext.has_key("AnatomicRegionSequence"):
         data["FindingSite"] = anatomicContext["AnatomicRegionSequence"]
       data["measurementItems"] = self.createMeasurementItemsForLabelValue(segmentID, modality)
       measurements.append(data)
+
     return measurements
 
   def createMeasurementItemsForLabelValue(self, segmentValue, modality):
