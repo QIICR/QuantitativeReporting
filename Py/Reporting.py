@@ -769,7 +769,8 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
             if self.statistics[s, "GS voxel count"] > 0]
 
   def generateJSON4DcmSEGExport(self):
-    self.validateSegments()
+    # TODO: update and re-enable
+    # self.validateSegments()
     segmentsData = []
     for segmentID in self.statistics["SegmentIDs"]:
       if self.statistics[segmentID, "GS voxel count"] == 0:
@@ -777,63 +778,63 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
       segmentData = dict()
       segmentData["LabelID"] = 1
       segment = self.segmentationNode.GetSegmentation().GetSegment(segmentID)
-      category = self.getTagValue(segment, segment.GetTerminologyCategoryTagName())
-      segmentData["SegmentDescription"] = category if category != "" else self.statistics[segmentID, "Segment"]
+
+      terminologyWidget = slicer.qSlicerTerminologyNavigatorWidget()
+      terminologyEntry = slicer.vtkSlicerTerminologyEntry()
+      tag = vtk.mutable("")
+      segment.GetTag(segment.GetTerminologyEntryTagName(), tag)
+      terminologyWidget.deserializeTerminologyEntry(tag, terminologyEntry)
+
+      category = terminologyEntry.GetCategoryObject()
+      segmentData["SegmentDescription"] = category.GetCodeMeaning() if category != "" else self.statistics[segmentID, "Segment"]
       segmentData["SegmentAlgorithmType"] = "MANUAL"
       rgb = segment.GetDefaultColor()
       segmentData["recommendedDisplayRGBValue"] = [rgb[0]*255, rgb[1]*255, rgb[2]*255]
-      segmentData.update(self.createJSONFromTerminologyContext(segment))
-      segmentData.update(self.createJSONFromAnatomicContext(segment))
+      segmentData.update(self.createJSONFromTerminologyContext(segment,terminologyEntry))
+      segmentData.update(self.createJSONFromAnatomicContext(segment,terminologyEntry))
       segmentsData.append([segmentData])
     if not len(segmentsData):
       raise ValueError("No segments with pixel data found.")
     return segmentsData
 
-  def createJSONFromTerminologyContext(self, segment):
+  def createJSONFromTerminologyContext(self, segment, terminologyEntry):
+
     segmentData = dict()
-    contextName = self.getTagValue(segment, segment.GetTerminologyContextTagName())
-    categoryName = self.getTagValue(segment, segment.GetTerminologyCategoryTagName())
 
-    category = slicer.vtkSlicerTerminologyCategory()
-    if not self.terminologyLogic.GetCategoryInTerminology(contextName, categoryName, category):
-      raise ValueError("Error: Cannot get category from terminology")
-    segmentData["SegmentedPropertyCategoryCodeSequence"] = self.getJSONFromVtkSlicerCodeSequence(category)
-
-    typeName = self.getTagValue(segment, segment.GetTerminologyTypeTagName())
-    pType = slicer.vtkSlicerTerminologyType()
-    if not self.terminologyLogic.GetTypeInTerminologyCategory(contextName, categoryName, typeName, pType):
-      raise ValueError("Error: Cannot get type from terminology")
-    segmentData["SegmentedPropertyTypeCodeSequence"] = self.getJSONFromVtkSlicerCodeSequence(pType)
-
-    modifierName = self.getTagValue(segment, segment.GetTerminologyTypeModifierTagName())
-    if modifierName != "":
-      modifier = slicer.vtkSlicerTerminologyType()
-      if self.terminologyLogic.GetTypeModifierInTerminologyType(contextName, categoryName, typeName, modifierName, modifier):
-        segmentData["SegmentedPropertyTypeModifierCodeSequence"] = self.getJSONFromVtkSlicerCodeSequence(modifier)
-
-    return segmentData
-
-  def createJSONFromAnatomicContext(self, segment):
-    segmentData = dict()
-    anatomicContextName = self.getTagValue(segment, segment.GetAnatomicContextTagName())
-    regionName = self.getTagValue(segment, segment.GetAnatomicRegionTagName())
-
-    if regionName == "":
+    # Both Category and Type are required, so return if not available
+    # TODO: consider populating to "Tissue" if not available?
+    categoryObject = terminologyEntry.GetCategoryObject()
+    if categoryObject is None:
       return {}
+    segmentData["SegmentedPropertyCategoryCodeSequence"] = self.getJSONFromVtkSlicerTerminology(categoryObject)
 
-    region = slicer.vtkSlicerTerminologyType()
-    self.terminologyLogic.GetRegionInAnatomicContext(anatomicContextName, regionName, region)
-    segmentData["AnatomicRegionSequence"] = self.getJSONFromVtkSlicerCodeSequence(region)
+    typeObject = terminologyEntry.GetTypeObject()
+    if typeObject is None:
+      return {}
+    segmentData["SegmentedPropertyTypeCodeSequence"] = self.getJSONFromVtkSlicerTerminology(typeObject)
 
-    modifierName = self.getTagValue(segment, segment.GetAnatomicRegionModifierTagName())
-    if modifierName != "":
-      modifier = slicer.vtkSlicerTerminologyType()
-      self.terminologyLogic.GetRegionModifierInAnatomicRegion(anatomicContextName, regionName, modifierName, modifier)
-      segmentData["AnatomicRegionModifierSequence"] = self.getJSONFromVtkSlicerCodeSequence(modifier)
+    modifierObject = terminologyEntry.GetTypeModifierObject()
+    if modifierObject is not None:
+      segmentData["SegmentedPropertyTypeModifierCodeSequence"] = self.getJSONFromVtkSlicerTerminology(modifierObject)
 
     return segmentData
 
-  def getJSONFromVtkSlicerCodeSequence(self, codeSequence):
+  def createJSONFromAnatomicContext(self, segment, terminologyEntry):
+
+    segmentData = dict()
+
+    regionObject = self.terminologyEntry.GetAnatomicRegionObject()
+    if regionObject is None:
+      return {}
+    segmentData["AnatomicRegionSequence"] = self.getJSONFromVtkSlicerTerminology(regionObject)
+
+    regionModifierObject = self.terminologyEntry.GetAnatomicRegionModifierObject()
+    if regionModifierObject is not None:
+      segmentData["AnatomicRegionModifierSequence"] = self.getJSONFromVtkSlicerTerminology(regionModifierObject)
+
+    return segmentData
+
+  def getJSONFromVtkSlicerTerminology(self, codeSequence):
     return self.createCodeSequence(codeSequence.GetCodeValue(), codeSequence.GetCodingScheme(), codeSequence.GetCodeMeaning())
 
   # def changePixelValue(self, labelNode, outValue):
@@ -939,6 +940,8 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
             "CodingSchemeDesignator": designator,
             "CodeMeaning": meaning}
 
+  # TODO: update and re-enable
+  '''
   def validateSegments(self):
     for segmentID in self.statistics["SegmentIDs"]:
       segment = self.segmentationNode.GetSegmentation().GetSegment(segmentID)
@@ -946,7 +949,8 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
       propType = self.getTagValue(segment, segment.GetTerminologyTypeTagName())
       if any(v == "" for v in [category, propType]):
         raise ValueError("Segment {} has missing attributes. Make sure to set terminology.".format(segment.GetName()))
-
+  '''
+  
   def isSegmentEmpty(self, segment):
     bounds = [0.0,0.0,0.0,0.0,0.0,0.0]
     segment.GetBounds(bounds)
