@@ -615,8 +615,8 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
                        "AddSegmentButton", "RemoveSegmentButton", "CreateSurfaceButton"]:
       widget = self.find(widgetName)
       if widget:
-        widget.enabled = enabled
-    self.effectGroupBox.enabled = enabled
+        widget.visible = enabled
+    self.effectGroupBox.visible = enabled
     self.table.setReadOnly(not enabled)
 
   def findAll(self, objectName):
