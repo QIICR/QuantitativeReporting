@@ -187,6 +187,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.measurementsGroupBoxLayout = qt.QVBoxLayout()
     self.measurementsGroupBox.setLayout(self.measurementsGroupBoxLayout)
     self.tableView = slicer.qMRMLTableView()
+    self.tableView.setMinimumHeight(150)
     self.tableView.setMaximumHeight(150)
     self.tableView.setSelectionBehavior(qt.QTableView.SelectRows)
     self.tableView.horizontalHeader().setResizeMode(qt.QHeaderView.Stretch)
@@ -661,6 +662,7 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
     self.editor.segmentationNodeSelectorVisible = False
     self.table.parent().hide()
     self.table.parent().parent().layout().addWidget(self.table)
+    self.table.setMinimumHeight(150)
     self.table.setMaximumHeight(150)
     masterVolumeLabel = self.find("label_MasterVolume")
     if masterVolumeLabel:
