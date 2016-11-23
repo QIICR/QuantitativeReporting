@@ -213,11 +213,14 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       getattr(self.completeReportButton.clicked, funcName)(self.onCompleteReportButtonClicked)
       getattr(self.calculateMeasurementsButton.clicked, funcName)(lambda: self.updateMeasurementsTable(triggered=True))
 
-    getattr(self.layoutManager.layoutChanged, funcName)(self.onLayoutChanged)
-    getattr(self.calculateAutomaticallyCheckbox.toggled, funcName)(self.onCalcAutomaticallyToggled)
+    def setupOtherConnections():
+      getattr(self.layoutManager.layoutChanged, funcName)(self.onLayoutChanged)
+      getattr(self.calculateAutomaticallyCheckbox.toggled, funcName)(self.onCalcAutomaticallyToggled)
+      getattr(self.tableView.clicked, funcName)(self.segmentEditorWidget.onSegmentSelected)
 
     setupSelectorConnections()
     setupButtonConnections()
+    setupOtherConnections()
 
   def removeConnections(self):
     self.setupConnections(funcName="disconnect")
