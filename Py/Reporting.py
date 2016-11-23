@@ -263,6 +263,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     if self.tableNode.GetAttribute("readonly"):
       logging.debug("Selected measurements report is readonly")
       self.setMeasurementsTable(self.tableNode)
+      self.segmentEditorWidget.table.setReadOnly(True)
       self.segmentEditorWidget.enabled = False
     else:
       self.segmentEditorWidget.enabled = True
@@ -593,12 +594,13 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
   @enabled.setter
   def enabled(self, enabled):
     self._enabled = enabled
-    for widgetName in ["UndoRedoButtonBox", "OptionsGroupBox", "MaskingGroupBox"]:
+    for widgetName in ["UndoRedoButtonBox", "OptionsGroupBox", "MaskingGroupBox",
+                       "AddSegmentButton", "RemoveSegmentButton", "CreateSurfaceButton"]:
       widget = self.find(widgetName)
       if widget:
         widget.enabled = enabled
     self.effectGroupBox.enabled = enabled
-    self.editor.enabled = enabled
+    self.table.setReadOnly(not enabled)
 
   def findAll(self, objectName):
     return slicer.util.findChildren(self.layout.parent(), objectName)
