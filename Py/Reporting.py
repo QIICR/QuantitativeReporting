@@ -168,6 +168,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.fourUpSliceLayoutButton = FourUpLayoutButton()
     self.fourUpSliceTableViewLayoutButton = FourUpTableViewLayoutButton()
     self.crosshairButton = CrosshairButton()
+    self.crosshairButton.setSliceIntersectionEnabled(True)
 
     hbox = self.createHLayout([self.redSliceLayoutButton, self.fourUpSliceLayoutButton,
                                self.fourUpSliceTableViewLayoutButton, self.crosshairButton])
