@@ -238,6 +238,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
 
   @postCall(refreshUIElementsAvailability)
   def onImageVolumeSelected(self, node):
+    self.seriesNumber = None
     self.initializeWatchBox(node)
 
   @postCall(refreshUIElementsAvailability)
@@ -447,10 +448,10 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
 
   def _getSeriesAttributes(self):
     attributes = {"SeriesDescription": "Segmentation"}
-    seriesNumber = ModuleLogicMixin.getDICOMValue(self.watchBox.sourceFile, DICOMTAGS.SERIES_NUMBER)
-    # TODO: keep counter for the exported segmentations to avoid duplicate
-    attributes["SeriesNumber"] = "100" if seriesNumber in [None,''] else str(int(seriesNumber)+100)
-
+    if not self.seriesNumber:
+      self.seriesNumber = ModuleLogicMixin.getDICOMValue(self.watchBox.sourceFile, DICOMTAGS.SERIES_NUMBER)
+    self.seriesNumber = "100" if self.seriesNumber in [None,''] else str(int(self.seriesNumber)+100)
+    attributes["SeriesNumber"] = self.seriesNumber
     attributes["InstanceNumber"] = "1"
     return attributes
 
