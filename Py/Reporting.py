@@ -218,11 +218,17 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     def setupOtherConnections():
       getattr(self.layoutManager.layoutChanged, funcName)(self.onLayoutChanged)
       getattr(self.calculateAutomaticallyCheckbox.toggled, funcName)(self.onCalcAutomaticallyToggled)
-      getattr(self.tableView.clicked, funcName)(self.segmentEditorWidget.onSegmentSelected)
+      getattr(self.segmentEditorWidget.tableWidget.itemClicked, funcName)(self.onSegmentSelected)
+      getattr(self.tableView.clicked, funcName)(self.onSegmentSelected)
 
     setupSelectorConnections()
     setupButtonConnections()
     setupOtherConnections()
+
+  def onSegmentSelected(self, item):
+    self.segmentEditorWidget.tableWidget.selectRow(item.row())
+    self.tableView.selectRow(item.row())
+    self.segmentEditorWidget.onSegmentSelected(item)
 
   def removeConnections(self):
     self.setupConnections(funcName="disconnect")
@@ -636,10 +642,6 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
     self.changeUndoRedoSizePolicies()
     self.appendOptionsAndMaskingGroupBoxAtTheEnd()
     self.clearSegmentationEditorSelectors()
-    self.setupConnections()
-
-  def setupConnections(self):
-    self.tableWidget.itemClicked.connect(self.onSegmentSelected)
 
   def onSegmentSelected(self, item):
     try:
