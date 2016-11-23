@@ -351,6 +351,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     try:
       dcmSegmentationPath = self.createSEG()
       self.createDICOMSR(dcmSegmentationPath, completed)
+      self.addProducedDataToDICOMDatabase()
     except (RuntimeError, ValueError, AttributeError) as exc:
       slicer.util.warningDisplay(exc.message)
       return False
@@ -407,8 +408,6 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
 
     if not os.path.exists(outputSegmentationPath):
       raise RuntimeError("DICOM Segmentation was not created. Check Error Log for further information.")
-    indexer = ctk.ctkDICOMIndexer()
-    indexer.addFile(slicer.dicomDatabase, outputSegmentationPath)
 
     logging.debug("Saved DICOM Segmentation to {}".format(outputSegmentationPath))
     return outputSegmentationPath
@@ -447,9 +446,12 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     indexer = ctk.ctkDICOMIndexer()
     indexer.addFile(slicer.dicomDatabase, outputSRPath)
 
+  def addProducedDataToDICOMDatabase(self):
+    databaseDirectory = qt.QSettings().value("DatabaseDirectory")
+    indexer = ctk.ctkDICOMIndexer()
+    indexer.addDirectory(slicer.dicomDatabase, self.tempDir, os.path.join(databaseDirectory, "dicom"))
+
   def cleanupTemporaryData(self):
-    # TODO: import and copy DICOM data first for SlicerDICOMDatabase
-    return
     try:
       import shutil
       logging.debug("Cleaning up temporarily created directory {}".format(self.tempDir))
@@ -755,7 +757,6 @@ class ReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
 
     tableNode = self.segmentStatisticsLogic.exportToTable(tableNode)
     slicer.mrmlScene.AddNode(tableNode)
-    # slicer.mrmlScene.RemoveNode(labelNode)
     return tableNode
 
   def createLabelNodeFromSegment(self, segmentationNode, segmentID):
