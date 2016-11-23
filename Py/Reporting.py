@@ -447,7 +447,6 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     indexer.addFile(slicer.dicomDatabase, outputSRPath)
 
   def _getSeriesAttributes(self):
-    attributes = dict()
     attributes = {"SeriesDescription": "Segmentation"}
     seriesNumber = ModuleLogicMixin.getDICOMValue(self.watchBox.sourceFile, DICOMTAGS.SERIES_NUMBER)
     # TODO: keep counter for the exported segmentations to avoid duplicate
@@ -455,7 +454,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     if seriesNumber in [None,'']:
       attributes["SeriesNumber"] = "100"
     else:
-      attributes["SeriesNumber"] = str(int(attributes["SeriesNumber"])+100)
+      attributes["SeriesNumber"] = str(int(seriesNumber)+100)
 
     attributes["InstanceNumber"] = "1"
     return attributes
