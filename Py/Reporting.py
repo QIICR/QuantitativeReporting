@@ -48,6 +48,12 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.segmentationsLogic = slicer.modules.segmentations.logic()
     self.slicerTempDir = slicer.util.tempDirectory()
 
+  def enter(self):
+    self.setupConnections()
+
+  def exit(self):
+    self.removeConnections()
+
   def initializeMembers(self):
     self.tableNode = None
     self.segmentationObservers = []
@@ -90,7 +96,6 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.setupSelectionArea()
     self.setupMeasurementsArea()
     self.setupActionButtons()
-    self.setupConnections()
     self.layout.addStretch(1)
     self.fourUpSliceLayoutButton.checked = True
 
@@ -146,7 +151,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
 
     self.imageVolumeSelector = self.segmentEditorWidget.masterVolumeNodeSelector
     self.imageVolumeSelector.addAttribute("vtkMRMLScalarVolumeNode", "DICOM.instanceUIDs", None)
-    self.segmentionNodeSelector = self.segmentEditorWidget.segmentationNodeSelector
+    self.segmentationNodeSelector = self.segmentEditorWidget.segmentationNodeSelector
     self.measurementReportSelector = self.createComboBox(nodeTypes=["vtkMRMLTableNode", ""], showChildNodeTypes=False,
                                                          addEnabled=True, removeEnabled=True, noneEnabled=True,
                                                          selectNodeUponCreation=True, toolTip="Select measurement report")
@@ -187,6 +192,8 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.measurementsGroupBox.setLayout(self.measurementsGroupBoxLayout)
     self.tableView = slicer.qMRMLTableView()
     self.tableView.minimumHeight = 150
+    self.tableView.setSelectionBehavior(qt.QTableView.SelectRows)
+    self.tableView.horizontalHeader().setResizeMode(qt.QHeaderView.Stretch)
     self.measurementsGroupBoxLayout.addWidget(self.tableView)
     self.layout.addWidget(self.measurementsGroupBox)
 
@@ -245,21 +252,21 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.tableNode = node
     self.hideAllSegmentations()
     if node is None:
-      self.segmentionNodeSelector.setCurrentNode(None)
+      self.segmentationNodeSelector.setCurrentNode(None)
       return
 
     segmentationNodeID = self.tableNode.GetAttribute('ReferencedSegmentationNodeID')
-    print "ReferencedSegmentationNodeID {}".format(segmentationNodeID)
+    logging.debug("ReferencedSegmentationNodeID {}".format(segmentationNodeID))
     if segmentationNodeID:
       segmentationNode = slicer.mrmlScene.GetNodeByID(segmentationNodeID)
     else:
       segmentationNode = self.createNewSegmentationNode()
       self.tableNode.SetAttribute('ReferencedSegmentationNodeID', segmentationNode.GetID())
-    self.segmentionNodeSelector.setCurrentNode(segmentationNode)
+    self.segmentationNodeSelector.setCurrentNode(segmentationNode)
     segmentationNode.SetDisplayVisibility(True)
     self.setupSegmentationObservers()
     if self.tableNode.GetAttribute("readonly"):
-      print "Selected measurements report is readonly"
+      logging.debug("Selected measurements report is readonly")
       self.setMeasurementsTable(self.tableNode)
       self.segmentEditorWidget.enabled = False
     else:
@@ -336,7 +343,6 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.saveReportButton.enabled = not success
 
   def onCompleteReportButtonClicked(self):
-    print "on complete report button clicked"
     # TODO: disable segment editor for further segmenting
     success = self.saveReport(completed=True)
     self.saveReportButton.enabled = not success
@@ -416,11 +422,8 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
 
     data["Measurements"] = self.segmentEditorWidget.logic.segmentStatisticsLogic.generateJSON4DcmSR(referencedSegmentation,
                                                                                                     self.segmentEditorWidget.masterVolumeNode)
-
-    print json.dumps(data, indent=2, separators=(',', ': '))  # TODO: remove
-
     logging.debug("DICOM SR Metadata output:")
-    logging.debug(data)
+    logging.debug(json.dumps(data, indent=2, separators=(',', ': ')))
 
     metaFilePath = self.saveJSON(data, os.path.join(self.tempDir, "sr_meta.json"))
     outputSRPath = os.path.join(self.tempDir, "sr.dcm")
@@ -458,7 +461,6 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     return attributes
 
   def _getAdditionalSeriesAttributes(self):
-    # TODO: populate
     return {"ContentCreatorName": self.watchBox.getAttribute("Reader").value,
             "ClinicalTrialSeriesID": "1",
             "ClinicalTrialTimePointID": "1",
@@ -767,6 +769,7 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
     if not table:
       table = slicer.vtkMRMLTableNode()
       table.SetName(slicer.mrmlScene.GenerateUniqueName(self.grayscaleNode.GetName() + ' statistics'))
+    table.SetUseColumnNameAsColumnHeader(True)
     self.keys = ["Segment", "GS volume mm3", "GS volume cc",
                  "GS min", "GS max", "GS mean", "GS stdev"]
     SegmentStatisticsLogic.exportToTable(self, table, nonEmptyKeysOnly)
@@ -846,28 +849,6 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
   def getJSONFromVtkSlicerTerminology(self, codeSequence):
     return self.createCodeSequence(codeSequence.GetCodeValue(), codeSequence.GetCodingScheme(), codeSequence.GetCodeMeaning())
 
-  # def changePixelValue(self, labelNode, outValue):
-  #   imageData = labelNode.GetImageData()
-  #   backgroundValue = 0
-  #   thresh = vtk.vtkImageThreshold()
-  #   thresh.SetInputData(imageData)
-  #   thresh.ThresholdByLower(0)
-  #   thresh.SetInValue(backgroundValue)
-  #   thresh.SetOutValue(outValue)
-  #   thresh.SetOutputScalarType(vtk.VTK_UNSIGNED_CHAR)
-  #   thresh.Update()
-  #   labelNode.SetAndObserveImageData(thresh.GetOutput())
-
-  # def addSegmentLabelmapStatistics(self):
-  #   SegmentStatisticsLogic.addSegmentLabelmapStatistics(self)
-  #   for pixelValue, segmentID in enumerate(self.statistics["SegmentIDs"], 1):
-  #     if not self.statistics[segmentID,"LM voxel count"] > 0:
-  #       continue
-  #     segmentLabelmap = self.createLabelNodeFromSegment(segmentID)
-  #     self.changePixelValue(segmentLabelmap, pixelValue)
-  #     self.statistics[segmentID, "LM pixel value"] = pixelValue
-  #     self.statistics[segmentID, "LM label map"] = segmentLabelmap
-
   def generateJSON4DcmSR(self, dcmSegmentationFile, sourceVolumeNode):
     measurements = []
     modality = ModuleLogicMixin.getDICOMValue(sourceVolumeNode, "0008,0060")
@@ -910,7 +891,7 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
       item["value"] = str(self.statistics[segmentValue, key])
       item["quantity"] = self.getQuantityCSforKey(key)
       item["units"] = self.getUnitsCSForKey(key, modality)
-      derivationModifier = self.getDerivatinModifierCSForKey(key)
+      derivationModifier = self.getDerivationModifierCSForKey(key)
       if derivationModifier:
         item["derivationModifier"] = derivationModifier
       measurementItems.append(item)
@@ -940,7 +921,7 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
       return self.createCodeSequence("cm3", "UCUM", "cubic centimeter")
     return None
 
-  def getDerivatinModifierCSForKey(self, key):
+  def getDerivationModifierCSForKey(self, key):
     keys = ["GS min", "GS max", "GS mean", "GS stdev"]
     if key in keys:
       if key == keys[0]:
