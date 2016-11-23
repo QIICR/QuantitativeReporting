@@ -186,7 +186,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.measurementsGroupBoxLayout = qt.QVBoxLayout()
     self.measurementsGroupBox.setLayout(self.measurementsGroupBoxLayout)
     self.tableView = slicer.qMRMLTableView()
-    self.tableView.minimumHeight = 150
+    self.tableView.setMaximumHeight(150)
     self.tableView.setSelectionBehavior(qt.QTableView.SelectRows)
     self.tableView.horizontalHeader().setResizeMode(qt.QHeaderView.Stretch)
     self.measurementsGroupBoxLayout.addWidget(self.tableView)
@@ -266,6 +266,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       self.setMeasurementsTable(self.tableNode)
       self.segmentEditorWidget.table.setReadOnly(True)
       self.segmentEditorWidget.enabled = False
+      self.enableReportButtons(False)
     else:
       self.segmentEditorWidget.enabled = True
       self.onSegmentationNodeChanged()
@@ -326,9 +327,6 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       self.tableView.setMRMLTableNode(self.tableNode if self.tableNode else None)
     self.onDisplayMeasurementsTable()
 
-  def getActiveSlicerTableID(self):
-    return slicer.app.applicationLogic().GetSelectionNode().GetActiveTableID()
-
   def onDisplayMeasurementsTable(self):
     self.measurementsGroupBox.visible = not self.layoutManager.layout == self.fourUpSliceTableViewLayoutButton.LAYOUT
     if self.layoutManager.layout == self.fourUpSliceTableViewLayoutButton.LAYOUT and self.tableNode:
@@ -342,7 +340,6 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       slicer.util.infoDisplay("Report successfully saved into SlicerDICOMDatabase")
 
   def onCompleteReportButtonClicked(self):
-    # TODO: disable segment editor for further segmenting
     success = self.saveReport(completed=True)
     self.saveReportButton.enabled = not success
     self.completeReportButton.enabled = not success
@@ -353,10 +350,12 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def saveReport(self, completed=False):
     try:
       dcmSegmentationPath = self.createSEG()
+      self.createDICOMSR(dcmSegmentationPath, completed)
     except (RuntimeError, ValueError, AttributeError) as exc:
       slicer.util.warningDisplay(exc.message)
       return False
-    self.createDICOMSR(dcmSegmentationPath, completed)
+    finally:
+      self.cleanupTemporaryData()
     return True
 
   def createSEG(self):
@@ -364,6 +363,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     segmentStatisticsLogic = self.segmentEditorWidget.logic.segmentStatisticsLogic
     data = dict()
     data.update(self._getSeriesAttributes())
+    data["SeriesDescription"] =  "Segmentation"
     data.update(self._getAdditionalSeriesAttributes())
     data["segmentAttributes"] = segmentStatisticsLogic.generateJSON4DcmSEGExport()
 
@@ -415,6 +415,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
 
   def createDICOMSR(self, referencedSegmentation, completed):
     data = self._getSeriesAttributes()
+    data["SeriesDescription"] = "Measurement Report"
 
     compositeContextDataDir, data["compositeContext"] = os.path.dirname(referencedSegmentation), [os.path.basename(referencedSegmentation)]
     imageLibraryDataDir, data["imageLibrary"] = self.getDICOMFileList(self.segmentEditorWidget.masterVolumeNode)
@@ -446,8 +447,18 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     indexer = ctk.ctkDICOMIndexer()
     indexer.addFile(slicer.dicomDatabase, outputSRPath)
 
+  def cleanupTemporaryData(self):
+    # TODO: import and copy DICOM data first for SlicerDICOMDatabase
+    return
+    try:
+      import shutil
+      logging.debug("Cleaning up temporarily created directory {}".format(self.tempDir))
+      shutil.rmtree(self.tempDir)
+    except AttributeError:
+      pass
+
   def _getSeriesAttributes(self):
-    attributes = {"SeriesDescription": "Segmentation"}
+    attributes = dict()
     if not self.seriesNumber:
       self.seriesNumber = ModuleLogicMixin.getDICOMValue(self.watchBox.sourceFile, DICOMTAGS.SERIES_NUMBER)
     self.seriesNumber = "100" if self.seriesNumber in [None,''] else str(int(self.seriesNumber)+100)
@@ -631,7 +642,7 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
       pass
 
   def jumpToSegmentCenter(self, segment):
-    centroid = self.logic.getSegmentCentroid(segment)
+    centroid = self.logic.getSegmentCentroid(self.segmentationNode, segment)
     if centroid:
       markupsLogic = slicer.modules.markups.logic()
       markupsLogic.JumpSlicesToLocation(centroid[0], centroid[1], centroid[2], False)
@@ -642,6 +653,12 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
 
   def hideUnwantedEditorUIElements(self):
     self.editor.segmentationNodeSelectorVisible = False
+    self.table.parent().hide()
+    self.table.parent().parent().layout().addWidget(self.table)
+    self.table.setMaximumHeight(150)
+    masterVolumeLabel = self.find("label_MasterVolume")
+    if masterVolumeLabel:
+      masterVolumeLabel.hide()
 
   def reorganizeEffectButtons(self):
     widget = self.find("EffectsGroupBox")
@@ -683,6 +700,7 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
   def createLabelNodeFromSegment(self, segmentID):
     return self.logic.createLabelNodeFromSegment(self.segmentationNode, segmentID)
 
+
 class ReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
 
   def __init__(self, parent=None):
@@ -693,25 +711,44 @@ class ReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
     self.segmentStatisticsLogic = None
     self.segmentStatisticsLogic = CustomSegmentStatisticsLogic()
 
-  def getSegments(self, segmentation):
+  def getSegmentIDs(self, segmentation):
     if not segmentation:
       return []
     segmentIDs = vtk.vtkStringArray()
     segmentation.GetSegmentIDs(segmentIDs)
-    return [segmentation.GetSegment(segmentIDs.GetValue(idx)) for idx in range(segmentIDs.GetNumberOfValues())]
+    return [segmentIDs.GetValue(idx) for idx in range(segmentIDs.GetNumberOfValues())]
 
-  def getSegmentCentroid(self, segment):
-    binData = segment.GetRepresentation("Binary labelmap")
-    extent = binData.GetExtent()
+  def getSegments(self, segmentation):
+    return [segmentation.GetSegment(segmentID) for segmentID in self.getSegmentIDs(segmentation)]
+
+  def getSegmentCentroid(self, segmentationNode, segment):
+    imageData = vtkCoreSeg.vtkOrientedImageData()
+    segmentID = segmentationNode.GetSegmentation().GetSegmentIdBySegment(segment)
+    self.segmentationsLogic.GetSegmentBinaryLabelmapRepresentation(segmentationNode, segmentID, imageData)
+    extent = imageData.GetExtent()
     if extent[1] != -1 and extent[3] != -1 and extent[5] != -1:
       tempLabel = slicer.vtkMRMLLabelMapVolumeNode()
       slicer.mrmlScene.AddNode(tempLabel)
       tempLabel.SetName(segment.GetName() + "CentroidHelper")
-      self.segmentationsLogic.CreateLabelmapVolumeFromOrientedImageData(binData, tempLabel)
+      self.segmentationsLogic.CreateLabelmapVolumeFromOrientedImageData(imageData, tempLabel)
+      self.applyThreshold(tempLabel, 1)
       centroid = ModuleLogicMixin.getCentroidForLabel(tempLabel, 1)
       slicer.mrmlScene.RemoveNode(tempLabel)
       return centroid
     return None
+
+  def applyThreshold(self, labelNode, outValue):
+    # TODO: It might make sense to
+    imageData = labelNode.GetImageData()
+    backgroundValue = 0
+    thresh = vtk.vtkImageThreshold()
+    thresh.SetInputData(imageData)
+    thresh.ThresholdByLower(0)
+    thresh.SetInValue(backgroundValue)
+    thresh.SetOutValue(outValue)
+    thresh.SetOutputScalarType(vtk.VTK_UNSIGNED_CHAR)
+    thresh.Update()
+    labelNode.SetAndObserveImageData(thresh.GetOutput())
 
   def calculateSegmentStatistics(self, segNode, grayscaleNode, tableNode=None):
     self.segmentStatisticsLogic.computeStatistics(segNode, grayscaleNode)
