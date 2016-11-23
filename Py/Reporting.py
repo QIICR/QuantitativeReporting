@@ -48,12 +48,6 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.segmentationsLogic = slicer.modules.segmentations.logic()
     self.slicerTempDir = slicer.util.tempDirectory()
 
-  def enter(self):
-    self.setupConnections()
-
-  def exit(self):
-    self.removeConnections()
-
   def initializeMembers(self):
     self.tableNode = None
     self.segmentationObservers = []
@@ -96,6 +90,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.setupSelectionArea()
     self.setupMeasurementsArea()
     self.setupActionButtons()
+    self.setupConnections()
     self.layout.addStretch(1)
     self.fourUpSliceLayoutButton.checked = True
 
@@ -341,6 +336,8 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def onSaveReportButtonClicked(self):
     success = self.saveReport()
     self.saveReportButton.enabled = not success
+    if success:
+      slicer.util.infoDisplay("Report successfully saved into SlicerDICOMDatabase")
 
   def onCompleteReportButtonClicked(self):
     # TODO: disable segment editor for further segmenting
@@ -348,6 +345,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.saveReportButton.enabled = not success
     self.completeReportButton.enabled = not success
     if success:
+      slicer.util.infoDisplay("Report successfully completed and saved into SlicerDICOMDatabase")
       self.tableNode.SetAttribute("readonly", "Yes")
 
   def saveReport(self, completed=False):
@@ -450,11 +448,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     attributes = {"SeriesDescription": "Segmentation"}
     seriesNumber = ModuleLogicMixin.getDICOMValue(self.watchBox.sourceFile, DICOMTAGS.SERIES_NUMBER)
     # TODO: keep counter for the exported segmentations to avoid duplicate
-    #  series numbers
-    if seriesNumber in [None,'']:
-      attributes["SeriesNumber"] = "100"
-    else:
-      attributes["SeriesNumber"] = str(int(seriesNumber)+100)
+    attributes["SeriesNumber"] = "100" if seriesNumber in [None,''] else str(int(seriesNumber)+100)
 
     attributes["InstanceNumber"] = "1"
     return attributes
@@ -549,8 +543,6 @@ class ReportingTest(ScriptedLoadableModuleTest):
         logging.info('Loading %s...' % (name,))
         loader(filePath)
     self.delayDisplay('Finished with download and loading')
-
-    volumeNode = slicer.util.getNode(pattern="FA")
     self.delayDisplay('Test passed!')
 
 
@@ -647,7 +639,6 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
 
   def hideUnwantedEditorUIElements(self):
     self.editor.segmentationNodeSelectorVisible = False
-    # self.editor.masterVolumeNodeSelectorVisible = False
 
   def reorganizeEffectButtons(self):
     widget = self.find("EffectsGroupBox")
@@ -780,8 +771,7 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
             if self.statistics[s, "GS voxel count"] > 0]
 
   def generateJSON4DcmSEGExport(self):
-    # TODO: update and re-enable
-    # self.validateSegments()
+    self.checkTerminologyOfSegments()
     segmentsData = []
     for segmentID in self.statistics["SegmentIDs"]:
       if self.statistics[segmentID, "GS voxel count"] == 0:
@@ -790,25 +780,21 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
       segmentData["LabelID"] = 1
       segment = self.segmentationNode.GetSegmentation().GetSegment(segmentID)
 
-      terminologyWidget = slicer.qSlicerTerminologyNavigatorWidget()
-      terminologyEntry = slicer.vtkSlicerTerminologyEntry()
-      tag = vtk.mutable("")
-      segment.GetTag(segment.GetTerminologyEntryTagName(), tag)
-      terminologyWidget.deserializeTerminologyEntry(tag, terminologyEntry)
+      terminologyEntry = self.getDeserializedTerminologyEntry(segment)
 
       category = terminologyEntry.GetCategoryObject()
       segmentData["SegmentDescription"] = category.GetCodeMeaning() if category != "" else self.statistics[segmentID, "Segment"]
       segmentData["SegmentAlgorithmType"] = "MANUAL"
       rgb = segment.GetDefaultColor()
       segmentData["recommendedDisplayRGBValue"] = [rgb[0]*255, rgb[1]*255, rgb[2]*255]
-      segmentData.update(self.createJSONFromTerminologyContext(segment,terminologyEntry))
-      segmentData.update(self.createJSONFromAnatomicContext(segment,terminologyEntry))
+      segmentData.update(self.createJSONFromTerminologyContext(terminologyEntry))
+      segmentData.update(self.createJSONFromAnatomicContext(terminologyEntry))
       segmentsData.append([segmentData])
     if not len(segmentsData):
       raise ValueError("No segments with pixel data found.")
     return segmentsData
 
-  def createJSONFromTerminologyContext(self, segment, terminologyEntry):
+  def createJSONFromTerminologyContext(self, terminologyEntry):
 
     segmentData = dict()
 
@@ -830,7 +816,7 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
 
     return segmentData
 
-  def createJSONFromAnatomicContext(self, segment, terminologyEntry):
+  def createJSONFromAnatomicContext(self, terminologyEntry):
 
     segmentData = dict()
 
@@ -868,14 +854,10 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
       data["segmentationSOPInstanceUID"] = segmentationSOPInstanceUID
       segment = self.segmentationNode.GetSegmentation().GetSegment(segmentID)
 
-      terminologyWidget = slicer.qSlicerTerminologyNavigatorWidget()
-      terminologyEntry = slicer.vtkSlicerTerminologyEntry()
-      tag = vtk.mutable("")
-      segment.GetTag(segment.GetTerminologyEntryTagName(), tag)
-      terminologyWidget.deserializeTerminologyEntry(tag, terminologyEntry)
+      terminologyEntry = self.getDeserializedTerminologyEntry(segment)
 
-      data["Finding"] = self.createJSONFromTerminologyContext(segment,terminologyEntry)["SegmentedPropertyTypeCodeSequence"]
-      anatomicContext = self.createJSONFromAnatomicContext(segment,terminologyEntry)
+      data["Finding"] = self.createJSONFromTerminologyContext(terminologyEntry)["SegmentedPropertyTypeCodeSequence"]
+      anatomicContext = self.createJSONFromAnatomicContext(terminologyEntry)
       if anatomicContext.has_key("AnatomicRegionSequence"):
         data["FindingSite"] = anatomicContext["AnatomicRegionSequence"]
       data["measurementItems"] = self.createMeasurementItemsForLabelValue(segmentID, modality)
@@ -938,16 +920,14 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
             "CodingSchemeDesignator": designator,
             "CodeMeaning": meaning}
 
-  # TODO: update and re-enable
-  '''
-  def validateSegments(self):
+  def checkTerminologyOfSegments(self):
     for segmentID in self.statistics["SegmentIDs"]:
       segment = self.segmentationNode.GetSegmentation().GetSegment(segmentID)
-      category = self.getTagValue(segment, segment.GetTerminologyCategoryTagName())
-      propType = self.getTagValue(segment, segment.GetTerminologyTypeTagName())
-      if any(v == "" for v in [category, propType]):
+      terminologyEntry = self.getDeserializedTerminologyEntry(segment)
+      category = terminologyEntry.GetCategoryObject()
+      propType = terminologyEntry.GetTypeObject()
+      if any(v is None for v in [category, propType]):
         raise ValueError("Segment {} has missing attributes. Make sure to set terminology.".format(segment.GetName()))
-  '''
 
   def isSegmentEmpty(self, segment):
     bounds = [0.0,0.0,0.0,0.0,0.0,0.0]
@@ -958,3 +938,11 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
     value = vtk.mutable("")
     segment.GetTag(tagName, value)
     return value.get()
+
+  def getDeserializedTerminologyEntry(self, segment):
+    terminologyWidget = slicer.qSlicerTerminologyNavigatorWidget()
+    terminologyEntry = slicer.vtkSlicerTerminologyEntry()
+    tag = vtk.mutable("")
+    segment.GetTag(segment.GetTerminologyEntryTagName(), tag)
+    terminologyWidget.deserializeTerminologyEntry(tag, terminologyEntry)
+    return terminologyEntry
