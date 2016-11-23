@@ -8,6 +8,7 @@ from DICOMLib import DICOMLoadable
 class DICOMTID1500PluginClass(DICOMPlugin):
 
   UID_EnhancedSRStorage = "1.2.840.10008.5.1.4.1.1.88.22"
+  UID_ComprehensiveSRStorage = "1.2.840.10008.5.1.4.1.1.88.33"
   UID_SegmentationStorage = "1.2.840.10008.5.1.4.1.1.66.4"
 
   def __init__(self, epsilon=0.01):
@@ -41,7 +42,8 @@ class DICOMTID1500PluginClass(DICOMPlugin):
 
       try:
         isDicomTID1500 = self.getDICOMValue(dataset, "Modality") == 'SR' and \
-                         self.getDICOMValue(dataset, "SOPClassUID") == self.UID_EnhancedSRStorage and \
+                         (self.getDICOMValue(dataset, "SOPClassUID") == self.UID_EnhancedSRStorage or \
+                         self.getDICOMValue(dataset, "SOPClassUID") == self.UID_ComprehensiveSRStorage) and \
                          self.getDICOMValue(dataset, "ContentTemplateSequence")[0].TemplateIdentifier == '1500'
       except (AttributeError, IndexError):
         isDicomTID1500 = False
