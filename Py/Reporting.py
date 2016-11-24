@@ -187,6 +187,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.measurementsGroupBoxLayout = qt.QVBoxLayout()
     self.measurementsGroupBox.setLayout(self.measurementsGroupBoxLayout)
     self.tableView = slicer.qMRMLTableView()
+    self.tableView.setMinimumHeight(150)
     self.tableView.setMaximumHeight(150)
     self.tableView.setSelectionBehavior(qt.QTableView.SelectRows)
     self.tableView.horizontalHeader().setResizeMode(qt.QHeaderView.Stretch)
@@ -217,11 +218,17 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     def setupOtherConnections():
       getattr(self.layoutManager.layoutChanged, funcName)(self.onLayoutChanged)
       getattr(self.calculateAutomaticallyCheckbox.toggled, funcName)(self.onCalcAutomaticallyToggled)
-      getattr(self.tableView.clicked, funcName)(self.segmentEditorWidget.onSegmentSelected)
+      getattr(self.segmentEditorWidget.tableWidget.itemClicked, funcName)(self.onSegmentSelected)
+      getattr(self.tableView.clicked, funcName)(self.onSegmentSelected)
 
     setupSelectorConnections()
     setupButtonConnections()
     setupOtherConnections()
+
+  def onSegmentSelected(self, item):
+    self.segmentEditorWidget.tableWidget.selectRow(item.row())
+    self.tableView.selectRow(item.row())
+    self.segmentEditorWidget.onSegmentSelected(item)
 
   def removeConnections(self):
     self.setupConnections(funcName="disconnect")
@@ -635,10 +642,6 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
     self.changeUndoRedoSizePolicies()
     self.appendOptionsAndMaskingGroupBoxAtTheEnd()
     self.clearSegmentationEditorSelectors()
-    self.setupConnections()
-
-  def setupConnections(self):
-    self.tableWidget.itemClicked.connect(self.onSegmentSelected)
 
   def onSegmentSelected(self, item):
     try:
@@ -661,6 +664,7 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
     self.editor.segmentationNodeSelectorVisible = False
     self.table.parent().hide()
     self.table.parent().parent().layout().addWidget(self.table)
+    self.table.setMinimumHeight(150)
     self.table.setMaximumHeight(150)
     masterVolumeLabel = self.find("label_MasterVolume")
     if masterVolumeLabel:
