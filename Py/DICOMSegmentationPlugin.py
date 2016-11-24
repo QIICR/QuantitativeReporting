@@ -164,6 +164,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     # Load terminology in the metafile into context
     terminologiesLogic = slicer.modules.terminologies.logic()
     terminologiesLogic.LoadTerminologyFromSegmentDescriptorFile(loadable.name, metaFileName)
+    terminologiesLogic.LoadAnatomicContextFromSegmentDescriptorFile(loadable.name, metaFileName)
 
     with open(metaFileName) as metaFile:
       data = json.load(metaFile)
@@ -203,16 +204,18 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
           anatomicRegionDefaults = ['T-D0010', 'SRT', 'Entire Body']
           regionCode, regionCodingScheme, regionCodeMeaning = \
-            self.getValuesFromCodeSequence(segment, "AnatomicRegionSequence", anatomicRegionDefaults)
+            self.getValuesFromCodeSequence(segment, "AnatomicRegionCodeSequence", anatomicRegionDefaults)
 
           regionModCode, regionModCodingScheme, regionModCodeMeaning = \
-            self.getValuesFromCodeSequence(segment, "AnatomicRegionModifierSequence")
+            self.getValuesFromCodeSequence(segment, "AnatomicRegionModifierCodeSequence")
 
-          dummyTerminologyWidget = slicer.qSlicerTerminologyNavigatorWidget() #TODO: Still cannot call static methods from python
-          segmentTerminologyTag = dummyTerminologyWidget.serializeTerminologyEntry(loadable.name,
+          dummyTerminologyWidget = slicer.qSlicerTerminologyNavigatorWidget() # Still cannot call static methods from python
+          segmentTerminologyTag = dummyTerminologyWidget.serializeTerminologyEntry(
+                                          loadable.name,
                                           categoryCode, categoryCodingScheme, categoryCodeMeaning,
                                           typeCode, typeCodingScheme, typeCodeMeaning,
                                           typeModCode, typeModCodingScheme, typeModCodeMeaning,
+                                          loadable.name,
                                           regionCode, regionCodingScheme, regionCodeMeaning,
                                           regionModCode, regionModCodingScheme, regionModCodeMeaning)
           # end of processing a line of terminology
