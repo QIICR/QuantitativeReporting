@@ -16,29 +16,29 @@ from SegmentEditor import SegmentEditorWidget
 from SegmentStatistics import SegmentStatisticsLogic
 
 
-class Reporting(ScriptedLoadableModule):
+class QuantitativeReporting(ScriptedLoadableModule):
   """Uses ScriptedLoadableModule base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
   def __init__(self, parent):
     ScriptedLoadableModule.__init__(self, parent)
-    self.parent.title = "Reporting"
-    self.parent.categories = ["Examples"]
+    self.parent.title = "Quantitative Reporting"
+    self.parent.categories = ["Informatics"]
     self.parent.dependencies = ["SlicerProstate"]
-    self.parent.contributors = ["Christian Herz (SPL), Andrey Fedorov (SPL, BWH), Nicole Aucoin (SPL, BWH), "
-                                "Steve Pieper (Isomics)"]
+    self.parent.contributors = ["Christian Herz (SPL), Andrey Fedorov (SPL, BWH), "
+                                "Csaba Pinter (Queen's), Andras Lasso (Queen's), Steve Pieper (Isomics)"]
     self.parent.helpText = """
-    This is an example of scripted loadable module bundled in an extension.
-    It performs a simple thresholding on the input volume and optionally captures a screenshot.
+    Segmentation-based measurements with DICOM-based import and export of the results.
+    <a href="https://www.slicer.org/wiki/Documentation/Nightly/Extensions/QuantitativeReporting">Documentation.</a>
     """  # TODO:
     self.parent.acknowledgementText = """
-    This file was originally developed by Jean-Christophe Fillion-Robin, Kitware Inc.
-    and Steve Pieper, Isomics, Inc. and was partially funded by NIH grant 3P41RR013218-12S1.
+    This work was supported in part by the National Cancer Institute funding to the
+    Quantitative Image Informatics for Cancer Research (QIICR) (U24 CA180918).
     """  # TODO: replace with organization, grant and thanks.
 
 
-class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
+class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   """Uses ScriptedLoadableModuleWidget base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
@@ -55,7 +55,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def onReload(self):
     self.cleanupUIElements()
     self.removeAllUIElements()
-    super(ReportingWidget, self).onReload()
+    super(QuantitativeReportingWidget, self).onReload()
 
   def cleanupUIElements(self):
     self.removeSegmentationObserver()
@@ -119,7 +119,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       self.loadSeries(mrHeadSeriesUID)
       masterNode = slicer.util.getNode('2: SAG*')
       tableNode = slicer.vtkMRMLTableNode()
-      tableNode.SetAttribute("Reporting", "Yes")
+      tableNode.SetAttribute("QuantitativeReporting", "Yes")
       slicer.mrmlScene.AddNode(tableNode)
       self.measurementReportSelector.setCurrentNode(tableNode)
       self.imageVolumeSelector.setCurrentNode(masterNode)
@@ -150,7 +150,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.measurementReportSelector = self.createComboBox(nodeTypes=["vtkMRMLTableNode", ""], showChildNodeTypes=False,
                                                          addEnabled=True, removeEnabled=True, noneEnabled=True,
                                                          selectNodeUponCreation=True, toolTip="Select measurement report")
-    self.measurementReportSelector.addAttribute("vtkMRMLTableNode", "Reporting", "Yes")
+    self.measurementReportSelector.addAttribute("vtkMRMLTableNode", "QuantitativeReporting", "Yes")
 
     self.selectionAreaWidget = qt.QWidget()
     self.selectionAreaWidgetLayout = qt.QGridLayout()
@@ -179,7 +179,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.segmentationGroupBox = qt.QGroupBox("Segmentations")
     self.segmentationGroupBoxLayout = qt.QFormLayout()
     self.segmentationGroupBox.setLayout(self.segmentationGroupBoxLayout)
-    self.segmentEditorWidget = ReportingSegmentEditorWidget(parent=self.segmentationGroupBox)
+    self.segmentEditorWidget = QuantitativeReportingSegmentEditorWidget(parent=self.segmentationGroupBox)
     self.segmentEditorWidget.setup()
 
   def setupMeasurementsArea(self):
@@ -524,7 +524,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     return os.path.dirname(path), os.path.basename(path)
 
 
-class ReportingTest(ScriptedLoadableModuleTest):
+class QuantitativeReportingTest(ScriptedLoadableModuleTest):
   """
   This is the test case for your scripted module.
   Uses ScriptedLoadableModuleTest base class, available at:
@@ -575,7 +575,7 @@ class ReportingTest(ScriptedLoadableModuleTest):
     self.delayDisplay('Test passed!')
 
 
-class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
+class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
 
   @property
   def segmentationNode(self):
@@ -635,10 +635,10 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
 
   def __init__(self, parent):
     SegmentEditorWidget.__init__(self, parent)
-    self.logic = ReportingSegmentEditorLogic()
+    self.logic = QuantitativeReportingSegmentEditorLogic()
 
   def setup(self):
-    super(ReportingSegmentEditorWidget, self).setup()
+    super(QuantitativeReportingSegmentEditorWidget, self).setup()
     self.reloadCollapsibleButton.hide()
     self.hideUnwantedEditorUIElements()
     self.reorganizeEffectButtons()
@@ -714,7 +714,7 @@ class ReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
     return self.logic.createLabelNodeFromSegment(self.segmentationNode, segmentID)
 
 
-class ReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
+class QuantitativeReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
 
   def __init__(self, parent=None):
     ScriptedLoadableModuleLogic.__init__(self, parent)
