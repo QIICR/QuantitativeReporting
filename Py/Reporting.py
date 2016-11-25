@@ -23,18 +23,18 @@ class Reporting(ScriptedLoadableModule):
 
   def __init__(self, parent):
     ScriptedLoadableModule.__init__(self, parent)
-    self.parent.title = "Reporting"
-    self.parent.categories = ["Examples"]
+    self.parent.title = "Quantitative Reporting"
+    self.parent.categories = ["Informatics"]
     self.parent.dependencies = ["SlicerProstate"]
-    self.parent.contributors = ["Christian Herz (SPL), Andrey Fedorov (SPL, BWH), Nicole Aucoin (SPL, BWH), "
-                                "Steve Pieper (Isomics)"]
+    self.parent.contributors = ["Christian Herz (SPL), Andrey Fedorov (SPL, BWH), "
+                                "Csaba Pinter (Queen's), Andras Lasso (Queen's), Steve Pieper (Isomics)"]
     self.parent.helpText = """
-    This is an example of scripted loadable module bundled in an extension.
-    It performs a simple thresholding on the input volume and optionally captures a screenshot.
+    Segmentation-based measurements with DICOM-based import and export of the results.
+    <a href="https://www.slicer.org/wiki/Documentation/Nightly/Extensions/QuantitativeReporting">Documentation.</a>
     """  # TODO:
     self.parent.acknowledgementText = """
-    This file was originally developed by Jean-Christophe Fillion-Robin, Kitware Inc.
-    and Steve Pieper, Isomics, Inc. and was partially funded by NIH grant 3P41RR013218-12S1.
+    This work was supported in part by the National Cancer Institute funding to the
+    Quantitative Image Informatics for Cancer Research (QIICR) (U24 CA180918).
     """  # TODO: replace with organization, grant and thanks.
 
 
