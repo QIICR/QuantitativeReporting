@@ -256,6 +256,7 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def onMeasurementReportSelected(self, node):
     self.removeSegmentationObserver()
     self.imageVolumeSelector.setCurrentNode(None)
+    self.calculateAutomaticallyCheckbox.checked = True
     self.tableNode = node
     self.hideAllSegmentations()
     if node is None:
@@ -278,8 +279,10 @@ class ReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       self.segmentEditorWidget.table.setReadOnly(True)
       self.segmentEditorWidget.enabled = False
       self.enableReportButtons(False)
+      self.calculateAutomaticallyCheckbox.enabled = False
     else:
       self.segmentEditorWidget.enabled = True
+      self.calculateAutomaticallyCheckbox.enabled = True
       self.onSegmentationNodeChanged()
 
   def hideAllSegmentations(self):
