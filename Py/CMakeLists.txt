@@ -19,6 +19,6 @@ slicerMacroBuildScriptedModule(
   )
 
 slicerMacroBuildScriptedModule(
-  NAME Reporting
-  SCRIPTS Reporting.py
+  NAME QuantitativeReporting
+  SCRIPTS QuantitativeReporting.py
   )

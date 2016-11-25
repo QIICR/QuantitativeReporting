@@ -156,7 +156,7 @@ class DICOMTID1500PluginClass(DICOMPlugin):
     with open(metafile) as datafile:
       table = slicer.vtkMRMLTableNode()
       slicer.mrmlScene.AddNode(table)
-      table.SetAttribute("Reporting", "Yes")
+      table.SetAttribute("QuantitativeReporting", "Yes")
       table.SetAttribute("readonly", "Yes")
       table.SetUseColumnNameAsColumnHeader(True)
 
