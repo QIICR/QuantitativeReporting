@@ -8,7 +8,7 @@ set(EXTENSION_CATEGORY "Informatics")
 set(EXTENSION_CONTRIBUTORS "Andrey Fedorov (SPL), Christian Herz (SPL), Csaba Pinter (Queen's), Andras Lasso (Queen's), Steve Pieper (SPL)")
 set(EXTENSION_DESCRIPTION "Support of quantitative image reporting with DICOM")
 set(EXTENSION_ICONURL "https://www.slicer.org/w/images/3/30/QuantitativeReportingLogo.png")
-set(EXTENSION_SCREENSHOTURLS "http://wiki.slicer.org/slicerWiki/images/d/d6/Reporting-Prostate.png")
+set(EXTENSION_SCREENSHOTURLS "https://www.slicer.org/w/images/f/fe/QuantitativeReporting-screenshot.jpg")
 set(EXTENSION_STATUS "Work in progress")
 set(EXTENSION_DEPENDS "SlicerProstate DCMQI")
 
