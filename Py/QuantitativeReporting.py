@@ -639,7 +639,8 @@ class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidget
 
   def setup(self):
     super(QuantitativeReportingSegmentEditorWidget, self).setup()
-    self.reloadCollapsibleButton.hide()
+    if self.developerMode:
+      self.reloadCollapsibleButton.hide()
     self.hideUnwantedEditorUIElements()
     self.reorganizeEffectButtons()
     self.changeUndoRedoSizePolicies()
