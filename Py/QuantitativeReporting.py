@@ -191,6 +191,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.tableView.setMaximumHeight(150)
     self.tableView.setSelectionBehavior(qt.QTableView.SelectRows)
     self.tableView.horizontalHeader().setResizeMode(qt.QHeaderView.Stretch)
+    self.fourUpTableView = None
     self.measurementsGroupBoxLayout.addWidget(self.tableView)
     self.layout.addWidget(self.measurementsGroupBox)
 
@@ -217,21 +218,36 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
     def setupOtherConnections():
       getattr(self.layoutManager.layoutChanged, funcName)(self.onLayoutChanged)
+      getattr(self.layoutManager.layoutChanged, funcName)(self.setupFourUpTableViewConnection)
       getattr(self.calculateAutomaticallyCheckbox.toggled, funcName)(self.onCalcAutomaticallyToggled)
-      getattr(self.segmentEditorWidget.tableWidget.itemClicked, funcName)(self.onSegmentSelected)
-      getattr(self.tableView.clicked, funcName)(self.onSegmentSelected)
+      getattr(self.segmentEditorWidget.tableWidget.selectionModel().selectionChanged, funcName)(self.onSegmentSelected)
+      getattr(self.tableView.selectionModel().selectionChanged, funcName)(self.onSegmentSelected)
 
     setupSelectorConnections()
     setupButtonConnections()
     setupOtherConnections()
 
-  def onSegmentSelected(self, item):
-    self.segmentEditorWidget.tableWidget.selectRow(item.row())
-    self.tableView.selectRow(item.row())
-    self.segmentEditorWidget.onSegmentSelected(item)
+  def onSegmentSelected(self, itemSelection):
+    selectedRow = itemSelection.indexes()[0].row() if len(itemSelection.indexes()) else None
+    if selectedRow is not None:
+      self.segmentEditorWidget.tableWidget.selectRow(selectedRow)
+      self.selectRowIfNotSelected(self.segmentEditorWidget.tableWidget, selectedRow)
+      self.selectRowIfNotSelected(self.tableView, selectedRow)
+      self.selectRowIfNotSelected(self.fourUpTableView, selectedRow)
+      self.segmentEditorWidget.onSegmentSelected(selectedRow)
+
+  def selectRowIfNotSelected(self, tableView, selectedRow):
+    if tableView:
+      if len(tableView.selectedIndexes()):
+        if tableView.selectedIndexes()[0].row() != selectedRow:
+          tableView.selectRow(selectedRow)
+      elif tableView.model().rowCount() > selectedRow:
+        tableView.selectRow(selectedRow)
 
   def removeConnections(self):
     self.setupConnections(funcName="disconnect")
+    if self.fourUpTableView:
+      self.fourUpTableView.selectionModel().selectionChanged.disconnect(self.onSegmentSelected)
 
   def onCalcAutomaticallyToggled(self, checked):
     if checked and self.segmentEditorWidget.segmentation is not None:
@@ -244,8 +260,18 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
         observer = self.segmentationObservers.pop()
         self.segmentEditorWidget.segmentation.RemoveObserver(observer)
 
+  def setupFourUpTableViewConnection(self):
+    if not self.fourUpTableView and self.layoutManager.layout == self.fourUpSliceTableViewLayoutButton.LAYOUT:
+      if slicer.app.layoutManager().tableWidget(0):
+        self.fourUpTableView = slicer.app.layoutManager().tableWidget(0).tableView()
+        self.fourUpTableView.selectionModel().selectionChanged.connect(self.onSegmentSelected)
+        self.fourUpTableView.setSelectionBehavior(qt.QTableView.SelectRows)
+
   def onLayoutChanged(self):
     self.onDisplayMeasurementsTable()
+    selectedIndexes = self.segmentEditorWidget.tableWidget.selectedIndexes()
+    if selectedIndexes:
+      self.segmentEditorWidget.tableWidget.selectRow(selectedIndexes[0].row())
 
   @postCall(refreshUIElementsAvailability)
   def onImageVolumeSelected(self, node):
@@ -639,16 +665,17 @@ class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidget
 
   def setup(self):
     super(QuantitativeReportingSegmentEditorWidget, self).setup()
-    self.reloadCollapsibleButton.hide()
+    if self.developerMode:
+      self.reloadCollapsibleButton.hide()
     self.hideUnwantedEditorUIElements()
     self.reorganizeEffectButtons()
     self.changeUndoRedoSizePolicies()
     self.appendOptionsAndMaskingGroupBoxAtTheEnd()
     self.clearSegmentationEditorSelectors()
 
-  def onSegmentSelected(self, item):
+  def onSegmentSelected(self, selectedRow):
     try:
-      segment = self.segments[item.row()]
+      segment = self.segments[selectedRow]
       self.jumpToSegmentCenter(segment)
     except IndexError:
       pass
