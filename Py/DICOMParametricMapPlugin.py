@@ -1,25 +1,18 @@
 import os
 import string
 import vtk, qt, ctk, slicer
-from DICOMLib import DICOMPlugin
+from DICOMPluginBase import DICOMPluginBase
 from DICOMLib import DICOMLoadable
 
 #
 # This is the plugin to handle translation of DICOM SEG objects
 #
 
-class DICOMParametricMapPluginClass(DICOMPlugin):
+class DICOMParametricMapPluginClass(DICOMPluginBase):
 
-  def __init__(self,epsilon=0.01):
+  def __init__(self):
     super(DICOMParametricMapPluginClass,self).__init__()
     self.loadType = "DICOMParametricMap"
-
-    self.tags['seriesInstanceUID'] = "0020,000E"
-    self.tags['seriesDescription'] = "0008,103E"
-    self.tags['seriesNumber'] = "0020,0011"
-    self.tags['modality'] = "0008,0060"
-    self.tags['instanceUID'] = "0008,0018"
-    self.tags['classUID'] = "0008,0016"
 
   def examine(self,fileLists):
     """ Returns a list of DICOMLoadable instances
@@ -52,10 +45,6 @@ class DICOMParametricMapPluginClass(DICOMPlugin):
       if desc == '':
         desc = "Unknown"
 
-      number = slicer.dicomDatabase.fileValue(cFile, self.tags['seriesNumber'])
-      if number == '':
-        number = "Unknown"
-
       isDicomPM = (slicer.dicomDatabase.fileValue(cFile, self.tags['classUID']) == '1.2.840.10008.5.1.4.1.1.30')
 
       if isDicomPM:
@@ -73,7 +62,7 @@ class DICOMParametricMapPluginClass(DICOMPlugin):
 
         loadables.append(loadable)
 
-        print('DICOM Parametric Map found')
+        logging.debug('DICOM Parametric Map found')
 
     return loadables
 
@@ -84,69 +73,52 @@ class DICOMParametricMapPluginClass(DICOMPlugin):
       referencedName = self.defaultSeriesNodeName(loadable.referencedSeriesUID)
     return referencedName
 
-  def addReferences(self,loadable):
-    """Puts a list of the referenced UID into the loadable for use
-    in the node if this is loaded."""
-    import dicom
-    dcm = dicom.read_file(loadable.files[0])
-
-    if hasattr(dcm, "ReferencedSeriesSequence"):
-      # look up all of the instances in the series, since segmentation frames
-      #  may be non-contiguous
-      if hasattr(dcm.ReferencedSeriesSequence[0], "SeriesInstanceUID"):
-        loadable.referencedInstanceUIDs = []
-        for f in slicer.dicomDatabase.filesForSeries(dcm.ReferencedSeriesSequence[0].SeriesInstanceUID):
-          refDCM = dicom.read_file(f)
-          # this is a hack that should probably fixed in Slicer core - not all
-          #  of those instances are truly referenced!
-          loadable.referencedInstanceUIDs.append(refDCM.SOPInstanceUID)
-          loadable.referencedSeriesUID = dcm.ReferencedSeriesSequence[0].SeriesInstanceUID
-
   def load(self,loadable):
     """ Load the DICOM PM object
     """
-    print('DICOM PM load()')
+    logging.debug('DICOM PM load()')
     try:
       uid = loadable.uid
-      print ('in load(): uid = ', uid)
+      logging.debug('in load(): uid = ', uid)
     except AttributeError:
       return False
 
-    # make the output directory
-    outputDir = os.path.join(slicer.app.temporaryPath,"QIICR","PM",loadable.uid)
+    self.tempDir = os.path.join(slicer.app.temporaryPath, "QIICR", "PM", self.currentDateTime, loadable.uid)
     try:
-      os.makedirs(outputDir)
+      os.makedirs(self.tempDir)
     except OSError:
       pass
 
     pmFileName = slicer.dicomDatabase.fileForInstance(uid)
     if pmFileName is None:
-      print 'Failed to get the filename from the DICOM database for ', uid
+      logging.debug('Failed to get the filename from the DICOM database for ', uid)
+      self.cleanup()
       return False
 
     parameters = {
       "inputFileName": pmFileName,
-      "outputDirName": outputDir,
+      "outputDirName": self.tempDir,
       }
     try:
       pm2nrrd = slicer.modules.paramap2itkimage
     except AttributeError:
-      print 'Unable to find CLI module paramap2itkimage, unable to load DICOM ParametricMap object'
+      logging.debug('Unable to find CLI module paramap2itkimage, unable to load DICOM ParametricMap object')
+      self.cleanup()
       return False
 
     cliNode = None
     cliNode = slicer.cli.run(pm2nrrd, cliNode, parameters, wait_for_completion=True)
     if cliNode.GetStatusString() != 'Completed':
-      print 'PM converter did not complete successfully, unable to load DICOM ParametricMap'
+      logging.debug('PM converter did not complete successfully, unable to load DICOM ParametricMap')
+      self.cleanup()
       return False
 
-    (_,pmNode) = slicer.util.loadVolume(os.path.join(outputDir,"pmap.nrrd"), returnNode=True)
+    (_,pmNode) = slicer.util.loadVolume(os.path.join(self.tempDir,"pmap.nrrd"), returnNode=True)
 
     # create Subject hierarchy nodes for the loaded series
     self.addSeriesInSubjectHierarchy(loadable, pmNode)
 
-    # TODO: the outputDir should be cleaned up
-
+    self.cleanup()
     return True
 
 

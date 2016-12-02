@@ -1,17 +1,18 @@
 import os, json
 import slicer
 import dicom
-from DICOMLib import DICOMPlugin
+import logging
+from DICOMPluginBase import DICOMPluginBase
 from DICOMLib import DICOMLoadable
 
 
-class DICOMTID1500PluginClass(DICOMPlugin):
+class DICOMTID1500PluginClass(DICOMPluginBase):
 
   UID_EnhancedSRStorage = "1.2.840.10008.5.1.4.1.1.88.22"
   UID_ComprehensiveSRStorage = "1.2.840.10008.5.1.4.1.1.88.33"
   UID_SegmentationStorage = "1.2.840.10008.5.1.4.1.1.66.4"
 
-  def __init__(self, epsilon=0.01):
+  def __init__(self):
     super(DICOMTID1500PluginClass, self).__init__()
     self.loadType = "DICOM Structured Report TID1500"
 
@@ -31,11 +32,11 @@ class DICOMTID1500PluginClass(DICOMPlugin):
   def examineFiles(self, files):
     loadables = []
 
-    for file in files:
-      dataset = dicom.read_file(file)
+    for cFile in files:
+      dataset = dicom.read_file(cFile)
 
-      uid = self.getDICOMValue(dataset, "SOPInstanceUID", default=None)
-      if not uid:
+      uid = self.getDICOMValue(dataset, "SOPInstanceUID")
+      if uid == "":
         return []
 
       seriesDescription = self.getDICOMValue(dataset, "SeriesDescription", "Unknown")
@@ -50,7 +51,7 @@ class DICOMTID1500PluginClass(DICOMPlugin):
 
       if isDicomTID1500:
         loadable = self.createLoadableAndAddReferences(dataset)
-        loadable.files = [file]
+        loadable.files = [cFile]
         loadable.name = seriesDescription + ' - as a DICOM SR TID1500 object'
         loadable.tooltip = loadable.name
         loadable.selected = True
@@ -62,7 +63,7 @@ class DICOMTID1500PluginClass(DICOMPlugin):
 
         loadables.append(loadable)
 
-        print('DICOM SR TID1500 modality found')
+        logging.debug('DICOM SR TID1500 modality found')
     return loadables
 
   def referencedSeriesName(self, loadable):
@@ -84,17 +85,17 @@ class DICOMTID1500PluginClass(DICOMPlugin):
         for referencedSeriesSequence in refSeriesSequence.ReferencedSeriesSequence:
           for refSOPSequence in referencedSeriesSequence.ReferencedSOPSequence:
             if refSOPSequence.ReferencedSOPClassUID == self.UID_SegmentationStorage: # TODO: differentiate between SR, SEG and other volumes
-              print "Found referenced segmentation"
+              logging.debug("Found referenced segmentation")
               loadable.referencedSeriesInstanceUIDs.append(referencedSeriesSequence.SeriesInstanceUID)
             else:
-              # print "Found other reference"
+              logging.debug( "Found other reference")
               for sopInstanceUID in slicer.dicomDatabase.fileForInstance(refSOPSequence.ReferencedSOPInstanceUID):
                 loadable.referencedSOPInstanceUIDs.append(sopInstanceUID)
                 # loadable.referencedSOPInstanceUID = refSOPSequence.ReferencedSOPInstanceUID
     return loadable
 
   def load(self, loadable):
-    print('DICOM SR TID1500 load()')
+    logging.debug('DICOM SR TID1500 load()')
 
     segPlugin = slicer.modules.dicomPlugins["DICOMSegmentationPlugin"]()
     scalarVolumePlugin = slicer.modules.dicomPlugins["DICOMScalarVolumePlugin"]()
@@ -111,21 +112,21 @@ class DICOMTID1500PluginClass(DICOMPlugin):
 
     try:
       uid = loadable.uid
-      print ('in load(): uid = ', uid)
+      logging.debug('in load(): uid = ', uid)
     except AttributeError:
       return False
 
-    outputDir = os.path.join(slicer.app.temporaryPath, "QIICR", "SR", loadable.uid)
+    self.tempDir = os.path.join(slicer.app.temporaryPath, "QIICR", "SR", self.currentDateTime, loadable.uid)
     try:
-      os.makedirs(outputDir)
-    except:
+      os.makedirs(self.tempDir)
+    except OSError:
       pass
 
-    outputFile = os.path.join(outputDir, loadable.uid+".json")
+    outputFile = os.path.join(self.tempDir, loadable.uid+".json")
 
     srFileName = slicer.dicomDatabase.fileForInstance(uid)
     if srFileName is None:
-      print 'Failed to get the filename from the DICOM database for ', uid
+      logging.debug('Failed to get the filename from the DICOM database for ', uid)
       return False
 
     param = {
@@ -136,13 +137,15 @@ class DICOMTID1500PluginClass(DICOMPlugin):
     try:
       tid1500reader = slicer.modules.tid1500reader
     except AttributeError:
-      print 'Unable to find CLI module tid1500reader, unable to load SR TID1500 object'
+      logging.debug('Unable to find CLI module tid1500reader, unable to load SR TID1500 object')
+      self.cleanup()
       return False
 
     cliNode = None
     cliNode = slicer.cli.run(tid1500reader, cliNode, param, wait_for_completion=True)
     if cliNode.GetStatusString() != 'Completed':
-      print 'tid1500reader did not complete successfully, unable to load DICOM SR TID1500'
+      logging.debug('tid1500reader did not complete successfully, unable to load DICOM SR TID1500')
+      self.cleanup()
       return False
 
     table = self.metadata2vtkTableNode(outputFile)
@@ -150,6 +153,7 @@ class DICOMTID1500PluginClass(DICOMPlugin):
       segmentationNodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode")
       segmentationNodeID = segmentationNodes.GetItemAsObject(segmentationNodes.GetNumberOfItems()-1).GetID()
       table.SetAttribute("ReferencedSegmentationNodeID", segmentationNodeID)
+    self.cleanup()
     return table is not None
 
   def metadata2vtkTableNode(self, metafile):
