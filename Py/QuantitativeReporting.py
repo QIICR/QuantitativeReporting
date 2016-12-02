@@ -491,13 +491,10 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
     if cliNode.GetStatusString() != 'Completed':
       raise Exception("tid1500writer CLI did not complete cleanly")
-    indexer = ctk.ctkDICOMIndexer()
-    indexer.addFile(slicer.dicomDatabase, outputSRPath)
 
   def addProducedDataToDICOMDatabase(self):
-    databaseDirectory = qt.QSettings().value("DatabaseDirectory")
     indexer = ctk.ctkDICOMIndexer()
-    indexer.addDirectory(slicer.dicomDatabase, self.tempDir, os.path.join(databaseDirectory, "dicom"))
+    indexer.addDirectory(slicer.dicomDatabase, self.tempDir, "copy")  # TODO: doesn't really expect a destination dir
 
   def cleanupTemporaryData(self):
     try:
