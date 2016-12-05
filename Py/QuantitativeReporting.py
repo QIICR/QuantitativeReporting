@@ -4,7 +4,7 @@ import logging, os
 from datetime import datetime
 
 from slicer.ScriptedLoadableModule import *
-import vtkSegmentationCorePython as vtkCoreSeg
+import vtkSegmentationCorePython as vtkSegmentationCore
 
 from SlicerProstateUtils.mixins import *
 from SlicerProstateUtils.decorators import *
@@ -333,11 +333,14 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     segNode = self.segmentEditorWidget.segmentation
     if not segNode:
       return
-    segmentationEvents = [vtkCoreSeg.vtkSegmentation.SegmentAdded, vtkCoreSeg.vtkSegmentation.SegmentRemoved,
-                          vtkCoreSeg.vtkSegmentation.SegmentModified,
-                          vtkCoreSeg.vtkSegmentation.RepresentationModified]
+    segmentationEvents = [vtkSegmentationCore.vtkSegmentation.SegmentAdded, vtkSegmentationCore.vtkSegmentation.SegmentRemoved,
+                          vtkSegmentationCore.vtkSegmentation.SegmentModified,
+                          vtkSegmentationCore.vtkSegmentation.RepresentationModified]
     for event in segmentationEvents:
       self.segmentationObservers.append(segNode.AddObserver(event, self.onSegmentationNodeChanged))
+
+    self.segmentationObservers.append(
+      segNode.AddObserver(vtkSegmentationCore.vtkSegmentation.SegmentAdded, self.onSegmentAdded))
 
   def initializeWatchBox(self, node):
     try:
@@ -350,6 +353,31 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     segNode = slicer.vtkMRMLSegmentationNode()
     slicer.mrmlScene.AddNode(segNode)
     return segNode
+
+  def onSegmentAdded(self, observer=None, caller=None):
+    segNode = self.segmentEditorWidget.segmentation
+    segment = segNode.GetSegment(self.segmentEditorWidget.logic.getSegmentIDs(segNode)[-1])
+
+    terminologies = slicer.modules.terminologies.logic()
+    loadedTermNames = vtk.vtkStringArray()
+    terminologies.GetLoadedTerminologyNames(loadedTermNames)
+    loadedAnatNames = vtk.vtkStringArray()
+    terminologies.GetLoadedAnatomicContextNames(loadedAnatNames)
+
+    terminologyWidget = slicer.qSlicerTerminologyNavigatorWidget()
+    defaults = ['T-D0050', 'SRT', 'Tissue']
+    segmentTerminologyTag = terminologyWidget.serializeTerminologyEntry(
+      loadedTermNames.GetValue(int(loadedTermNames.GetNumberOfValues()-2)),
+      defaults[0], defaults[1], defaults[2], "", "", "",
+      defaults[0], defaults[1], defaults[2],
+      loadedAnatNames.GetValue(int(loadedAnatNames.GetNumberOfValues()-1)),
+      "", "", "", "", "", "")
+    segment.SetTag(vtkSegmentationCore.vtkSegment.GetTerminologyEntryTagName(),
+                   segmentTerminologyTag)
+
+    # TODO: if one segment 'Tissue_2' has been deleted and 'Tissue_1' and 'Tissue_3' are the only ones left and
+    # adding a new segment we have twice 'Tissue_3'
+    segment.SetName("{}_{}".format(defaults[2], str(self.segmentEditorWidget.getNumberOfSegmentsStartingWith(defaults[2])+1)))
 
   @postCall(refreshUIElementsAvailability)
   def onSegmentationNodeChanged(self, observer=None, caller=None):
@@ -745,6 +773,9 @@ class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidget
   def createLabelNodeFromSegment(self, segmentID):
     return self.logic.createLabelNodeFromSegment(self.segmentationNode, segmentID)
 
+  def getNumberOfSegmentsStartingWith(self, name):
+    segments = self.logic.getSegments(self.segmentation)
+    return sum(1 for segment in segments if str.startswith(segment.GetName(), name))
 
 class QuantitativeReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
 
@@ -767,7 +798,7 @@ class QuantitativeReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
     return [segmentation.GetSegment(segmentID) for segmentID in self.getSegmentIDs(segmentation)]
 
   def getSegmentCentroid(self, segmentationNode, segment):
-    imageData = vtkCoreSeg.vtkOrientedImageData()
+    imageData = vtkSegmentationCore.vtkOrientedImageData()
     segmentID = segmentationNode.GetSegmentation().GetSegmentIdBySegment(segment)
     self.segmentationsLogic.GetSegmentBinaryLabelmapRepresentation(segmentationNode, segmentID, imageData)
     extent = imageData.GetExtent()
@@ -813,7 +844,7 @@ class QuantitativeReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
         stringArray.InsertNextValue(listElement)
       return stringArray
 
-    mergedImageData = vtkCoreSeg.vtkOrientedImageData()
+    mergedImageData = vtkSegmentationCore.vtkOrientedImageData()
     segmentationNode.GenerateMergedLabelmapForAllSegments(mergedImageData, 0, None, vtkStringArrayFromList([segmentID]))
     if not segmentationsLogic.CreateLabelmapVolumeFromOrientedImageData(mergedImageData, labelNode):
       slicer.mrmlScene.RemoveNode(labelNode)
