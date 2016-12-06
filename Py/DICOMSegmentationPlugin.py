@@ -239,7 +239,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
       segment.SetName(segmentLabelNode.GetName())
 
       segmentColor = [float(segmentLabelNode.GetAttribute("ColorR")), float(segmentLabelNode.GetAttribute("ColorG")), float(segmentLabelNode.GetAttribute("ColorB"))]
-      segment.SetDefaultColor(segmentColor)
+      segment.SetColor(segmentColor)
       
       segment.SetTag(vtkSegmentationCore.vtkSegment.GetTerminologyEntryTagName(), segmentLabelNode.GetAttribute("Terminology"))
 

@@ -368,15 +368,14 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     defaults = ['T-D0050', 'SRT', 'Tissue']
     segmentTerminologyTag = terminologyWidget.serializeTerminologyEntry(
       loadedTermNames.GetValue(int(loadedTermNames.GetNumberOfValues()-2)),
-      defaults[0], defaults[1], defaults[2], "", "", "",
       defaults[0], defaults[1], defaults[2],
+      defaults[0], defaults[1], defaults[2],
+      "", "", "",
       loadedAnatNames.GetValue(int(loadedAnatNames.GetNumberOfValues()-1)),
       "", "", "", "", "", "")
     segment.SetTag(vtkSegmentationCore.vtkSegment.GetTerminologyEntryTagName(),
                    segmentTerminologyTag)
-
-    # TODO: if one segment 'Tissue_2' has been deleted and 'Tissue_1' and 'Tissue_3' are the only ones left and
-    # adding a new segment we have twice 'Tissue_3'
+    segment.SetColor(map(lambda c: float(c) / 255., [128,174,128]))  # TODO: get that value from context?
     segment.SetName("{}_{}".format(defaults[2], str(self.segmentEditorWidget.getNumberOfSegmentsStartingWith(defaults[2])+1)))
 
   @postCall(refreshUIElementsAvailability)
@@ -900,7 +899,7 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
       category = terminologyEntry.GetCategoryObject()
       segmentData["SegmentDescription"] = category.GetCodeMeaning() if category != "" else self.statistics[segmentID, "Segment"]
       segmentData["SegmentAlgorithmType"] = "MANUAL"
-      rgb = segment.GetDefaultColor()
+      rgb = segment.GetColor()
       segmentData["recommendedDisplayRGBValue"] = [rgb[0]*255, rgb[1]*255, rgb[2]*255]
       segmentData.update(self.createJSONFromTerminologyContext(terminologyEntry))
       segmentData.update(self.createJSONFromAnatomicContext(terminologyEntry))
