@@ -357,26 +357,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
   def onSegmentAdded(self, observer=None, caller=None):
     segNode = self.segmentEditorWidget.segmentation
     segment = segNode.GetSegment(self.segmentEditorWidget.logic.getSegmentIDs(segNode)[-1])
-
-    terminologies = slicer.modules.terminologies.logic()
-    loadedTermNames = vtk.vtkStringArray()
-    terminologies.GetLoadedTerminologyNames(loadedTermNames)
-    loadedAnatNames = vtk.vtkStringArray()
-    terminologies.GetLoadedAnatomicContextNames(loadedAnatNames)
-
-    terminologyWidget = slicer.qSlicerTerminologyNavigatorWidget()
-    defaults = ['T-D0050', 'SRT', 'Tissue']
-    segmentTerminologyTag = terminologyWidget.serializeTerminologyEntry(
-      loadedTermNames.GetValue(int(loadedTermNames.GetNumberOfValues()-2)),
-      defaults[0], defaults[1], defaults[2],
-      defaults[0], defaults[1], defaults[2],
-      "", "", "",
-      loadedAnatNames.GetValue(int(loadedAnatNames.GetNumberOfValues()-1)),
-      "", "", "", "", "", "")
-    segment.SetTag(vtkSegmentationCore.vtkSegment.GetTerminologyEntryTagName(),
-                   segmentTerminologyTag)
-    segment.SetColor(map(lambda c: float(c) / 255., [128,174,128]))  # TODO: get that value from context?
-    segment.SetName("{}_{}".format(defaults[2], str(self.segmentEditorWidget.getNumberOfSegmentsStartingWith(defaults[2])+1)))
+    self.segmentEditorWidget.setDefaultTerminologyAndColor(segment)
 
   @postCall(refreshUIElementsAvailability)
   def onSegmentationNodeChanged(self, observer=None, caller=None):
@@ -772,6 +753,38 @@ class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidget
   def createLabelNodeFromSegment(self, segmentID):
     return self.logic.createLabelNodeFromSegment(self.segmentationNode, segmentID)
 
+  def setDefaultTerminologyAndColor(self, segment):
+    meaning, terminologyEntryString = self.getDefaultTerminologyString()
+    segment.SetTag(vtkSegmentationCore.vtkSegment.GetTerminologyEntryTagName(),
+                   terminologyEntryString)
+    color = self.getColorFromTerminologyEntry(terminologyEntryString)
+    segment.SetColor(map(lambda c: float(c) / 255., [color.red(), color.green(), color.blue()]))
+    segment.SetName("{}_{}".format(meaning, str(self.getNumberOfSegmentsStartingWith(meaning) + 1)))
+
+  def getDefaultTerminologyString(self):
+    terminologies = slicer.modules.terminologies.logic()
+    loadedTerminologyContextNames = vtk.vtkStringArray()
+    terminologies.GetLoadedTerminologyNames(loadedTerminologyContextNames)
+    loadedAnatomyContextNames = vtk.vtkStringArray()
+    terminologies.GetLoadedAnatomicContextNames(loadedAnatomyContextNames)
+    terminologyWidget = slicer.qSlicerTerminologyNavigatorWidget()
+    code, scheme, meaning = ['T-D0050', 'SRT', 'Tissue']
+    terminologyEntryString = terminologyWidget.serializeTerminologyEntry(
+      loadedTerminologyContextNames.GetValue(int(loadedTerminologyContextNames.GetNumberOfValues() - 2)),
+      code, scheme, meaning,
+      code, scheme, meaning,
+      "", "", "",
+      loadedAnatomyContextNames.GetValue(int(loadedAnatomyContextNames.GetNumberOfValues() - 1)),
+      "", "", "", "", "", "")
+    return meaning, terminologyEntryString
+
+  def getColorFromTerminologyEntry(self, segmentTerminologyTag):
+    terminologyWidget = slicer.qSlicerTerminologyNavigatorWidget()
+    terminologyEntry = slicer.vtkSlicerTerminologyEntry()
+    terminologyWidget.deserializeTerminologyEntry(segmentTerminologyTag, terminologyEntry)
+    color = terminologyWidget.recommendedColorFromTerminology(terminologyEntry)
+    return color
+
   def getNumberOfSegmentsStartingWith(self, name):
     segments = self.logic.getSegments(self.segmentation)
     return sum(1 for segment in segments if str.startswith(segment.GetName(), name))
@@ -783,7 +796,6 @@ class QuantitativeReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
     self.parent = parent
     self.volumesLogic = slicer.modules.volumes.logic()
     self.segmentationsLogic = slicer.modules.segmentations.logic()
-    self.segmentStatisticsLogic = None
     self.segmentStatisticsLogic = CustomSegmentStatisticsLogic()
 
   def getSegmentIDs(self, segmentation):
@@ -813,7 +825,6 @@ class QuantitativeReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
     return None
 
   def applyThreshold(self, labelNode, outValue):
-    # TODO: It might make sense to
     imageData = labelNode.GetImageData()
     backgroundValue = 0
     thresh = vtk.vtkImageThreshold()
