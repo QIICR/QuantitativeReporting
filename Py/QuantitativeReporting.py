@@ -156,10 +156,13 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.selectionAreaWidgetLayout = qt.QGridLayout()
     self.selectionAreaWidget.setLayout(self.selectionAreaWidgetLayout)
 
-    self.selectionAreaWidgetLayout.addWidget(qt.QLabel("Measurement report"), 0, 0)
-    self.selectionAreaWidgetLayout.addWidget(self.measurementReportSelector, 0, 1)
-    self.selectionAreaWidgetLayout.addWidget(qt.QLabel("Image volume to annotate"), 1, 0)
-    self.selectionAreaWidgetLayout.addWidget(self.imageVolumeSelector, 1, 1)
+    self.loadDicomButton = qt.QPushButton("Load DICOM")
+
+    self.selectionAreaWidgetLayout.addWidget(self.loadDicomButton, 0, 0, 1, 2)
+    self.selectionAreaWidgetLayout.addWidget(qt.QLabel("Measurement report"), 1, 0)
+    self.selectionAreaWidgetLayout.addWidget(self.measurementReportSelector, 1, 1)
+    self.selectionAreaWidgetLayout.addWidget(qt.QLabel("Image volume to annotate"), 2, 0)
+    self.selectionAreaWidgetLayout.addWidget(self.imageVolumeSelector, 2, 1)
     self.layout.addWidget(self.selectionAreaWidget)
     self.layout.addWidget(self.segmentationGroupBox)
 
@@ -212,6 +215,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       getattr(self.measurementReportSelector, funcName)('currentNodeChanged(vtkMRMLNode*)', self.onMeasurementReportSelected)
 
     def setupButtonConnections():
+      getattr(self.loadDicomButton.clicked, funcName)(self.onLoadButtonClicked)
       getattr(self.saveReportButton.clicked, funcName)(self.onSaveReportButtonClicked)
       getattr(self.completeReportButton.clicked, funcName)(self.onCompleteReportButtonClicked)
       getattr(self.calculateMeasurementsButton.clicked, funcName)(lambda: self.updateMeasurementsTable(triggered=True))
@@ -226,6 +230,10 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     setupSelectorConnections()
     setupButtonConnections()
     setupOtherConnections()
+
+  def onLoadButtonClicked(self):
+    dicomWidget = slicer.modules.dicom.widgetRepresentation().self()
+    dicomWidget.detailsPopup.open()
 
   def onSegmentSelected(self, itemSelection):
     selectedRow = itemSelection.indexes()[0].row() if len(itemSelection.indexes()) else None
@@ -1025,3 +1033,46 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
     segment.GetTag(segment.GetTerminologyEntryTagName(), tag)
     terminologyWidget.deserializeTerminologyEntry(tag, terminologyEntry)
     return terminologyEntry
+
+
+class QuantitativeReportingSlicelet(ModuleWidgetMixin):
+
+  def __init__(self):
+    self.mainWidget = qt.QWidget()
+    self.mainWidget.objectName = "qSlicerAppMainWindow"
+    self.mainWidget.setLayout(qt.QHBoxLayout())
+
+    layoutWidget = slicer.qMRMLLayoutWidget()
+    layoutManager = slicer.qSlicerLayoutManager()
+    layoutManager.setMRMLScene(slicer.mrmlScene)
+    layoutManager.setScriptedDisplayableManagerDirectory(slicer.app.slicerHome + "/bin/Python/mrmlDisplayableManager")
+    layoutWidget.setLayoutManager(layoutManager)
+    slicer.app.setLayoutManager(layoutManager)
+    layoutWidget.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpView)
+
+    moduleFrame = qt.QFrame()
+    moduleFrame.setLayout(qt.QVBoxLayout())
+    self.widget = QuantitativeReportingWidget(moduleFrame)
+    self.widget.setup()
+
+    scrollArea = qt.QScrollArea()
+    scrollArea.setWidget(moduleFrame)
+    scrollArea.setWidgetResizable(False)
+    scrollArea.setMaximumWidth(moduleFrame.width+20)
+
+    splitter = qt.QSplitter()
+    splitter.setOrientation(qt.Qt.Horizontal)
+    splitter.addWidget(scrollArea)
+    splitter.addWidget(layoutWidget)
+
+    self.mainWidget.layout().addWidget(splitter)
+    self.mainWidget.show()
+
+  # def onResizeMainWindow(self):
+
+
+if __name__ == "QuantitativeReportingSlicelet":
+  import sys
+  print( sys.argv )
+
+  slicelet = QuantitativeReportingSlicelet()
