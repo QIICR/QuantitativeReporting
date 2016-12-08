@@ -1058,6 +1058,7 @@ class QuantitativeReportingSlicelet(ModuleWidgetMixin):
     scrollArea = qt.QScrollArea()
     scrollArea.setWidget(moduleFrame)
     scrollArea.setWidgetResizable(False)
+    scrollArea.setMinimumWidth(moduleFrame.width+20)
     scrollArea.setMaximumWidth(moduleFrame.width+20)
 
     splitter = qt.QSplitter()
@@ -1067,8 +1068,6 @@ class QuantitativeReportingSlicelet(ModuleWidgetMixin):
 
     self.mainWidget.layout().addWidget(splitter)
     self.mainWidget.show()
-
-  # def onResizeMainWindow(self):
 
 
 if __name__ == "QuantitativeReportingSlicelet":
