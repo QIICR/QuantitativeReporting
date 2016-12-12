@@ -15,6 +15,8 @@ from SlicerProstateUtils.buttons import *
 from SegmentEditor import SegmentEditorWidget
 from SegmentStatistics import SegmentStatisticsLogic
 
+from DICOMLib.DICOMWidgets import DICOMDetailsWidget
+
 
 class QuantitativeReporting(ScriptedLoadableModule):
   """Uses ScriptedLoadableModule base class, available at:
@@ -83,16 +85,35 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     ScriptedLoadableModuleWidget.setup(self)
 
     self.initializeMembers()
+    self.setupTabBarNavigation()
     self.setupWatchbox()
-    self.setupTestArea()
     self.setupViewSettingsArea()
+    self.setupTestArea()
     self.setupSegmentationsArea()
     self.setupSelectionArea()
     self.setupMeasurementsArea()
     self.setupActionButtons()
+
     self.setupConnections()
     self.layout.addStretch(1)
     self.fourUpSliceLayoutButton.checked = True
+
+  def setupTabBarNavigation(self):
+    self.tabWidget = qt.QTabWidget()
+    self.layout.addWidget(self.tabWidget)
+
+    self.mainModuleWidget = qt.QWidget()
+
+    self.mainModuleWidgetLayout = qt.QGridLayout()
+
+    self.mainModuleWidget.setLayout(self.mainModuleWidgetLayout)
+
+    self.tabWidget.setIconSize(qt.QSize(85, 30))
+
+    self.tabWidget.addTab(self.mainModuleWidget, 'QR')
+    self.dicomBrowser = CustomDICOMDetailsWidget()
+    self.dicomBrowser.addEventObserver(CustomDICOMDetailsWidget.FinishedLoadingEvent, self.onLoadingFinishedEvent)
+    self.tabWidget.addTab(self.dicomBrowser, 'DICOM')
 
   def enableReportButtons(self, enabled):
     self.saveReportButton.enabled = enabled
@@ -105,7 +126,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       WatchBoxAttribute('DOB', 'Date of Birth: ', DICOMTAGS.PATIENT_BIRTH_DATE),
       WatchBoxAttribute('Reader', 'Reader Name: ', callback=getpass.getuser)]
     self.watchBox = DICOMBasedInformationWatchBox(self.watchBoxInformation)
-    self.layout.addWidget(self.watchBox)
+    self.mainModuleWidgetLayout.addWidget(self.watchBox)
 
   def setupTestArea(self):
 
@@ -130,7 +151,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.retrieveTestDataButton = self.createButton("Retrieve and load test data")
     self.testAreaLayout.addWidget(self.retrieveTestDataButton)
     self.retrieveTestDataButton.clicked.connect(loadTestData)
-    self.layout.addWidget(self.testArea)
+    self.mainModuleWidgetLayout.addWidget(self.testArea)
 
   def loadSeriesByFileName(self, filename):
     seriesUID = slicer.dicomDatabase.seriesForFile(filename)
@@ -163,8 +184,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.selectionAreaWidgetLayout.addWidget(self.measurementReportSelector, 1, 1)
     self.selectionAreaWidgetLayout.addWidget(qt.QLabel("Image volume to annotate"), 2, 0)
     self.selectionAreaWidgetLayout.addWidget(self.imageVolumeSelector, 2, 1)
-    self.layout.addWidget(self.selectionAreaWidget)
-    self.layout.addWidget(self.segmentationGroupBox)
+    self.mainModuleWidgetLayout.addWidget(self.selectionAreaWidget)
+    self.mainModuleWidgetLayout.addWidget(self.segmentationGroupBox)
 
   def setupViewSettingsArea(self):
     self.redSliceLayoutButton = RedSliceLayoutButton()
@@ -176,7 +197,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     hbox = self.createHLayout([self.redSliceLayoutButton, self.fourUpSliceLayoutButton,
                                self.fourUpSliceTableViewLayoutButton, self.crosshairButton])
     hbox.layout().addStretch(1)
-    self.layout.addWidget(hbox)
+    self.mainModuleWidgetLayout.addWidget(hbox)
 
   def setupSegmentationsArea(self):
     self.segmentationGroupBox = qt.QGroupBox("Segmentations")
@@ -196,7 +217,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.tableView.horizontalHeader().setResizeMode(qt.QHeaderView.Stretch)
     self.fourUpTableView = None
     self.measurementsGroupBoxLayout.addWidget(self.tableView)
-    self.layout.addWidget(self.measurementsGroupBox)
+    self.mainModuleWidgetLayout.addWidget(self.measurementsGroupBox)
 
   def setupActionButtons(self):
     self.calculateMeasurementsButton = self.createButton("Calculate Measurements", enabled=False)
@@ -205,8 +226,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.saveReportButton = self.createButton("Save Report")
     self.completeReportButton = self.createButton("Complete Report")
     self.enableReportButtons(False)
-    self.layout.addWidget(self.createHLayout([self.calculateMeasurementsButton, self.calculateAutomaticallyCheckbox]))
-    self.layout.addWidget(self.createHLayout([self.saveReportButton, self.completeReportButton]))
+    self.mainModuleWidgetLayout.addWidget(self.createHLayout([self.calculateMeasurementsButton, self.calculateAutomaticallyCheckbox]))
+    self.mainModuleWidgetLayout.addWidget(self.createHLayout([self.saveReportButton, self.completeReportButton]))
 
   def setupConnections(self, funcName="connect"):
 
@@ -226,10 +247,29 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       getattr(self.calculateAutomaticallyCheckbox.toggled, funcName)(self.onCalcAutomaticallyToggled)
       getattr(self.segmentEditorWidget.tableWidget.selectionModel().selectionChanged, funcName)(self.onSegmentSelected)
       getattr(self.tableView.selectionModel().selectionChanged, funcName)(self.onSegmentSelected)
+      getattr(self.tabWidget.currentChanged, funcName)(self.onTabWidgetClicked)
 
     setupSelectorConnections()
     setupButtonConnections()
     setupOtherConnections()
+
+  def onTabWidgetClicked(self, currentIndex):
+    if currentIndex == 0:
+      slicer.app.layoutManager().parent().parent().show()
+      self.dicomBrowser.close()
+    elif currentIndex == 1:
+      slicer.app.layoutManager().parent().parent().hide()
+      self.dicomBrowser.open()
+    self.updateSizes(currentIndex)
+
+  def updateSizes(self, index):
+    for tab in [self.tabWidget.widget(i) for i in range(self.tabWidget.count) if i!=index]:
+      tab.setSizePolicy(qt.QSizePolicy.Ignored, qt.QSizePolicy.Ignored)
+
+    self.tabWidget.widget(index).setSizePolicy(qt.QSizePolicy.Preferred, qt.QSizePolicy.Preferred)
+    self.tabWidget.widget(index).resize(self.tabWidget.widget(index).minimumSizeHint)
+    self.tabWidget.widget(index).adjustSize()
+    # self.parent.resize(self.parent.minimumSizeHint)
 
   def onLoadButtonClicked(self):
     dicomWidget = slicer.modules.dicom.widgetRepresentation().self()
@@ -274,6 +314,9 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
         self.fourUpTableView = slicer.app.layoutManager().tableWidget(0).tableView()
         self.fourUpTableView.selectionModel().selectionChanged.connect(self.onSegmentSelected)
         self.fourUpTableView.setSelectionBehavior(qt.QTableView.SelectRows)
+
+  def onLoadingFinishedEvent(self, caller, event):
+    self.tabWidget.setCurrentIndex(0)
 
   def onLayoutChanged(self):
     self.onDisplayMeasurementsTable()
@@ -1073,6 +1116,21 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
     return terminologyEntry
 
 
+class CustomDICOMDetailsWidget(DICOMDetailsWidget, ParameterNodeObservationMixin):
+
+  FinishedLoadingEvent = vtk.vtkCommand.UserEvent + 101
+
+  def __init__(self, dicomBrowser=None, parent=None):
+    DICOMDetailsWidget.__init__(self, dicomBrowser, parent)
+    self.browserPersistentButton.visible = True
+    self.browserPersistentButton.checked = False
+
+  def onLoadingFinished(self):
+    DICOMDetailsWidget.onLoadingFinished(self)
+    if not self.browserPersistent:
+      self.invokeEvent(self.FinishedLoadingEvent)
+
+
 class QuantitativeReportingSlicelet(ModuleWidgetMixin):
 
   def __init__(self):
@@ -1080,6 +1138,24 @@ class QuantitativeReportingSlicelet(ModuleWidgetMixin):
     self.mainWidget.objectName = "qSlicerAppMainWindow"
     self.mainWidget.setLayout(qt.QHBoxLayout())
 
+    self.setupLayoutWidget()
+
+    moduleFrame = qt.QWidget()
+    moduleFrame.setLayout(qt.QVBoxLayout())
+    self.widget = QuantitativeReportingWidget(moduleFrame)
+    self.widget.setup()
+
+    splitter = qt.QSplitter()
+    splitter.setOrientation(qt.Qt.Horizontal)
+    splitter.addWidget(self.widget.parent)
+    splitter.addWidget(self.layoutWidget)
+
+    self.mainWidget.layout().addWidget(splitter)
+    self.mainWidget.show()
+
+  def setupLayoutWidget(self):
+    self.layoutWidget = qt.QWidget()
+    self.layoutWidget.setLayout(qt.QHBoxLayout())
     layoutWidget = slicer.qMRMLLayoutWidget()
     layoutManager = slicer.qSlicerLayoutManager()
     layoutManager.setMRMLScene(slicer.mrmlScene)
@@ -1087,25 +1163,7 @@ class QuantitativeReportingSlicelet(ModuleWidgetMixin):
     layoutWidget.setLayoutManager(layoutManager)
     slicer.app.setLayoutManager(layoutManager)
     layoutWidget.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpView)
-
-    moduleFrame = qt.QFrame()
-    moduleFrame.setLayout(qt.QVBoxLayout())
-    self.widget = QuantitativeReportingWidget(moduleFrame)
-    self.widget.setup()
-
-    scrollArea = qt.QScrollArea()
-    scrollArea.setWidget(moduleFrame)
-    scrollArea.setWidgetResizable(False)
-    scrollArea.setMinimumWidth(moduleFrame.width+20)
-    scrollArea.setMaximumWidth(moduleFrame.width+20)
-
-    splitter = qt.QSplitter()
-    splitter.setOrientation(qt.Qt.Horizontal)
-    splitter.addWidget(scrollArea)
-    splitter.addWidget(layoutWidget)
-
-    self.mainWidget.layout().addWidget(splitter)
-    self.mainWidget.show()
+    self.layoutWidget.layout().addWidget(layoutWidget)
 
 
 if __name__ == "QuantitativeReportingSlicelet":
