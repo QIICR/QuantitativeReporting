@@ -177,13 +177,10 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.selectionAreaWidgetLayout = qt.QGridLayout()
     self.selectionAreaWidget.setLayout(self.selectionAreaWidgetLayout)
 
-    self.loadDicomButton = qt.QPushButton("Load DICOM")
-
-    self.selectionAreaWidgetLayout.addWidget(self.loadDicomButton, 0, 0, 1, 2)
-    self.selectionAreaWidgetLayout.addWidget(qt.QLabel("Measurement report"), 1, 0)
-    self.selectionAreaWidgetLayout.addWidget(self.measurementReportSelector, 1, 1)
-    self.selectionAreaWidgetLayout.addWidget(qt.QLabel("Image volume to annotate"), 2, 0)
-    self.selectionAreaWidgetLayout.addWidget(self.imageVolumeSelector, 2, 1)
+    self.selectionAreaWidgetLayout.addWidget(qt.QLabel("Measurement report"), 0, 0)
+    self.selectionAreaWidgetLayout.addWidget(self.measurementReportSelector, 0, 1)
+    self.selectionAreaWidgetLayout.addWidget(qt.QLabel("Image volume to annotate"), 1, 0)
+    self.selectionAreaWidgetLayout.addWidget(self.imageVolumeSelector, 1, 1)
     self.mainModuleWidgetLayout.addWidget(self.selectionAreaWidget)
     self.mainModuleWidgetLayout.addWidget(self.segmentationGroupBox)
 
@@ -236,7 +233,6 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       getattr(self.measurementReportSelector, funcName)('currentNodeChanged(vtkMRMLNode*)', self.onMeasurementReportSelected)
 
     def setupButtonConnections():
-      getattr(self.loadDicomButton.clicked, funcName)(self.onLoadButtonClicked)
       getattr(self.saveReportButton.clicked, funcName)(self.onSaveReportButtonClicked)
       getattr(self.completeReportButton.clicked, funcName)(self.onCompleteReportButtonClicked)
       getattr(self.calculateMeasurementsButton.clicked, funcName)(lambda: self.updateMeasurementsTable(triggered=True))
@@ -270,10 +266,6 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.tabWidget.widget(index).resize(self.tabWidget.widget(index).minimumSizeHint)
     self.tabWidget.widget(index).adjustSize()
     # self.parent.resize(self.parent.minimumSizeHint)
-
-  def onLoadButtonClicked(self):
-    dicomWidget = slicer.modules.dicom.widgetRepresentation().self()
-    dicomWidget.detailsPopup.open()
 
   def onSegmentSelected(self, itemSelection):
     selectedRow = itemSelection.indexes()[0].row() if len(itemSelection.indexes()) else None
@@ -1141,21 +1133,26 @@ class QuantitativeReportingSlicelet(qt.QWidget, ModuleWidgetMixin):
 
     self.setupLayoutWidget()
 
-    moduleFrame = qt.QWidget()
-    moduleFrame.setLayout(qt.QVBoxLayout())
-    self.widget = QuantitativeReportingWidget(moduleFrame)
+    self.moduleFrame = qt.QWidget()
+    self.moduleFrame.setLayout(qt.QVBoxLayout())
+    self.widget = QuantitativeReportingWidget(self.moduleFrame)
     self.widget.setup()
+
+    # TODO: resize self.widget.parent to minimum possible width
 
     self.scrollArea = qt.QScrollArea()
     self.scrollArea.setWidget(self.widget.parent)
     self.scrollArea.setWidgetResizable(True)
+    self.scrollArea.setMinimumWidth(self.widget.parent.minimumSizeHint.width())
 
     self.splitter = qt.QSplitter()
     self.splitter.setOrientation(qt.Qt.Horizontal)
     self.splitter.addWidget(self.scrollArea)
     self.splitter.addWidget(self.layoutWidget)
+    self.splitter.splitterMoved.connect(self.onSplitterMoved)
 
-    self.splitter.setCollapsible(1, False)
+    self.splitter.setStretchFactor(0,0)
+    self.splitter.setStretchFactor(1,1)
     self.splitter.handle(1).installEventFilter(self)
 
     self.mainWidget.layout().addWidget(self.splitter)
@@ -1176,6 +1173,13 @@ class QuantitativeReportingSlicelet(qt.QWidget, ModuleWidgetMixin):
   def eventFilter(self, obj, event):
     if event.type() == qt.QEvent.MouseButtonDblClick:
       self.onSplitterClick()
+
+  def onSplitterMoved(self, pos, index):
+    vScroll = self.scrollArea.verticalScrollBar()
+    print self.moduleFrame.width, self.widget.parent.width, self.scrollArea.width, vScroll.width
+    vScrollbarWidth = 4 if not vScroll.isVisible() else vScroll.width + 4 # TODO: find out, what is 4px wide
+    if self.scrollArea.minimumWidth != self.widget.parent.minimumSizeHint.width() + vScrollbarWidth:
+      self.scrollArea.setMinimumWidth(self.widget.parent.minimumSizeHint.width() + vScrollbarWidth)
 
   def onSplitterClick(self):
     if self.splitter.sizes()[0] > 0:
