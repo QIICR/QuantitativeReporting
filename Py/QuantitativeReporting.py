@@ -1145,9 +1145,13 @@ class QuantitativeReportingSlicelet(ModuleWidgetMixin):
     self.widget = QuantitativeReportingWidget(moduleFrame)
     self.widget.setup()
 
+    scrollArea = qt.QScrollArea()
+    scrollArea.setWidget(self.widget.parent)
+    scrollArea.setWidgetResizable(True)
+
     splitter = qt.QSplitter()
     splitter.setOrientation(qt.Qt.Horizontal)
-    splitter.addWidget(self.widget.parent)
+    splitter.addWidget(scrollArea)
     splitter.addWidget(self.layoutWidget)
 
     self.mainWidget.layout().addWidget(splitter)
