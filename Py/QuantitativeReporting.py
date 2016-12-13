@@ -1131,9 +1131,10 @@ class CustomDICOMDetailsWidget(DICOMDetailsWidget, ParameterNodeObservationMixin
       self.invokeEvent(self.FinishedLoadingEvent)
 
 
-class QuantitativeReportingSlicelet(ModuleWidgetMixin):
+class QuantitativeReportingSlicelet(qt.QWidget, ModuleWidgetMixin):
 
   def __init__(self):
+    qt.QWidget.__init__(self)
     self.mainWidget = qt.QWidget()
     self.mainWidget.objectName = "qSlicerAppMainWindow"
     self.mainWidget.setLayout(qt.QHBoxLayout())
@@ -1145,16 +1146,19 @@ class QuantitativeReportingSlicelet(ModuleWidgetMixin):
     self.widget = QuantitativeReportingWidget(moduleFrame)
     self.widget.setup()
 
-    scrollArea = qt.QScrollArea()
-    scrollArea.setWidget(self.widget.parent)
-    scrollArea.setWidgetResizable(True)
+    self.scrollArea = qt.QScrollArea()
+    self.scrollArea.setWidget(self.widget.parent)
+    self.scrollArea.setWidgetResizable(True)
 
-    splitter = qt.QSplitter()
-    splitter.setOrientation(qt.Qt.Horizontal)
-    splitter.addWidget(scrollArea)
-    splitter.addWidget(self.layoutWidget)
+    self.splitter = qt.QSplitter()
+    self.splitter.setOrientation(qt.Qt.Horizontal)
+    self.splitter.addWidget(self.scrollArea)
+    self.splitter.addWidget(self.layoutWidget)
 
-    self.mainWidget.layout().addWidget(splitter)
+    self.splitter.setCollapsible(1, False)
+    self.splitter.handle(1).installEventFilter(self)
+
+    self.mainWidget.layout().addWidget(self.splitter)
     self.mainWidget.show()
 
   def setupLayoutWidget(self):
@@ -1168,6 +1172,17 @@ class QuantitativeReportingSlicelet(ModuleWidgetMixin):
     slicer.app.setLayoutManager(layoutManager)
     layoutWidget.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpView)
     self.layoutWidget.layout().addWidget(layoutWidget)
+
+  def eventFilter(self, obj, event):
+    if event.type() == qt.QEvent.MouseButtonDblClick:
+      self.onSplitterClick()
+
+  def onSplitterClick(self):
+    if self.splitter.sizes()[0] > 0:
+      self.splitter.setSizes([0, self.splitter.sizes()[1]])
+    else:
+      minimumWidth = self.widget.parent.minimumSizeHint.width()
+      self.splitter.setSizes([minimumWidth, self.splitter.sizes()[1]-minimumWidth])
 
 
 if __name__ == "QuantitativeReportingSlicelet":
