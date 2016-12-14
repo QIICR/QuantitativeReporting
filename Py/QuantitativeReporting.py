@@ -4,7 +4,7 @@ import logging, os
 from datetime import datetime
 
 from slicer.ScriptedLoadableModule import *
-import vtkSegmentationCorePython as vtkCoreSeg
+import vtkSegmentationCorePython as vtkSegmentationCore
 
 from SlicerProstateUtils.mixins import *
 from SlicerProstateUtils.decorators import *
@@ -14,6 +14,8 @@ from SlicerProstateUtils.buttons import *
 
 from SegmentEditor import SegmentEditorWidget
 from SegmentStatistics import SegmentStatisticsLogic
+
+from DICOMLib.DICOMWidgets import DICOMDetailsWidget
 
 
 class QuantitativeReporting(ScriptedLoadableModule):
@@ -83,16 +85,35 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     ScriptedLoadableModuleWidget.setup(self)
 
     self.initializeMembers()
+    self.setupTabBarNavigation()
     self.setupWatchbox()
-    self.setupTestArea()
     self.setupViewSettingsArea()
+    self.setupTestArea()
     self.setupSegmentationsArea()
     self.setupSelectionArea()
     self.setupMeasurementsArea()
     self.setupActionButtons()
+
     self.setupConnections()
     self.layout.addStretch(1)
     self.fourUpSliceLayoutButton.checked = True
+
+  def setupTabBarNavigation(self):
+    self.tabWidget = qt.QTabWidget()
+    self.layout.addWidget(self.tabWidget)
+
+    self.mainModuleWidget = qt.QWidget()
+
+    self.mainModuleWidgetLayout = qt.QGridLayout()
+
+    self.mainModuleWidget.setLayout(self.mainModuleWidgetLayout)
+
+    self.tabWidget.setIconSize(qt.QSize(85, 30))
+
+    self.tabWidget.addTab(self.mainModuleWidget, 'QR')
+    self.dicomBrowser = CustomDICOMDetailsWidget()
+    self.dicomBrowser.addEventObserver(CustomDICOMDetailsWidget.FinishedLoadingEvent, self.onLoadingFinishedEvent)
+    self.tabWidget.addTab(self.dicomBrowser, 'DICOM')
 
   def enableReportButtons(self, enabled):
     self.saveReportButton.enabled = enabled
@@ -105,7 +126,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       WatchBoxAttribute('DOB', 'Date of Birth: ', DICOMTAGS.PATIENT_BIRTH_DATE),
       WatchBoxAttribute('Reader', 'Reader Name: ', callback=getpass.getuser)]
     self.watchBox = DICOMBasedInformationWatchBox(self.watchBoxInformation)
-    self.layout.addWidget(self.watchBox)
+    self.mainModuleWidgetLayout.addWidget(self.watchBox)
 
   def setupTestArea(self):
 
@@ -130,7 +151,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.retrieveTestDataButton = self.createButton("Retrieve and load test data")
     self.testAreaLayout.addWidget(self.retrieveTestDataButton)
     self.retrieveTestDataButton.clicked.connect(loadTestData)
-    self.layout.addWidget(self.testArea)
+    self.mainModuleWidgetLayout.addWidget(self.testArea)
 
   def loadSeriesByFileName(self, filename):
     seriesUID = slicer.dicomDatabase.seriesForFile(filename)
@@ -160,8 +181,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.selectionAreaWidgetLayout.addWidget(self.measurementReportSelector, 0, 1)
     self.selectionAreaWidgetLayout.addWidget(qt.QLabel("Image volume to annotate"), 1, 0)
     self.selectionAreaWidgetLayout.addWidget(self.imageVolumeSelector, 1, 1)
-    self.layout.addWidget(self.selectionAreaWidget)
-    self.layout.addWidget(self.segmentationGroupBox)
+    self.mainModuleWidgetLayout.addWidget(self.selectionAreaWidget)
+    self.mainModuleWidgetLayout.addWidget(self.segmentationGroupBox)
 
   def setupViewSettingsArea(self):
     self.redSliceLayoutButton = RedSliceLayoutButton()
@@ -173,7 +194,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     hbox = self.createHLayout([self.redSliceLayoutButton, self.fourUpSliceLayoutButton,
                                self.fourUpSliceTableViewLayoutButton, self.crosshairButton])
     hbox.layout().addStretch(1)
-    self.layout.addWidget(hbox)
+    self.mainModuleWidgetLayout.addWidget(hbox)
 
   def setupSegmentationsArea(self):
     self.segmentationGroupBox = qt.QGroupBox("Segmentations")
@@ -193,7 +214,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.tableView.horizontalHeader().setResizeMode(qt.QHeaderView.Stretch)
     self.fourUpTableView = None
     self.measurementsGroupBoxLayout.addWidget(self.tableView)
-    self.layout.addWidget(self.measurementsGroupBox)
+    self.mainModuleWidgetLayout.addWidget(self.measurementsGroupBox)
 
   def setupActionButtons(self):
     self.calculateMeasurementsButton = self.createButton("Calculate Measurements", enabled=False)
@@ -202,8 +223,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.saveReportButton = self.createButton("Save Report")
     self.completeReportButton = self.createButton("Complete Report")
     self.enableReportButtons(False)
-    self.layout.addWidget(self.createHLayout([self.calculateMeasurementsButton, self.calculateAutomaticallyCheckbox]))
-    self.layout.addWidget(self.createHLayout([self.saveReportButton, self.completeReportButton]))
+    self.mainModuleWidgetLayout.addWidget(self.createHLayout([self.calculateMeasurementsButton, self.calculateAutomaticallyCheckbox]))
+    self.mainModuleWidgetLayout.addWidget(self.createHLayout([self.saveReportButton, self.completeReportButton]))
 
   def setupConnections(self, funcName="connect"):
 
@@ -222,10 +243,29 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       getattr(self.calculateAutomaticallyCheckbox.toggled, funcName)(self.onCalcAutomaticallyToggled)
       getattr(self.segmentEditorWidget.tableWidget.selectionModel().selectionChanged, funcName)(self.onSegmentSelected)
       getattr(self.tableView.selectionModel().selectionChanged, funcName)(self.onSegmentSelected)
+      getattr(self.tabWidget.currentChanged, funcName)(self.onTabWidgetClicked)
 
     setupSelectorConnections()
     setupButtonConnections()
     setupOtherConnections()
+
+  def onTabWidgetClicked(self, currentIndex):
+    if currentIndex == 0:
+      slicer.app.layoutManager().parent().parent().show()
+      self.dicomBrowser.close()
+    elif currentIndex == 1:
+      slicer.app.layoutManager().parent().parent().hide()
+      self.dicomBrowser.open()
+    self.updateSizes(currentIndex)
+
+  def updateSizes(self, index):
+    for tab in [self.tabWidget.widget(i) for i in range(self.tabWidget.count) if i!=index]:
+      tab.setSizePolicy(qt.QSizePolicy.Ignored, qt.QSizePolicy.Ignored)
+
+    self.tabWidget.widget(index).setSizePolicy(qt.QSizePolicy.Preferred, qt.QSizePolicy.Preferred)
+    self.tabWidget.widget(index).resize(self.tabWidget.widget(index).minimumSizeHint)
+    self.tabWidget.widget(index).adjustSize()
+    # self.parent.resize(self.parent.minimumSizeHint)
 
   def onSegmentSelected(self, itemSelection):
     selectedRow = itemSelection.indexes()[0].row() if len(itemSelection.indexes()) else None
@@ -266,6 +306,9 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
         self.fourUpTableView = slicer.app.layoutManager().tableWidget(0).tableView()
         self.fourUpTableView.selectionModel().selectionChanged.connect(self.onSegmentSelected)
         self.fourUpTableView.setSelectionBehavior(qt.QTableView.SelectRows)
+
+  def onLoadingFinishedEvent(self, caller, event):
+    self.tabWidget.setCurrentIndex(0)
 
   def onLayoutChanged(self):
     self.onDisplayMeasurementsTable()
@@ -325,11 +368,14 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     segNode = self.segmentEditorWidget.segmentation
     if not segNode:
       return
-    segmentationEvents = [vtkCoreSeg.vtkSegmentation.SegmentAdded, vtkCoreSeg.vtkSegmentation.SegmentRemoved,
-                          vtkCoreSeg.vtkSegmentation.SegmentModified,
-                          vtkCoreSeg.vtkSegmentation.RepresentationModified]
+    segmentationEvents = [vtkSegmentationCore.vtkSegmentation.SegmentAdded, vtkSegmentationCore.vtkSegmentation.SegmentRemoved,
+                          vtkSegmentationCore.vtkSegmentation.SegmentModified,
+                          vtkSegmentationCore.vtkSegmentation.RepresentationModified]
     for event in segmentationEvents:
       self.segmentationObservers.append(segNode.AddObserver(event, self.onSegmentationNodeChanged))
+
+    self.segmentationObservers.append(
+      segNode.AddObserver(vtkSegmentationCore.vtkSegmentation.SegmentAdded, self.onSegmentAdded))
 
   def initializeWatchBox(self, node):
     try:
@@ -342,6 +388,11 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     segNode = slicer.vtkMRMLSegmentationNode()
     slicer.mrmlScene.AddNode(segNode)
     return segNode
+
+  def onSegmentAdded(self, observer=None, caller=None):
+    segNode = self.segmentEditorWidget.segmentation
+    segment = segNode.GetSegment(self.segmentEditorWidget.logic.getSegmentIDs(segNode)[-1])
+    self.segmentEditorWidget.setDefaultTerminologyAndColor(segment)
 
   @postCall(refreshUIElementsAvailability)
   def onSegmentationNodeChanged(self, observer=None, caller=None):
@@ -483,13 +534,10 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
     if cliNode.GetStatusString() != 'Completed':
       raise Exception("tid1500writer CLI did not complete cleanly")
-    indexer = ctk.ctkDICOMIndexer()
-    indexer.addFile(slicer.dicomDatabase, outputSRPath)
 
   def addProducedDataToDICOMDatabase(self):
-    databaseDirectory = qt.QSettings().value("DatabaseDirectory")
     indexer = ctk.ctkDICOMIndexer()
-    indexer.addDirectory(slicer.dicomDatabase, self.tempDir, os.path.join(databaseDirectory, "dicom"))
+    indexer.addDirectory(slicer.dicomDatabase, self.tempDir, "copy")  # TODO: doesn't really expect a destination dir
 
   def cleanupTemporaryData(self):
     try:
@@ -740,6 +788,41 @@ class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidget
   def createLabelNodeFromSegment(self, segmentID):
     return self.logic.createLabelNodeFromSegment(self.segmentationNode, segmentID)
 
+  def setDefaultTerminologyAndColor(self, segment):
+    meaning, terminologyEntryString = self.getDefaultTerminologyString()
+    segment.SetTag(vtkSegmentationCore.vtkSegment.GetTerminologyEntryTagName(),
+                   terminologyEntryString)
+    color = self.getColorFromTerminologyEntry(terminologyEntryString)
+    segment.SetColor(map(lambda c: float(c) / 255., [color.red(), color.green(), color.blue()]))
+    segment.SetName("{}_{}".format(meaning, str(self.getNumberOfSegmentsStartingWith(meaning) + 1)))
+
+  def getDefaultTerminologyString(self):
+    terminologies = slicer.modules.terminologies.logic()
+    loadedTerminologyContextNames = vtk.vtkStringArray()
+    terminologies.GetLoadedTerminologyNames(loadedTerminologyContextNames)
+    loadedAnatomyContextNames = vtk.vtkStringArray()
+    terminologies.GetLoadedAnatomicContextNames(loadedAnatomyContextNames)
+    terminologyWidget = slicer.qSlicerTerminologyNavigatorWidget()
+    code, scheme, meaning = ['T-D0050', 'SRT', 'Tissue']
+    terminologyEntryString = terminologyWidget.serializeTerminologyEntry(
+      loadedTerminologyContextNames.GetValue(int(loadedTerminologyContextNames.GetNumberOfValues() - 2)),
+      code, scheme, meaning,
+      code, scheme, meaning,
+      "", "", "",
+      loadedAnatomyContextNames.GetValue(int(loadedAnatomyContextNames.GetNumberOfValues() - 1)),
+      "", "", "", "", "", "")
+    return meaning, terminologyEntryString
+
+  def getColorFromTerminologyEntry(self, segmentTerminologyTag):
+    terminologyWidget = slicer.qSlicerTerminologyNavigatorWidget()
+    terminologyEntry = slicer.vtkSlicerTerminologyEntry()
+    terminologyWidget.deserializeTerminologyEntry(segmentTerminologyTag, terminologyEntry)
+    color = terminologyWidget.recommendedColorFromTerminology(terminologyEntry)
+    return color
+
+  def getNumberOfSegmentsStartingWith(self, name):
+    segments = self.logic.getSegments(self.segmentation)
+    return sum(1 for segment in segments if str.startswith(segment.GetName(), name))
 
 class QuantitativeReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
 
@@ -748,7 +831,6 @@ class QuantitativeReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
     self.parent = parent
     self.volumesLogic = slicer.modules.volumes.logic()
     self.segmentationsLogic = slicer.modules.segmentations.logic()
-    self.segmentStatisticsLogic = None
     self.segmentStatisticsLogic = CustomSegmentStatisticsLogic()
 
   def getSegmentIDs(self, segmentation):
@@ -762,7 +844,7 @@ class QuantitativeReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
     return [segmentation.GetSegment(segmentID) for segmentID in self.getSegmentIDs(segmentation)]
 
   def getSegmentCentroid(self, segmentationNode, segment):
-    imageData = vtkCoreSeg.vtkOrientedImageData()
+    imageData = vtkSegmentationCore.vtkOrientedImageData()
     segmentID = segmentationNode.GetSegmentation().GetSegmentIdBySegment(segment)
     self.segmentationsLogic.GetSegmentBinaryLabelmapRepresentation(segmentationNode, segmentID, imageData)
     extent = imageData.GetExtent()
@@ -778,7 +860,6 @@ class QuantitativeReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
     return None
 
   def applyThreshold(self, labelNode, outValue):
-    # TODO: It might make sense to
     imageData = labelNode.GetImageData()
     backgroundValue = 0
     thresh = vtk.vtkImageThreshold()
@@ -808,7 +889,7 @@ class QuantitativeReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
         stringArray.InsertNextValue(listElement)
       return stringArray
 
-    mergedImageData = vtkCoreSeg.vtkOrientedImageData()
+    mergedImageData = vtkSegmentationCore.vtkOrientedImageData()
     segmentationNode.GenerateMergedLabelmapForAllSegments(mergedImageData, 0, None, vtkStringArrayFromList([segmentID]))
     if not segmentationsLogic.CreateLabelmapVolumeFromOrientedImageData(mergedImageData, labelNode):
       slicer.mrmlScene.RemoveNode(labelNode)
@@ -864,7 +945,7 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
       category = terminologyEntry.GetCategoryObject()
       segmentData["SegmentDescription"] = category.GetCodeMeaning() if category != "" else self.statistics[segmentID, "Segment"]
       segmentData["SegmentAlgorithmType"] = "MANUAL"
-      rgb = segment.GetDefaultColor()
+      rgb = segment.GetColor()
       segmentData["recommendedDisplayRGBValue"] = [rgb[0]*255, rgb[1]*255, rgb[2]*255]
       segmentData.update(self.createJSONFromTerminologyContext(terminologyEntry))
       segmentData.update(self.createJSONFromAnatomicContext(terminologyEntry))
@@ -1025,3 +1106,91 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
     segment.GetTag(segment.GetTerminologyEntryTagName(), tag)
     terminologyWidget.deserializeTerminologyEntry(tag, terminologyEntry)
     return terminologyEntry
+
+
+class CustomDICOMDetailsWidget(DICOMDetailsWidget, ParameterNodeObservationMixin):
+
+  FinishedLoadingEvent = vtk.vtkCommand.UserEvent + 101
+
+  def __init__(self, dicomBrowser=None, parent=None):
+    DICOMDetailsWidget.__init__(self, dicomBrowser, parent)
+    self.browserPersistentButton.visible = True
+    self.browserPersistentButton.checked = False
+
+  def onLoadingFinished(self):
+    DICOMDetailsWidget.onLoadingFinished(self)
+    if not self.browserPersistent:
+      self.invokeEvent(self.FinishedLoadingEvent)
+
+
+class QuantitativeReportingSlicelet(qt.QWidget, ModuleWidgetMixin):
+
+  def __init__(self):
+    qt.QWidget.__init__(self)
+    self.mainWidget = qt.QWidget()
+    self.mainWidget.objectName = "qSlicerAppMainWindow"
+    self.mainWidget.setLayout(qt.QHBoxLayout())
+
+    self.setupLayoutWidget()
+
+    self.moduleFrame = qt.QWidget()
+    self.moduleFrame.setLayout(qt.QVBoxLayout())
+    self.widget = QuantitativeReportingWidget(self.moduleFrame)
+    self.widget.setup()
+
+    # TODO: resize self.widget.parent to minimum possible width
+
+    self.scrollArea = qt.QScrollArea()
+    self.scrollArea.setWidget(self.widget.parent)
+    self.scrollArea.setWidgetResizable(True)
+    self.scrollArea.setMinimumWidth(self.widget.parent.minimumSizeHint.width())
+
+    self.splitter = qt.QSplitter()
+    self.splitter.setOrientation(qt.Qt.Horizontal)
+    self.splitter.addWidget(self.scrollArea)
+    self.splitter.addWidget(self.layoutWidget)
+    self.splitter.splitterMoved.connect(self.onSplitterMoved)
+
+    self.splitter.setStretchFactor(0,0)
+    self.splitter.setStretchFactor(1,1)
+    self.splitter.handle(1).installEventFilter(self)
+
+    self.mainWidget.layout().addWidget(self.splitter)
+    self.mainWidget.show()
+
+  def setupLayoutWidget(self):
+    self.layoutWidget = qt.QWidget()
+    self.layoutWidget.setLayout(qt.QHBoxLayout())
+    layoutWidget = slicer.qMRMLLayoutWidget()
+    layoutManager = slicer.qSlicerLayoutManager()
+    layoutManager.setMRMLScene(slicer.mrmlScene)
+    layoutManager.setScriptedDisplayableManagerDirectory(slicer.app.slicerHome + "/bin/Python/mrmlDisplayableManager")
+    layoutWidget.setLayoutManager(layoutManager)
+    slicer.app.setLayoutManager(layoutManager)
+    layoutWidget.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpView)
+    self.layoutWidget.layout().addWidget(layoutWidget)
+
+  def eventFilter(self, obj, event):
+    if event.type() == qt.QEvent.MouseButtonDblClick:
+      self.onSplitterClick()
+
+  def onSplitterMoved(self, pos, index):
+    vScroll = self.scrollArea.verticalScrollBar()
+    print self.moduleFrame.width, self.widget.parent.width, self.scrollArea.width, vScroll.width
+    vScrollbarWidth = 4 if not vScroll.isVisible() else vScroll.width + 4 # TODO: find out, what is 4px wide
+    if self.scrollArea.minimumWidth != self.widget.parent.minimumSizeHint.width() + vScrollbarWidth:
+      self.scrollArea.setMinimumWidth(self.widget.parent.minimumSizeHint.width() + vScrollbarWidth)
+
+  def onSplitterClick(self):
+    if self.splitter.sizes()[0] > 0:
+      self.splitter.setSizes([0, self.splitter.sizes()[1]])
+    else:
+      minimumWidth = self.widget.parent.minimumSizeHint.width()
+      self.splitter.setSizes([minimumWidth, self.splitter.sizes()[1]-minimumWidth])
+
+
+if __name__ == "QuantitativeReportingSlicelet":
+  import sys
+  print( sys.argv )
+
+  slicelet = QuantitativeReportingSlicelet()

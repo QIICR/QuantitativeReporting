@@ -1,8 +1,7 @@
 import glob, os, json
-from datetime import datetime
 import string
 import vtk, qt, ctk, slicer
-from DICOMLib import DICOMPlugin
+from DICOMPluginBase import DICOMPluginBase
 from DICOMLib import DICOMLoadable
 import logging
 
@@ -10,17 +9,11 @@ import logging
 # This is the plugin to handle translation of DICOM SEG objects
 #
 
-class DICOMSegmentationPluginClass(DICOMPlugin):
+class DICOMSegmentationPluginClass(DICOMPluginBase):
 
-  def __init__(self,epsilon=0.01):
+  def __init__(self):
     super(DICOMSegmentationPluginClass,self).__init__()
     self.loadType = "DICOMSegmentation"
-
-    self.tags['seriesInstanceUID'] = "0020,000E"
-    self.tags['seriesDescription'] = "0008,103E"
-    self.tags['seriesNumber'] = "0020,0011"
-    self.tags['modality'] = "0008,0060"
-    self.tags['instanceUID'] = "0008,0018"
 
   def examine(self,fileLists):
     """ Returns a list of DICOMLoadable instances
@@ -53,10 +46,6 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
       if desc == '':
         desc = "Unknown"
 
-      number = slicer.dicomDatabase.fileValue(cFile, self.tags['seriesNumber'])
-      if number == '':
-        number = "Unknown"
-
       isDicomSeg = (slicer.dicomDatabase.fileValue(cFile, self.tags['modality']) == 'SEG')
 
       if isDicomSeg:
@@ -74,7 +63,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
         loadables.append(loadable)
 
-        print('DICOM SEG modality found')
+        logging.debug('DICOM SEG modality found')
 
     return loadables
 
@@ -84,24 +73,6 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     if hasattr(loadable, "referencedSeriesUID"):
       referencedName = self.defaultSeriesNodeName(loadable.referencedSeriesUID)
     return referencedName
-
-  def addReferences(self,loadable):
-    """Puts a list of the referenced UID into the loadable for use
-    in the node if this is loaded."""
-    import dicom
-    dcm = dicom.read_file(loadable.files[0])
-
-    if hasattr(dcm, "ReferencedSeriesSequence"):
-      # look up all of the instances in the series, since segmentation frames
-      #  may be non-contiguous
-      if hasattr(dcm.ReferencedSeriesSequence[0], "SeriesInstanceUID"):
-        loadable.referencedInstanceUIDs = []
-        for f in slicer.dicomDatabase.filesForSeries(dcm.ReferencedSeriesSequence[0].SeriesInstanceUID):
-          refDCM = dicom.read_file(f)
-          # this is a hack that should probably fixed in Slicer core - not all
-          #  of those instances are truly referenced!
-          loadable.referencedInstanceUIDs.append(refDCM.SOPInstanceUID)
-          loadable.referencedSeriesUID = dcm.ReferencedSeriesSequence[0].SeriesInstanceUID
 
   def getValuesFromCodeSequence(self, segment, codeSequenceName, defaults=None):
     try:
@@ -113,18 +84,16 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
   def load(self,loadable):
     """ Load the DICOM SEG object
     """
-    print('DICOM SEG load()')
+    logging.debug('DICOM SEG load()')
     try:
       uid = loadable.uid
-      print ('in load(): uid = ', uid)
+      logging.debug('in load(): uid = ', uid)
     except AttributeError:
       return False
 
-    # make the output directory
-    currentDateTime = datetime.now().strftime('%Y-%m-%d_%H%M%S')
-    outputDir = os.path.join(slicer.app.temporaryPath, "QIICR", "SEG", currentDateTime, loadable.uid)
+    self.tempDir = os.path.join(slicer.app.temporaryPath, "QIICR", "SEG", self.currentDateTime, loadable.uid)
     try:
-      os.makedirs(outputDir)
+      os.makedirs(self.tempDir)
     except OSError:
       pass
 
@@ -133,33 +102,35 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
     segFileName = slicer.dicomDatabase.fileForInstance(uid)
     if segFileName is None:
       logging.error('Failed to get the filename from the DICOM database for ' + uid)
+      self.cleanup()
       return False
 
     parameters = {
       "inputSEGFileName": segFileName,
-      "outputDirName": outputDir,
+      "outputDirName": self.tempDir,
       }
 
     try:
       segimage2itkimage = slicer.modules.segimage2itkimage
     except AttributeError:
       logging.error('Unable to find CLI module segimage2itkimage, unable to load DICOM Segmentation object')
+      self.cleanup()
       return False
 
     cliNode = None
     cliNode = slicer.cli.run(segimage2itkimage, cliNode, parameters, wait_for_completion=True)
     if cliNode.GetStatusString() != 'Completed':
       logging.error('SEG2NRRD did not complete successfully, unable to load DICOM Segmentation')
+      self.cleanup()
       return False
 
-    numberOfSegments = len(glob.glob(os.path.join(outputDir,'*.nrrd')))
+    numberOfSegments = len(glob.glob(os.path.join(self.tempDir,'*.nrrd')))
 
     # resize the color table to include the segments plus 0 for the background
 
     seriesName = self.referencedSeriesName(loadable)
     segmentLabelNodes = []
-    labelNode = None
-    metaFileName = os.path.join(outputDir,"meta.json")
+    metaFileName = os.path.join(self.tempDir,"meta.json")
     
     # Load terminology in the metafile into context
     terminologiesLogic = slicer.modules.terminologies.logic()
@@ -224,7 +195,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
           # if not hasattr(slicer.modules, 'segmentations'):
 
           # load the segmentation volume file and name it for the reference series and segment color
-          labelFileName = os.path.join(outputDir, str(segmentId) + ".nrrd")
+          labelFileName = os.path.join(self.tempDir, str(segmentId) + ".nrrd")
           segmentName = seriesName + "-" + typeCodeMeaning + "-label"
           (success, labelNode) = slicer.util.loadLabelVolume(labelFileName,
                                                              properties={'name': segmentName},
@@ -240,22 +211,12 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
           labelNode.SetAttribute("ColorG", str(rgb[1]))
           labelNode.SetAttribute("ColorB", str(rgb[2]))
 
-          # TODO: initialize referenced UID (and segment number?) attribute(s)
-          # dataset = dicom.read_file(segFileName)
-          # referencedSeries = dict()
-          # for refSeriesItem in dataset.ReferencedSeriesSequence:
-          #   refSOPInstanceUIDs = []
-          #   for refSOPInstanceItem in refSeriesItem.ReferencedInstanceSequence:
-          #     refSOPInstanceUIDs.append(refSOPInstanceItem.ReferencedSOPInstanceUID)
-          #   referencedSeries[refSeriesItem.SeriesInstanceUID] = refSOPInstanceUIDs
-          # segmentationNode.SetAttribute("DICOM.referencedInstanceUIDs", str(referencedSeries))
-
           # create Subject hierarchy nodes for the loaded series
           self.addSeriesInSubjectHierarchy(loadable, labelNode)
 
       metaFile.close()
 
-    # TODO: the outputDir should be cleaned up
+    self.cleanup()
 
     import vtkSegmentationCorePython as vtkSegmentationCore
 
@@ -278,7 +239,7 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
       segment.SetName(segmentLabelNode.GetName())
 
       segmentColor = [float(segmentLabelNode.GetAttribute("ColorR")), float(segmentLabelNode.GetAttribute("ColorG")), float(segmentLabelNode.GetAttribute("ColorB"))]
-      segment.SetDefaultColor(segmentColor)
+      segment.SetColor(segmentColor)
       
       segment.SetTag(vtkSegmentationCore.vtkSegment.GetTerminologyEntryTagName(), segmentLabelNode.GetAttribute("Terminology"))
 
@@ -344,8 +305,6 @@ class DICOMSegmentationPluginClass(DICOMPlugin):
 
     This function was copied and modified from the EditUtil.py function of the same name in Slicer.
     """
-
-    import logging
 
     if hasattr(slicer.modules, 'segmentations'):
 

@@ -1,16 +1,16 @@
 slicerMacroBuildScriptedModule(
   NAME DICOMSegmentationPlugin
-  SCRIPTS DICOMSegmentationPlugin.py
+  SCRIPTS DICOMPluginBase.py,DICOMSegmentationPlugin.py
   )
 
 slicerMacroBuildScriptedModule(
   NAME DICOMParametricMapPlugin
-  SCRIPTS DICOMParametricMapPlugin.py
+  SCRIPTS DICOMPluginBase.py,DICOMParametricMapPlugin.py
   )
 
 slicerMacroBuildScriptedModule(
   NAME DICOMTID1500Plugin
-  SCRIPTS DICOMTID1500Plugin.py
+  SCRIPTS DICOMPluginBase.py,DICOMTID1500Plugin.py
   )
 
 slicerMacroBuildScriptedModule(
