@@ -961,17 +961,17 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
     # Both Category and Type are required, so return if not available
     # TODO: consider populating to "Tissue" if not available?
     categoryObject = terminologyEntry.GetCategoryObject()
-    if categoryObject is None:
+    if categoryObject is None or not self.areTerminologyInformationValid(categoryObject):
       return {}
     segmentData["SegmentedPropertyCategoryCodeSequence"] = self.getJSONFromVtkSlicerTerminology(categoryObject)
 
     typeObject = terminologyEntry.GetTypeObject()
-    if typeObject is None:
+    if typeObject is None or not self.areTerminologyInformationValid(typeObject):
       return {}
     segmentData["SegmentedPropertyTypeCodeSequence"] = self.getJSONFromVtkSlicerTerminology(typeObject)
 
     modifierObject = terminologyEntry.GetTypeModifierObject()
-    if modifierObject is not None:
+    if modifierObject is not None and self.areTerminologyInformationValid(modifierObject):
       segmentData["SegmentedPropertyTypeModifierCodeSequence"] = self.getJSONFromVtkSlicerTerminology(modifierObject)
 
     return segmentData
@@ -981,18 +981,20 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
     segmentData = dict()
 
     regionObject = terminologyEntry.GetAnatomicRegionObject()
-    if regionObject is None:
+    if regionObject is None or not self.areTerminologyInformationValid(regionObject):
       return {}
     segmentData["AnatomicRegionSequence"] = self.getJSONFromVtkSlicerTerminology(regionObject)
 
     regionModifierObject = terminologyEntry.GetAnatomicRegionModifierObject()
-    if regionModifierObject is not None:
+    if regionModifierObject is not None and self.areTerminologyInformationValid(regionModifierObject):
       segmentData["AnatomicRegionModifierSequence"] = self.getJSONFromVtkSlicerTerminology(regionModifierObject)
-
     return segmentData
 
-  def getJSONFromVtkSlicerTerminology(self, codeSequence):
-    return self.createCodeSequence(codeSequence.GetCodeValue(), codeSequence.GetCodingScheme(), codeSequence.GetCodeMeaning())
+  def areTerminologyInformationValid(self, termTypeObject):
+    return all(t is not None for t in [termTypeObject.GetCodeValue(), termTypeObject.GetCodingScheme(), termTypeObject.GetCodeMeaning()])
+
+  def getJSONFromVtkSlicerTerminology(self, termTypeObject):
+    return self.createCodeSequence(termTypeObject.GetCodeValue(), termTypeObject.GetCodingScheme(), termTypeObject.GetCodeMeaning())
 
   def generateJSON4DcmSR(self, dcmSegmentationFile, sourceVolumeNode):
     measurements = []
