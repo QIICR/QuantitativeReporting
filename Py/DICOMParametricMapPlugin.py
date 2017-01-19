@@ -1,6 +1,7 @@
 import os
 import string
-import vtk, qt, ctk, slicer
+import json
+import vtk, qt, ctk, slicer, logging
 from DICOMPluginBase import DICOMPluginBase
 from DICOMLib import DICOMLoadable
 
@@ -114,6 +115,13 @@ class DICOMParametricMapPluginClass(DICOMPluginBase):
       return False
 
     (_,pmNode) = slicer.util.loadVolume(os.path.join(self.tempDir,"pmap.nrrd"), returnNode=True)
+
+    # load the metadata JSON to retrieve volume semantics (quantity stored and units)
+    with open(os.path.join(self.tempDir,"meta.json")) as metafile:
+      meta = json.load(metafile)
+      pmNode.SetAttribute("DICOM.QuantityValueCode",str(meta["QuantityValueCode"]))
+      pmNode.SetAttribute("DICOM.MeasurementUnitsCode",str(meta["MeasurementUnitsCode"]))
+      pmNode.SetAttribute("DICOM.instanceUIDs", uid)
 
     # create Subject hierarchy nodes for the loaded series
     self.addSeriesInSubjectHierarchy(loadable, pmNode)
