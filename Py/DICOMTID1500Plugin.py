@@ -11,6 +11,7 @@ class DICOMTID1500PluginClass(DICOMPluginBase):
   UID_EnhancedSRStorage = "1.2.840.10008.5.1.4.1.1.88.22"
   UID_ComprehensiveSRStorage = "1.2.840.10008.5.1.4.1.1.88.33"
   UID_SegmentationStorage = "1.2.840.10008.5.1.4.1.1.66.4"
+  UID_RealWorldValueMappingStorage = "1.2.840.10008.5.1.4.1.1.67"
 
   def __init__(self):
     super(DICOMTID1500PluginClass, self).__init__()
@@ -81,17 +82,35 @@ class DICOMTID1500PluginClass(DICOMPluginBase):
     if hasattr(dataset, "CurrentRequestedProcedureEvidenceSequence"):
       loadable.referencedSeriesInstanceUIDs = []
       loadable.referencedSOPInstanceUIDs = []
+
+      # store lists of UIDs separately to avoid re-parsing later
+      loadable.ReferencedSegmentationInstanceUIDs = []
+      loadable.ReferencedRWVMSeriesInstanceUIDs = []
+      loadable.ReferencedOtherInstanceUIDs = []
+
       for refSeriesSequence in dataset.CurrentRequestedProcedureEvidenceSequence:
         for referencedSeriesSequence in refSeriesSequence.ReferencedSeriesSequence:
           for refSOPSequence in referencedSeriesSequence.ReferencedSOPSequence:
             if refSOPSequence.ReferencedSOPClassUID == self.UID_SegmentationStorage: # TODO: differentiate between SR, SEG and other volumes
               logging.debug("Found referenced segmentation")
-              loadable.referencedSeriesInstanceUIDs.append(referencedSeriesSequence.SeriesInstanceUID)
+              loadable.ReferencedSegmentationInstanceUIDs.append(referencedSeriesSequence.SeriesInstanceUID)
+            elif refSOPSequence.ReferencedSOPClassUID == self.UID_RealWorldValueMappingStorage: # handle SUV mapping
+              logging.debug("Found referenced RWVM")
+              loadable.ReferencedRWVMSeriesInstanceUIDs.append(referencedSeriesSequence.SeriesInstanceUID)
             else:
               logging.debug( "Found other reference")
               for sopInstanceUID in slicer.dicomDatabase.fileForInstance(refSOPSequence.ReferencedSOPInstanceUID):
-                loadable.referencedSOPInstanceUIDs.append(sopInstanceUID)
-                # loadable.referencedSOPInstanceUID = refSOPSequence.ReferencedSOPInstanceUID
+                loadable.ReferencedOtherInstanceUIDs.append(sopInstanceUID)
+
+    if len(loadable.ReferencedSegmentationInstanceUIDs)>1:
+      logging.warning("SR references more than one SEG. This has not been tested!")
+    for segUID in loadable.ReferencedSegmentationInstanceUIDs:
+      loadable.referencedSeriesInstanceUIDs.append(segUID)
+
+    if len(loadable.ReferencedRWVMSeriesInstanceUIDs)>1:
+      logging.warning("SR references more than one RWVM. This has not been tested!")
+    # not adding RWVM instances to referencedSeriesInstanceUIDs
+
     return loadable
 
   def load(self, loadable):
@@ -99,16 +118,42 @@ class DICOMTID1500PluginClass(DICOMPluginBase):
 
     segPlugin = slicer.modules.dicomPlugins["DICOMSegmentationPlugin"]()
     scalarVolumePlugin = slicer.modules.dicomPlugins["DICOMScalarVolumePlugin"]()
+    rwvmPlugin = slicer.modules.dicomPlugins["DICOMRWVMPlugin"]()
 
     for segSeriesInstanceUID in loadable.referencedSeriesInstanceUIDs:
       segLoadables = segPlugin.examine([slicer.dicomDatabase.filesForSeries(segSeriesInstanceUID)])
       for segLoadable in segLoadables:
         segPlugin.load(segLoadable)
         if hasattr(segLoadable, "referencedSeriesUID"):
-          scalarLoadables = scalarVolumePlugin.examine([slicer.dicomDatabase.filesForSeries(segLoadable.referencedSeriesUID)])
-          scalarLoadables.sort(key=lambda x: (len(x.files), x.confidence), reverse=True)
-          if len(scalarLoadables):
-            scalarVolumePlugin.load(scalarLoadables[0])
+          # determine if RWVM needs to be applied to the series referenced from SEG
+          loadRWVM = False
+          if len(loadable.ReferencedRWVMSeriesInstanceUIDs)>0:
+            # consider only the first item on the list - there should be only
+            # one anyway, for the cases we are handling at the moment
+            logging.debug("RWVM SeriesInstanceUID is "+loadable.ReferencedRWVMSeriesInstanceUIDs[0])
+            rwvmFile = slicer.dicomDatabase.filesForSeries(loadable.ReferencedRWVMSeriesInstanceUIDs[0])[0]
+            logging.debug("Reading RWVM from "+rwvmFile)
+            rwvmDataset = dicom.read_file(rwvmFile)
+            if hasattr(rwvmDataset,"ReferencedSeriesSequence"):              
+              if hasattr(rwvmDataset.ReferencedSeriesSequence[0],"SeriesInstanceUID"):
+                if rwvmDataset.ReferencedSeriesSequence[0].SeriesInstanceUID == segLoadable.referencedSeriesUID:
+                  logging.debug("SEG references the same image series that is referenced by the RWVM series referenced from SR. Will load via RWVM.")
+                  loadRWVM = True
+          logging.debug("Should load RWVM? "+str(loadRWVM))
+          if loadRWVM:
+            logging.debug("Examining "+rwvmFile)
+            rwvmLoadables = rwvmPlugin.examine([[rwvmFile]])
+            rwvmPlugin.load(rwvmLoadables[0])
+          else:
+            scalarLoadables = scalarVolumePlugin.examine([slicer.dicomDatabase.filesForSeries(segLoadable.referencedSeriesUID)])
+            scalarLoadables.sort(key=lambda x: (len(x.files), x.confidence), reverse=True)
+            if len(scalarLoadables):
+              scalarVolumePlugin.load(scalarLoadables[0])
+
+    # if there is a RWVM object referenced from SEG, assume it contains the
+    # scaling that needs to be applied to the referenced series. Assign
+    # referencedSeriesUID from the image series, but load using the RWVM plugin
+
 
     try:
       uid = loadable.uid
@@ -231,14 +276,14 @@ class DICOMTID1500Plugin:
     parent.categories = ["Developer Tools.DICOM Plugins"]
     parent.contributors = ["Christian Herz (BWH), Andrey Fedorov (BWH)"]
     parent.helpText = """
-    Plugin to the DICOM Module to parse and load DICOM SR TID1500 modality.
+    Plugin to the DICOM Module to parse and load DICOM SR TID1500 instances.
     No module interface here, only in the DICOM module
     """
-    parent.dependencies = ['DICOM', 'Colors']  # TODO: Colors needed???
+    parent.dependencies = ['DICOM', 'Colors', 'DICOMRWVMPlugin'] 
     parent.acknowledgementText = """
     This DICOM Plugin was developed by
-    Christian Herz, BWH.
-    and was partially funded by NIH grant U01CA151261.
+    Christian Herz and Andrey Fedorov, BWH.
+    and was partially funded by NIH grant U24 CA180918 (QIICR).
     """
 
     # Add this extension to the DICOM module's list for discovery when the module
