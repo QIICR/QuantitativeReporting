@@ -127,11 +127,11 @@ class DICOMTID1500PluginClass(DICOMPluginBase):
         if hasattr(segLoadable, "referencedSeriesUID"):
           # determine if RWVM needs to be applied to the series referenced from SEG
           loadRWVM = False
-          if len(loadable.ReferencedRWVMSeriesInstanceUIDs)>0:
+          rwvmUIDs = loadable.ReferencedRWVMSeriesInstanceUIDs
+          if len(rwvmUIDs)>0 and len(slicer.dicomDatabase.filesForSeries(rwvmUIDs[0]))>0:
             # consider only the first item on the list - there should be only
             # one anyway, for the cases we are handling at the moment
-            logging.debug("RWVM SeriesInstanceUID is "+loadable.ReferencedRWVMSeriesInstanceUIDs[0])
-            rwvmFile = slicer.dicomDatabase.filesForSeries(loadable.ReferencedRWVMSeriesInstanceUIDs[0])[0]
+            rwvmFile = slicer.dicomDatabase.filesForSeries(rwvmUIDs[0])[0]
             logging.debug("Reading RWVM from "+rwvmFile)
             rwvmDataset = dicom.read_file(rwvmFile)
             if hasattr(rwvmDataset,"ReferencedSeriesSequence"):              
@@ -139,7 +139,10 @@ class DICOMTID1500PluginClass(DICOMPluginBase):
                 if rwvmDataset.ReferencedSeriesSequence[0].SeriesInstanceUID == segLoadable.referencedSeriesUID:
                   logging.debug("SEG references the same image series that is referenced by the RWVM series referenced from SR. Will load via RWVM.")
                   loadRWVM = True
-          logging.debug("Should load RWVM? "+str(loadRWVM))
+
+          if len(rwvmUIDs)>0 and len(slicer.dicomDatabase.filesForSeries(rwvmUIDs[0]))==0:
+            logging.warning("RWVM is referenced from SR, but is not found in the DICOM database!")
+
           if loadRWVM:
             logging.debug("Examining "+rwvmFile)
             rwvmLoadables = rwvmPlugin.examine([[rwvmFile]])
