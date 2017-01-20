@@ -10,7 +10,7 @@ set(EXTENSION_DESCRIPTION "Support of quantitative image reporting with DICOM")
 set(EXTENSION_ICONURL "https://www.slicer.org/w/images/3/30/QuantitativeReportingLogo.png")
 set(EXTENSION_SCREENSHOTURLS "https://www.slicer.org/w/images/f/fe/QuantitativeReporting-screenshot.jpg")
 set(EXTENSION_STATUS "Work in progress")
-set(EXTENSION_DEPENDS "SlicerProstate DCMQI")
+set(EXTENSION_DEPENDS "SlicerProstate DCMQI PETDICOMExtension")
 
 #-----------------------------------------------------------------------------
 find_package(Slicer REQUIRED)
