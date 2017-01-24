@@ -9,7 +9,12 @@ Quantitative Reporting is an [3D Slicer](http://slicer.org) extension to support
 
 ## Capabilities of QuantitativeReporting include:
 
-list here ...
+* load a DICOM image series (CT, MRI, Parametric Map)
+* support of quantitative analysis workflow 
+* interactive image annotation (use automated segmentation tools of 3D Slicer to VOI)
+* automatic calculation of VOI-based measurements
+* save quantitative imaging results as DICOM Structured Report [TID 1500](http://dicom.nema.org/medical/dicom/current/output/chtml/part16/chapter_A.html#sect_TID_1500) linked collection of DICOM objects
+* load and display the volumetric measurements stored using SR
 
 ![](Resources/Screenshots/QuantitativeReporting-screenshot.jpg)
 
