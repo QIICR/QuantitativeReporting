@@ -161,7 +161,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
           except KeyError:
             rgb = (0., 0., 0.)
 
-          segmentId = segment["LabelID"]
+          segmentId = segment["labelID"]
 
           defaults = ['T-D0050', 'Tissue', 'SRT']
           categoryCode, categoryCodingScheme, categoryCodeMeaning = \
@@ -175,10 +175,10 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
 
           anatomicRegionDefaults = ['T-D0010', 'SRT', 'Entire Body']
           regionCode, regionCodingScheme, regionCodeMeaning = \
-            self.getValuesFromCodeSequence(segment, "AnatomicRegionCodeSequence", anatomicRegionDefaults)
+            self.getValuesFromCodeSequence(segment, "AnatomicRegionSequence", anatomicRegionDefaults)
 
           regionModCode, regionModCodingScheme, regionModCodeMeaning = \
-            self.getValuesFromCodeSequence(segment, "AnatomicRegionModifierCodeSequence")
+            self.getValuesFromCodeSequence(segment, "AnatomicRegionModifierSequence")
 
           dummyTerminologyWidget = slicer.qSlicerTerminologyNavigatorWidget() # Still cannot call static methods from python
           segmentTerminologyTag = dummyTerminologyWidget.serializeTerminologyEntry(
