@@ -937,7 +937,7 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
       if self.statistics[segmentID, "GS voxel count"] == 0:
         continue
       segmentData = dict()
-      segmentData["LabelID"] = 1
+      segmentData["labelID"] = 1
       segment = self.segmentationNode.GetSegmentation().GetSegment(segmentID)
 
       terminologyEntry = self.getDeserializedTerminologyEntry(segment)
