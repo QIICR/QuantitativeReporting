@@ -124,24 +124,24 @@ class DICOMTID1500PluginClass(DICOMPluginBase):
       segLoadables = segPlugin.examine([slicer.dicomDatabase.filesForSeries(segSeriesInstanceUID)])
       for segLoadable in segLoadables:
         segPlugin.load(segLoadable)
-        if hasattr(segLoadable, "referencedSeriesUID"):
+        if hasattr(segLoadable, "referencedSeriesUID") and len(loadable.ReferencedRWVMSeriesInstanceUIDs)>0:
           # determine if RWVM needs to be applied to the series referenced from SEG
           loadRWVM = False
-          rwvmUIDs = loadable.ReferencedRWVMSeriesInstanceUIDs
-          rwvmFiles = slicer.dicomDatabase.filesForSeries(rwvmUIDs)
-          if len(rwvmUIDs)>0 and len(rwvmFiles)>0:
+          rwvmUID = loadable.ReferencedRWVMSeriesInstanceUIDs[0]
+          logging.debug("Looking up series %s from database" % rwvmUID)
+          rwvmFiles = slicer.dicomDatabase.filesForSeries(rwvmUID)
+          if len(rwvmFiles)>0:
             # consider only the first item on the list - there should be only
             # one anyway, for the cases we are handling at the moment
             rwvmFile = rwvmFiles[0]
             logging.debug("Reading RWVM from "+rwvmFile)
             rwvmDataset = dicom.read_file(rwvmFile)
-            if hasattr(rwvmDataset,"ReferencedSeriesSequence"):              
+            if hasattr(rwvmDataset,"ReferencedSeriesSequence"):
               if hasattr(rwvmDataset.ReferencedSeriesSequence[0],"SeriesInstanceUID"):
                 if rwvmDataset.ReferencedSeriesSequence[0].SeriesInstanceUID == segLoadable.referencedSeriesUID:
                   logging.debug("SEG references the same image series that is referenced by the RWVM series referenced from SR. Will load via RWVM.")
                   loadRWVM = True
-
-          if len(rwvmUIDs)>0 and len(rwvmFiles)==0:
+          else:
             logging.warning("RWVM is referenced from SR, but is not found in the DICOM database!")
 
           if loadRWVM:
@@ -283,7 +283,7 @@ class DICOMTID1500Plugin:
     Plugin to the DICOM Module to parse and load DICOM SR TID1500 instances.
     No module interface here, only in the DICOM module
     """
-    parent.dependencies = ['DICOM', 'Colors', 'DICOMRWVMPlugin'] 
+    parent.dependencies = ['DICOM', 'Colors', 'DICOMRWVMPlugin']
     parent.acknowledgementText = """
     This DICOM Plugin was developed by
     Christian Herz and Andrey Fedorov, BWH.
