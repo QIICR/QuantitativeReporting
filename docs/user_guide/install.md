@@ -21,6 +21,9 @@ Search for "QuantitativeReporting" and install the extension by clicking the INS
 das
 
 
+das
+
+
 ![](../images/install_slicetracker.png)
 
 Note that QuantitativeReporting depends on several other extensions. When prompted, accept installation of those.
