@@ -30,6 +30,7 @@ Once installation of QuantitativeReporting and dependencies is completed, you wi
 If installation was successful, you should be able to see QuantitativeReporting module in the Slicer module list.
 
 ![](../images/confirm_install.png)
+
 # Upgrade
 It is currently not possible to upgrade QuantitativeReporting without upgrading the 3D Slicer application.
 
