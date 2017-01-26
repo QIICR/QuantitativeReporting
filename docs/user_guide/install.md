@@ -6,7 +6,7 @@ Download the latest nightly release for your platform from http://download.slice
 
 **Do NOT use installers tagged as "Stable Release"!**
 
-![](../images/slicer_download.png)
+
 
 After downloading, follow the installation procedure for your platform. 
 
