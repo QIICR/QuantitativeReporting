@@ -8,8 +8,8 @@ Once SliceTracker is opened, note the purpose of the various components of the a
 
 For further information see [Slicer Documentation](https://www.slicer.org/wiki/Documentation/Nightly/SlicerApplication/MainApplicationGUI)
 
-
 ## QuantitativeReporting interface overview
 
+![](../screenshots/user_interface.png)
 
 
