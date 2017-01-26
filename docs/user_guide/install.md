@@ -18,11 +18,6 @@ Once installed, open Extension Manager by clicking the icon as shown below.
 
 Search for "QuantitativeReporting" and install the extension by clicking the INSTALL button.
 
-das
-
-
-das
-
 
 ![](../images/install_slicetracker.png)
 
