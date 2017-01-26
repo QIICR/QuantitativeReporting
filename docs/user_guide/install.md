@@ -18,18 +18,17 @@ Once installed, open Extension Manager by clicking the icon as shown below.
 
 Search for "QuantitativeReporting" and install the extension by clicking the INSTALL button.
 
-
-![](../images/install_slicetracker.png)
+![](../screenshots/search_extension_manager.png)
 
 Note that QuantitativeReporting depends on several other extensions. When prompted, accept installation of those.
 
-![](../images/install_dependencies.png)
+![](../screenshots/module_dependencies.png)
 
 Once installation of QuantitativeReporting and dependencies is completed, you will need to restart Slicer application to access the module.
 
 If installation was successful, you should be able to see QuantitativeReporting module in the Slicer module list.
 
-![](../images/confirm_install.png)
+![](../screenshots/verify_installation.png)
 
 # Upgrade
 It is currently not possible to upgrade QuantitativeReporting without upgrading the 3D Slicer application.
