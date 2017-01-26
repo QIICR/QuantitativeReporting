@@ -6,4 +6,5 @@
   * [User interface](docs/user_guide/user-interface.md)
   * [Tutorial](docs/user_guide/tutorial.md)
   * [Troubleshooting](docs/user_guide/troubleshooting.md)
+* [License](license.md)
 

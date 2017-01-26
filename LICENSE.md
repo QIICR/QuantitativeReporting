@@ -29,8 +29,7 @@ terms and conditions, you have no right to contribute your
 Contribution, or to download, copy, modify, display, distribute or use
 the Software.
 
-PART A. CONTRIBUTION AGREEMENT - License to Brigham with Right to
-Sublicense ("Contribution Agreement").
+##### PART A. CONTRIBUTION AGREEMENT - License to Brigham with Right to Sublicense ("Contribution Agreement").
 
 1. As used in this Contribution Agreement, "you" means the individual
    contributing the Contribution to Slicer and the institution or
@@ -84,8 +83,7 @@ Sublicense ("Contribution Agreement").
    under the GNU General Public License or other "open source
    license").
 
-PART B. DOWNLOADING AGREEMENT - License from Brigham with Right to
-Sublicense ("Software License").
+##### PART B. DOWNLOADING AGREEMENT - License from Brigham with Right to Sublicense ("Software License").
 
 1. As used in this Software License, "you" means the individual
    downloading and/or using, reproducing, modifying, displaying and/or
@@ -188,7 +186,7 @@ available to others on an open source basis.
    intellectual property owned by Brigham or any Contributor except
    those rights expressly granted hereunder.
 
-PART C. MISCELLANEOUS
+##### PART C. MISCELLANEOUS
 
 This Agreement shall be governed by and construed in accordance with
 the laws of The Commonwealth of Massachusetts without regard to
