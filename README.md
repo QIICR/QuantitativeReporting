@@ -1,4 +1,4 @@
-![](Resources/Icons/ReportingLogo128px.png)
+![](docs/images/ReportingLogo128px.png)
 
 # Overview
 
