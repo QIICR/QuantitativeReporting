@@ -5,7 +5,7 @@
 Quantitative Reporting is an [3D Slicer](http://slicer.org) extension to support segmentation-based measurements with DICOM-based import and export of the results. The extension comes with a variety of plugins for loading DICOM Segmentations, Parametric Maps and Structured reports into Slicer.
 
 ## Capabilities of QuantitativeReporting include:
-
+ 
 * load a DICOM image series (CT, MRI)
 * support of quantitative analysis workflow 
 * interactive image annotation (use automated segmentation tools of 3D Slicer to VOI)
