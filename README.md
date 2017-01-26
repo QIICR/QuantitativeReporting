@@ -15,7 +15,7 @@ Quantitative Reporting is an [3D Slicer](http://slicer.org) extension to support
     * DICOM Segmentation 
 * load and display the volumetric measurements stored using SR
 
-![](Resources/Screenshots/QuantitativeReporting-screenshot.jpg)
+![](docs/screenshots/QuantitativeReporting-screenshot.jpg)
 
 ### Support
 
