@@ -1,6 +1,3 @@
-
-
-
 ![](Resources/Icons/ReportingLogo128px.png)
 
 # Overview
