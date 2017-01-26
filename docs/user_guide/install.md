@@ -14,7 +14,7 @@ If you use Mac, make sure you move the Slicer application to the Applications fo
 
 Once installed, open Extension Manager by clicking the icon as shown below.
 
-![](../images/extension_manager.png)
+![](../screenshots/extension_manager.png)
 
 Search for "QuantitativeReporting" and install the extension by clicking the INSTALL button.
 
