@@ -10,11 +10,17 @@ Make sure that you followed the instructions given in [Installation and upgrade]
 
 In this section you will learn how to create a DICOM Structured Report which will include a DICOM Segmentation and volumetric measurements.
 
-
-
 ### Load DICOM sample dataset
 
+First of all you will need to download a DICOM sample dataset. With using the button shown below this task will be performed for you.
+
 ![](screenshots/testarea.png)
+
+The task includes **a)** download of the DICOM sample dataset, **b)** unpacking and importing it into 3D Slicer **c)** initiating the creation of a new measurement table which references the downloaded DICOM sample dataset finally **d)** displays it within your preferred slice view layout
+
+**add screenshot here**
+
+
 
 
 
