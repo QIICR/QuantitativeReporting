@@ -1,5 +1,12 @@
 # User guide
 
+* [Introduction](README.md)
+* [User guide](docs/introduction.md)
+    * [Installation and upgrade](docs/install.md)
+    * [User interface](docs/user-interface.md)
+    * [Tutorial](docs/tutorial.md)
+    * [Troubleshooting](docs/troubleshooting.md)
+* [License](license.md)
 
 The following section is intended for the operator of QuantitativeReporting.
 
