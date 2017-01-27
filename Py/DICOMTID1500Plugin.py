@@ -180,7 +180,7 @@ class DICOMTID1500PluginClass(DICOMPluginBase):
 
     param = {
       "inputDICOM": srFileName,
-      "outputMetadata": outputFile,
+      "outputMetadata": outputFile
       }
 
     try:
