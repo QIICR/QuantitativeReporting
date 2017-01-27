@@ -2,7 +2,7 @@
 
 This section of the manual describes in detail how to create a segmentation for a given DICOM sample dataset and save it in combination with automatically created volumetric measurements into the DICOM file format. The resulting data will be stored in the Slicer DICOM database and is therefore centrally accessible for later reading.
 
-## Prerequisites
+### Prerequisites
 
 Make sure that you followed the instructions given in [Installation and upgrade](install.md)
 
