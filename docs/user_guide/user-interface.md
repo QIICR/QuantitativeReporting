@@ -35,5 +35,3 @@ UI components from top to bottom:
 8. Calculate Measurements: You decide if you manually want to trigger the computation of the previously mentioned measurements or if it should be triggered automatically whenever a segment changes \(pixel data, name, terminology\)
 
 9. Report buttons: you can either save a report and continue later \(needs to be implemented\) or complete the current report. Either way a DICOM Structured Report with a referenced DICOM Segmentation will be created and pushed into the Slicer DICOM database.
-
-![](../screenshots/user_interface.png)
