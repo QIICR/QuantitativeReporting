@@ -16,7 +16,12 @@ First of all you will need to download a DICOM sample dataset. With using the bu
 
 ![](screenshots/testarea.png)
 
-The task includes **a)** download of the DICOM sample dataset, **b)** unpacking and importing it into 3D Slicer **c)** initiating the creation of a new measurement table which references the downloaded DICOM sample dataset finally **d)** displays it within your preferred slice view layout
+This button will do the following for you: 
+
+1. download the DICOM sample dataset, 
+2. unpacking and importing it into 3D Slicer 
+3. initiating the creation of a new measurement table which references the downloaded DICOM sample dataset finally 
+4. displays it within your preferred slice view layout
 
 **add screenshot here**
 
