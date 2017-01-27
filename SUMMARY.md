@@ -5,6 +5,8 @@
   * [Installation and upgrade](docs/install.md)
   * [User interface](docs/user-interface.md)
   * [Tutorial](docs/tutorial.md)
+    * [Prerequisites](docs/tutorial.md#Prerequisites)
+    * [Create a DICOM Structured Report](docs/tutorial.md#Create a DICOM Structured Report)
   * [Troubleshooting](docs/troubleshooting.md)
 * [License](license.md)
 

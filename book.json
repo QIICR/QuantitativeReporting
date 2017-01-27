@@ -1,1 +1,12 @@
-{}
+{
+    "plugins": [
+        "etoc"
+    ],
+    "pluginsConfig": {
+        "etoc": {
+            "mindepth": 3,
+            "maxdepth": 4,
+            "notoc": false
+        }
+    }
+}
