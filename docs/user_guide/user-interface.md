@@ -21,19 +21,20 @@ UI components from top to bottom:
 5. Selector area: 
    1. Measurement report: Create/select a new table for holding all the measurements created with this extension
    2. Image volume to annotate: Represents the master volume which will be used for creation of segmentations/volumetric measurements
-6. Segmentations area: This are is supposed to help you creating segmentations from scratch. The here integrated widget is the Slicer SegmentEditor. It adds capabilities for :  
-   1. add/remove segments  
-   2. add terminology for each segment  
-   3. create surface from segmentations  
-   4. use a variety of tools \(so called effects\) that help you creating a segmentation \(i.e. thresholding, scissors\)  
+6. Segmentations area: This are is supposed to help you creating segmentations from scratch. The here integrated widget is the Slicer SegmentEditor. It adds capabilities for: 
+   1. add/remove segments:
+   2. add terminology for each segment
+   3. create surface from segmentations
+   4. use a variety of tools \(so called effects\) that help you creating a segmentation \(i.e. thresholding, scissors\)
    5. and many more
 
-   For further information also see [Slicer Segment Editor](https://www.slicer.org/wiki/Documentation/Nightly/Modules/SegmentEditor)
+For further information also see [Slicer Segment Editor](https://www.slicer.org/wiki/Documentation/Nightly/Modules/SegmentEditor)
 
-7. Measurements area: Once you start creating segmentations by using the SegmentEditor, you will notice default measurements that will be displayed as the result of the SegmentStatistics module for each created segment within this table. You can either click onto a segment in the SegmentEditor or the measurements table which will cause all viewers to jump to the centroid of the selected segment \(as long as there is pixel data of the segment available\)
+1. Measurements area: Once you start creating segmentations by using the SegmentEditor, you will notice default measurements that will be displayed as the result of the SegmentStatistics module for each created segment within this table. You can either click onto a segment in the SegmentEditor or the measurements table which will cause all viewers to jump to the centroid of the selected segment \(as long as there is pixel data of the segment available\)
 
-8. Calculate Measurements: You decide if you manually want to trigger the computation of the previously mentioned measurements or if it should be triggered automatically whenever a segment changes \(pixel data, name, terminology\)
+2. Calculate Measurements: You decide if you manually want to trigger the computation of the previously mentioned measurements or if it should be triggered automatically whenever a segment changes \(pixel data, name, terminology\)
 
-9. Report buttons: you can either save a report and continue later \(needs to be implemented\) or complete the current report. Either way a DICOM Structured Report with a referenced DICOM Segmentation will be created and pushed into the Slicer DICOM database.
+3. Report buttons: you can either save a report and continue later \(needs to be implemented\) or complete the current report. Either way a DICOM Structured Report with a referenced DICOM Segmentation will be created and pushed into the Slicer DICOM database.
 
 ![Alt Text](../screenshots/user_interface.png)
+
