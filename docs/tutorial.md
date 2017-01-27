@@ -67,3 +67,7 @@ This section will show you how to load a DICOM Structured Report from the Slicer
 
 In case that you want to use your own dataset for running this tutorial, you will need to manually import it into 3D Slicer, load it and create a new measurement report in Quantitative Reporting. Depending on the size and speed of your internet connection this could take a few minutes. Once the DICOM dataset has been imported to 3D Slicer the other steps won't take much time.
 
+
+**add screenshot here** of importing into Slicer
+
+
