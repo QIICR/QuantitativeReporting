@@ -4,7 +4,7 @@
 
 Once SliceTracker is opened, note the purpose of the various components of the application interface.
 
-![](../screenshots/Slicer4ApplicationGUIMap.jpg)
+![](screenshots/Slicer4ApplicationGUIMap.jpg)
 
 For further information see [Slicer Documentation](https://www.slicer.org/wiki/Documentation/Nightly/SlicerApplication/MainApplicationGUI)
 
@@ -34,5 +34,5 @@ UI components from top to bottom:
 8. **Measurements calculation controls**: You decide if you manually want to trigger the computation of the previously mentioned measurements or if it should be triggered automatically whenever a segment changes \(pixel data, name, terminology\)
 9. **Report buttons**: you can either save a report and continue later \(needs to be implemented\) or complete the current report. Either way a DICOM Structured Report with a referenced DICOM Segmentation will be created and pushed into the Slicer DICOM database.
 
-![Alt Text](../screenshots/user_interface.png)
+![Alt Text](screenshots/user_interface.png)
 
