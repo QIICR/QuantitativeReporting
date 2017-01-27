@@ -14,11 +14,21 @@ In this section you will learn how to create a DICOM Structured Report which wil
 
 ### Load DICOM sample dataset
 
+![](screenshots/testarea.png)
+
 
 
 ### Create segmentation
 
-### Save into DICOM file format
+#### Add segment
+
+#### Select terminology
+
+#### Segment by using SegmentEditor effects
+
+### Save report
+
+
 
 ## Load a DICOM Structured Report
 
