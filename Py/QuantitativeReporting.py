@@ -479,11 +479,11 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     metaFilePath = self.saveJSON(data, os.path.join(self.tempDir, "seg_meta.json"))
     outputSegmentationPath = os.path.join(self.tempDir, "seg.dcm")
 
-    params = {"dicomImageFiles": ', '.join(self.getDICOMFileList(self.segmentEditorWidget.masterVolumeNode,
+    params = {"inputDICOMList": ', '.join(self.getDICOMFileList(self.segmentEditorWidget.masterVolumeNode,
                                                                  absolutePaths=True)).replace(', ', ","),
-              "segImageFiles": ', '.join(segmentFiles).replace(', ', ","),
-              "metaDataFileName": metaFilePath,
-              "outputSEGFileName": outputSegmentationPath}
+              "inputImageList": ', '.join(segmentFiles).replace(', ', ","),
+              "inputMetadata": metaFilePath,
+              "outputDICOM": outputSegmentationPath}
 
     logging.debug(params)
 
@@ -519,10 +519,10 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     metaFilePath = self.saveJSON(data, os.path.join(self.tempDir, "sr_meta.json"))
     outputSRPath = os.path.join(self.tempDir, "sr.dcm")
 
-    params = {"metaDataFileName": metaFilePath,
-              "compositeContextDataDir": compositeContextDataDir,
-              "imageLibraryDataDir": imageLibraryDataDir,
-              "outputFileName": outputSRPath}
+    params = {"inputMetadata": metaFilePath,
+              "inputCompositeContextDirectory": compositeContextDataDir,
+              "inputImageLibraryDirectory": imageLibraryDataDir,
+              "outputDICOM": outputSRPath}
 
     logging.debug(params)
     cliNode = None

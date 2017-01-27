@@ -97,8 +97,9 @@ class DICOMParametricMapPluginClass(DICOMPluginBase):
       return False
 
     parameters = {
-      "inputFileName": pmFileName,
-      "outputDirName": self.tempDir,
+      "inputDICOM": pmFileName,
+      "outputDirectory": self.tempDir,
+      "outputType": "nrrd"
       }
     try:
       pm2nrrd = slicer.modules.paramap2itkimage
