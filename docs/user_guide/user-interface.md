@@ -1,4 +1,4 @@
-![](docs/screenshots/user_interface.png)\# User Interface Description
+# User Interface Description
 
 ## 3D Slicer interface overview
 
