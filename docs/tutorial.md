@@ -52,7 +52,6 @@ Once you are done with creating a segmentation and you want to save the measurem
 
 **"Complete Report"**: Will create the **completed** DICOM Structured Report representing the final version which usually wouldn't be modified afterwards.
 
-
 ## Load a DICOM Structured Report
 
 This section will show you how to load a DICOM Structured Report from the Slicer DICOM database and how to load and display the results with Quantitative Reporting.
