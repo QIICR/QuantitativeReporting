@@ -12,7 +12,6 @@ For further information see [Slicer Documentation](https://www.slicer.org/wiki/D
 
 ![Alt Text](screenshots/user_interface.png)
 
-
 UI components from top to bottom:
 
 1. QuantitativeReporting is split into **two** tabs:
