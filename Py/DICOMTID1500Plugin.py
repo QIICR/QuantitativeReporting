@@ -179,8 +179,8 @@ class DICOMTID1500PluginClass(DICOMPluginBase):
       return False
 
     param = {
-      "inputSRFileName": srFileName,
-      "metaDataFileName": outputFile,
+      "inputDICOM": srFileName,
+      "outputMetadata": outputFile
       }
 
     try:

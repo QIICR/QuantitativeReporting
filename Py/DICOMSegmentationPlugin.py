@@ -106,8 +106,9 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
       return False
 
     parameters = {
-      "inputSEGFileName": segFileName,
-      "outputDirName": self.tempDir,
+      "inputDICOM": segFileName,
+      "outputDirectory": self.tempDir,
+      "outputType": "nrrd"
       }
 
     try:
@@ -131,7 +132,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
     seriesName = self.referencedSeriesName(loadable)
     segmentLabelNodes = []
     metaFileName = os.path.join(self.tempDir,"meta.json")
-    
+
     # Load terminology in the metafile into context
     terminologiesLogic = slicer.modules.terminologies.logic()
     terminologiesLogic.LoadTerminologyFromSegmentDescriptorFile(loadable.name, metaFileName)
@@ -203,7 +204,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
           if not success:
             raise ValueError("{} could not be loaded into Slicer!".format(labelFileName))
           segmentLabelNodes.append(labelNode)
-          
+
           # Set terminology properties as attributes to the label node (which is a temporary node)
           #TODO: This is a quick solution, maybe there is a better one
           labelNode.SetAttribute("Terminology", segmentTerminologyTag)
@@ -240,7 +241,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
 
       segmentColor = [float(segmentLabelNode.GetAttribute("ColorR")), float(segmentLabelNode.GetAttribute("ColorG")), float(segmentLabelNode.GetAttribute("ColorB"))]
       segment.SetColor(segmentColor)
-      
+
       segment.SetTag(vtkSegmentationCore.vtkSegment.GetTerminologyEntryTagName(), segmentLabelNode.GetAttribute("Terminology"))
 
       #TODO: when the logic class is created, this will need to be changed
@@ -259,33 +260,9 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
 
   def examineForExport(self, node):
 
+    # Not implemented at the moment
+    
     exportable = None
-
-    if node.GetAssociatedNode() and node.GetAssociatedNode().IsA('vtkMRMLSegmentationNode'):
-
-      # Check to make sure all referenced UIDs exist in the database.
-      instanceUIDs = node.GetAttribute("DICOM.ReferencedInstanceUIDs").split()
-      if instanceUIDs == "":
-          return []
-
-      for instanceUID in instanceUIDs:
-        inputDICOMImageFileName = slicer.dicomDatabase.fileForInstance(instanceUID)
-        if inputDICOMImageFileName == "":
-          return []
-
-      exportable = slicer.qSlicerDICOMExportable()
-      exportable.confidence = 1.0
-      exportable.setTag('Modality', 'SEG')
-
-    if exportable is not None:
-      exportable.name = self.loadType
-      exportable.tooltip = "Create DICOM files from segmentation"
-      exportable.nodeID = node.GetID()
-      exportable.pluginClass = self.__module__
-      # Define common required tags and default values
-      exportable.setTag('SeriesDescription', 'No series description')
-      exportable.setTag('SeriesNumber', '1')
-      return [exportable]
 
     return []
 
@@ -302,191 +279,8 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
   def exportAsDICOMSEG(self, exportablesCollection):
     """Export the given node to a segmentation object and load it in the
     DICOM database
-
-    This function was copied and modified from the EditUtil.py function of the same name in Slicer.
     """
-
-    if hasattr(slicer.modules, 'segmentations'):
-
-      exportable = exportablesCollection.GetItemAsObject(0)
-      subjectHierarchyNode = slicer.mrmlScene.GetNodeByID(exportable.GetNodeID())
-
-      instanceUIDs = subjectHierarchyNode.GetAttribute("DICOM.ReferencedInstanceUIDs").split()
-
-      if instanceUIDs == "":
-        raise Exception("Editor master node does not have DICOM information")
-
-      # get the list of source DICOM files
-      inputDICOMImageFileNames = ""
-      for instanceUID in instanceUIDs:
-        inputDICOMImageFileNames += slicer.dicomDatabase.fileForInstance(instanceUID) + ","
-      inputDICOMImageFileNames = inputDICOMImageFileNames[:-1] # strip last comma
-
-      # save the per-structure volumes in the temp directory
-      inputSegmentationsFileNames = ""
-
-      import random # TODO: better way to generate temp file names?
-      import vtkITK
-      writer = vtkITK.vtkITKImageWriter()
-      rasToIJKMatrix = vtk.vtkMatrix4x4()
-
-      import vtkSegmentationCore
-      import vtkSlicerSegmentationsModuleLogic
-      logic = vtkSlicerSegmentationsModuleLogic.vtkSlicerSegmentationsModuleLogic()
-
-      segmentationNode = subjectHierarchyNode.GetAssociatedNode()
-
-      mergedSegmentationImageData = segmentationNode.GetImageData()
-      mergedSegmentationLabelmapNode = slicer.vtkMRMLLabelMapVolumeNode()
-
-      segmentationNode.GetRASToIJKMatrix(rasToIJKMatrix)
-      mergedSegmentationLabelmapNode.SetRASToIJKMatrix(rasToIJKMatrix)
-      mergedSegmentationLabelmapNode.SetAndObserveImageData(mergedSegmentationImageData)
-      mergedSegmentationOrientedImageData = logic.CreateOrientedImageDataFromVolumeNode(mergedSegmentationLabelmapNode)
-
-      segmentation = segmentationNode.GetSegmentation()
-
-      segmentIDs = vtk.vtkStringArray()
-      segmentation.GetSegmentIDs(segmentIDs)
-      segmentationName = segmentationNode.GetName()
-
-      for i in range(0, segmentIDs.GetNumberOfValues()):
-        segmentID = segmentIDs.GetValue(i)
-        segment = segmentation.GetSegment(segmentID)
-
-        segmentName = segment.GetName()
-        structureName = segmentName[len(segmentationName)+1:-1*len('-label')]
-
-        structureFileName = structureName + str(random.randint(0,vtk.VTK_INT_MAX)) + ".nrrd"
-        filePath = os.path.join(slicer.app.temporaryPath, structureFileName)
-        writer.SetFileName(filePath)
-
-        segmentImageData = segment.GetRepresentation(vtkSegmentationCore.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName())
-        paddedImageData = vtkSegmentationCore.vtkOrientedImageData()
-        vtkSegmentationCore.vtkOrientedImageDataResample.PadImageToContainImage(segmentImageData, mergedSegmentationOrientedImageData, paddedImageData)
-
-        labelmapImageData = slicer.vtkMRMLLabelMapVolumeNode()
-        logic.CreateLabelmapVolumeFromOrientedImageData(paddedImageData, labelmapImageData)
-
-        writer.SetInputDataObject(labelmapImageData.GetImageData())
-
-        labelmapImageData.GetRASToIJKMatrix(rasToIJKMatrix)
-        writer.SetRasToIJKMatrix(rasToIJKMatrix)
-        logging.debug("Saving to %s..." % filePath)
-        writer.Write()
-        inputSegmentationsFileNames += filePath + ","
-      inputSegmentationsFileNames = inputSegmentationsFileNames[:-1] # strip last comma
-
-      # save the per-structure volumes label attributes
-      colorNode = segmentationNode.GetNodeReference('colorNodeID')
-
-      terminologyName = colorNode.GetAttribute("TerminologyName")
-      colorLogic = slicer.modules.colors.logic()
-      if not terminologyName or not colorLogic:
-        raise Exception("No terminology or color logic - cannot export")
-
-      inputLabelAttributesFileNames = ""
-
-      for i in range(0, segmentIDs.GetNumberOfValues()):
-        segmentID = segmentIDs.GetValue(i)
-        segment = segmentation.GetSegment(segmentID)
-
-        segmentName = segment.GetName()
-        structureName = segmentName[len(segmentationName)+1:-1*len('-label')]
-        labelIndex = colorNode.GetColorIndexByName( structureName )
-
-        rgbColor = [0,]*4
-        colorNode.GetColor(labelIndex, rgbColor)
-        rgbColor = map(lambda e: e*255., rgbColor)
-
-        # get the attributes and convert to format CodeValue,CodeMeaning,CodingSchemeDesignator
-        # or empty strings if not defined
-        propertyCategoryWithColons = colorLogic.GetSegmentedPropertyCategory(labelIndex, terminologyName)
-        if propertyCategoryWithColons == '':
-          logging.debug ('ERROR: no segmented property category found for label ',str(labelIndex))
-          # Try setting a default as this section is required
-          propertyCategory = "C94970,NCIt,Reference Region"
-        else:
-          propertyCategory = propertyCategoryWithColons.replace(':',',')
-
-        propertyTypeWithColons = colorLogic.GetSegmentedPropertyType(labelIndex, terminologyName)
-        propertyType = propertyTypeWithColons.replace(':',',')
-
-        propertyTypeModifierWithColons = colorLogic.GetSegmentedPropertyTypeModifier(labelIndex, terminologyName)
-        propertyTypeModifier = propertyTypeModifierWithColons.replace(':',',')
-
-        anatomicRegionWithColons = colorLogic.GetAnatomicRegion(labelIndex, terminologyName)
-        anatomicRegion = anatomicRegionWithColons.replace(':',',')
-
-        anatomicRegionModifierWithColons = colorLogic.GetAnatomicRegionModifier(labelIndex, terminologyName)
-        anatomicRegionModifier = anatomicRegionModifierWithColons.replace(':',',')
-
-        structureFileName = structureName + str(random.randint(0,vtk.VTK_INT_MAX)) + ".info"
-        filePath = os.path.join(slicer.app.temporaryPath, structureFileName)
-
-        # EncodeSEG is expecting a file of format:
-        # labelNum;SegmentedPropertyCategory:codeValue,codeScheme,codeMeaning;SegmentedPropertyType:v,m,s etc
-        attributes = "%d" % labelIndex
-        attributes += ";SegmentedPropertyCategory:"+propertyCategory
-        if propertyType != "":
-          attributes += ";SegmentedPropertyType:" + propertyType
-        if propertyTypeModifier != "":
-          attributes += ";SegmentedPropertyTypeModifier:" + propertyTypeModifier
-        if anatomicRegion != "":
-          attributes += ";AnatomicRegion:" + anatomicRegion
-        if anatomicRegionModifier != "":
-          attributes += ";AnatomicRegionModifier:" + anatomicRegionModifier
-        attributes += ";SegmentAlgorithmType:AUTOMATIC"
-        attributes += ";SegmentAlgorithmName:SlicerSelfTest"
-        attributes += ";RecommendedDisplayRGBValue:%g,%g,%g" % tuple(rgbColor[:-1])
-        fp = open(filePath, "w")
-        fp.write(attributes)
-        fp.close()
-        logging.debug ("filePath: %s", filePath)
-        logging.debug ("attributes: %s", attributes)
-        inputLabelAttributesFileNames += filePath + ","
-      inputLabelAttributesFileNames = inputLabelAttributesFileNames[:-1] # strip last comma'''
-
-      try:
-        user = os.environ['USER']
-      except KeyError:
-        user = "Unspecified"
-      segFileName = "editor_export.SEG" + str(random.randint(0,vtk.VTK_INT_MAX)) + ".dcm"
-      segFilePath = os.path.join(slicer.app.temporaryPath, segFileName)
-      # TODO: define a way to set parameters like description
-      # TODO: determine a good series number automatically by looking in the database
-      parameters = {
-        "inputDICOMImageFileNames": inputDICOMImageFileNames,
-        "inputSegmentationsFileNames": inputSegmentationsFileNames,
-        "inputLabelAttributesFileNames": inputLabelAttributesFileNames,
-        "readerId": user,
-        "sessionId": "1",
-        "timePointId": "1",
-        "seriesDescription": "SlicerEditorSEGExport",
-        "seriesNumber": "100",
-        "instanceNumber": "1",
-        "bodyPart": "HEAD",
-        "algorithmDescriptionFileName": "Editor",
-        "outputSEGFileName": segFilePath,
-        "skipEmptySlices": False,
-        "compress": False,
-        }
-
-      encodeSEG = slicer.modules.encodeseg
-      cliNode = None
-
-      cliNode = slicer.cli.run(encodeSEG, cliNode, parameters, delete_temporary_files=False)
-      waitCount = 0
-      while cliNode.IsBusy() and waitCount < 20:
-        slicer.util.delayDisplay( "Running SEG Encoding... %d" % waitCount, 1000 )
-        waitCount += 1
-
-      if cliNode.GetStatusString() != 'Completed':
-        raise Exception("encodeSEG CLI did not complete cleanly")
-
-      logging.info("Added segmentation to DICOM database (%s)", segFilePath)
-      slicer.dicomDatabase.insert(segFilePath)
-
+    return
 
 #
 # DICOMSegmentationPlugin
@@ -500,16 +294,15 @@ class DICOMSegmentationPlugin:
   def __init__(self, parent):
     parent.title = "DICOM Segmentation Object Import Plugin"
     parent.categories = ["Developer Tools.DICOM Plugins"]
-    parent.contributors = ["Andrey Fedorov, BWH"]
+    parent.contributors = ["Andrey Fedorov, BWH, Christian Herz, BWH"]
     parent.helpText = """
     Plugin to the DICOM Module to parse and load DICOM SEG modality.
     No module interface here, only in the DICOM module
     """
     parent.dependencies = ['DICOM', 'Colors']
     parent.acknowledgementText = """
-    This DICOM Plugin was developed by
-    Andrey Fedorov, BWH.
-    and was partially funded by NIH grant U01CA151261.
+    This DICOM Plugin was developed by Andrey Fedorov, BWH and Christian Herz, BWH.
+    and was partially funded by NIH grant U01CA151261 and U24 CA180918.
     """
 
     # Add this extension to the DICOM module's list for discovery when the module
