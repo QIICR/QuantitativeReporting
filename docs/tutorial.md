@@ -15,8 +15,11 @@ In this section you will learn how to create a DICOM Structured Report which wil
 ### Load DICOM sample dataset
 
 
+
 ### Create segmentation
 
 ### Save into DICOM file format
 
 ## Load a DICOM Structured Report
+
+This section will show you how to load a DICOM Structured Report from the Slicer DICOM database and how to load and display the results with Quantitative Reporting.
