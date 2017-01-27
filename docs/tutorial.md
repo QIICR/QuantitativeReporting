@@ -20,17 +20,29 @@ The task includes **a)** download of the DICOM sample dataset, **b)** unpacking 
 
 **add screenshot here**
 
-
-
-
-
 ### Create segmentation
+
+Here you will get introduce to creating a segmentation with our module.
 
 #### Add segment
 
+Once the DICOM sample dataset has been loaded into Quantitative Reporting you can go ahead and create a first segment. 
+
+**add screenshot here** of a new segment
+
+**Note**: Initially every segment is assigned to the terminology category and type **"Tissue"**.
+
 #### Select terminology
 
+In order to make a segmentation more specific you can select another terminology by double clicking onto the color icon of the segment.
+
+**add screenshot here** of terminology selection
+
 #### Segment by using SegmentEditor effects
+
+reference SegmentEditor and tutorials for that if exists
+
+**add screenshot here** of effects and segmentation result
 
 ### Save report
 Once you are done with creating a segmentation and you want to save the measurements result as DICOM, you can push one of the following buttons:
