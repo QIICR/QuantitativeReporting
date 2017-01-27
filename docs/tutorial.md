@@ -31,6 +31,7 @@ Once you are done with creating a segmentation and you want to save the measurem
 ![](screenshots/reportButtons.png)
 
 **"Save Report"**: Will create the **partially completed** DICOM Structured Report which could be continued at a later time (work in progress)
+
 **"Complete Report"**: Will create the **completed** DICOM Structured Report representing the final version which usually wouldn't be modified afterwards.
 
 
