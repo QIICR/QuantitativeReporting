@@ -6,6 +6,7 @@ This section of the manual describes in detail how to create a segmentation for 
 
 Make sure that you followed the instructions given in [Installation and upgrade](install.md)
 
+
 ## Create a DICOM Structured Report
 
 In this section you will learn how to create a DICOM Structured Report which will include a DICOM Segmentation and volumetric measurements.
@@ -27,11 +28,11 @@ This button will do the following for you:
 
 ### Create segmentation
 
-Here you will get introduce to creating a segmentation with our module.
+Here you will get introduced to creating a segmentation.
 
 #### Add segment
 
-Once the DICOM sample dataset has been loaded into Quantitative Reporting you can go ahead and create a first segment. 
+Once the DICOM sample dataset (or whichever dataset you would like to load into 3D Slicer) has been loaded into Quantitative Reporting you can go ahead and create a first segment. 
 
 **add screenshot here** of a new segment
 
@@ -60,3 +61,9 @@ Once you are done with creating a segmentation and you want to save the measurem
 ## Load a DICOM Structured Report
 
 This section will show you how to load a DICOM Structured Report from the Slicer DICOM database and how to load and display the results with Quantitative Reporting.
+
+
+## Import your own DICOM dataset into 3D Slicer and load it
+
+In case that you want to use your own dataset for running this tutorial, you will need to manually import it into 3D Slicer, load it and create a new measurement report in Quantitative Reporting. Depending on the size and speed of your internet connection this could take a few minutes. Once the DICOM dataset has been imported to 3D Slicer the other steps won't take much time.
+
