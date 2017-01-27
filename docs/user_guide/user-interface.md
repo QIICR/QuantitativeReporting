@@ -36,6 +36,6 @@ UI components from top to bottom:
 
 9. Report buttons: you can either save a report and continue later \(needs to be implemented\) or complete the current report. Either way a DICOM Structured Report with a referenced DICOM Segmentation will be created and pushed into the Slicer DICOM database.
 
-<img src="../screenshots/user_interface.png" width="50%">
+<center><img src="../screenshots/user_interface.png" width="50%"></center>
 
 
