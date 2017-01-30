@@ -11,7 +11,7 @@ Make sure that you followed the instructions given in [Installation and upgrade]
 
 In this section you will learn how to create a DICOM Structured Report which will include a DICOM Segmentation and volumetric measurements.
 
-### Load DICOM sample dataset
+### Load DICOM Sample Dataset
 
 First of all you will need to download a DICOM sample dataset. With using the button shown below this task will be performed for you.
 
@@ -26,7 +26,7 @@ This button will do the following for you:
 
 **add screenshot here**
 
-### Create segmentation
+### Create a Segmentation
 
 Here you will get introduced to creating a segmentation.
 
