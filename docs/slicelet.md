@@ -13,19 +13,33 @@ The following command clones the repository into a subdirectory "QuantitativeRep
 git clone https://github.com/QIICR/QuantitativeReporting.git
 ```
 
-**Note**: Make sure that you installed all dependencies needed by QuantitativeReporting. Otherwise you won't be able to run it.
-
+**Note**: Make sure that you installed all dependencies needed by QuantitativeReporting. If you are using a recent nightly build of Slicer you could install QuantitativeReporting from the Extension Manager where all dependencies will get installed with it.
 
 ## Add Repository to Slicer Application Settings
 
-In order to make your local QuantitativeReporting available in Slicer you will need to add the subdirectory "Py" to your Slicer application settings. In order to do so, got to "Edit" and open "Application Settings":
+In order to make your local QuantitativeReporting available in Slicer you will need to **add the subdirectory "Py"** to your Slicer application settings as described in the following subsections.
+
+#### Go to "Edit" and Open "Application Settings":
 
 ![](screenshots/open_application_settings.png)
 
-After that you need to navigate to the Modules settings and  :
+#### Navigate to the Modules Settings:
 
 ![](screenshots/application_settings.png)
 
+#### Remove Unneeded QuantitativeReporting Module
+
+In case that you installed a version of QuantitativeReporting with the aid of the Extension Manager, you will need to remove the paths which has been automatically added to the Slicer application settings. 
+
+1. Look for a path that includes QuantitativeReporting in its name
+2. Click onto the path that you would like to get removed from the list
+3. Push button "Remove" for removing the selected path
+
+![](screenshots/Remove_module.png)
+
+#### Add Local QuantitativeReporting Module
+
+![](screenshots/Add_module.png)
 
 
 ## Mac OS X
