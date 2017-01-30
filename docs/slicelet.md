@@ -13,9 +13,7 @@ The following command clones the repository into a subdirectory "QuantitativeRep
 git clone https://github.com/QIICR/QuantitativeReporting.git
 ```
 
-
-
-Note: Make sure that you installed all dependencies needed by QuantitativeReporting. Otherwise you won't be able to run it.
+**Note**: Make sure that you installed all dependencies needed by QuantitativeReporting. Otherwise you won't be able to run it.
 
 
 ## Add Repository to Slicer Application Settings
