@@ -6,7 +6,6 @@ This section describes in detail how to create a segmentation for a given DICOM 
 
 Make sure that you followed the instructions given in [Installation and upgrade](install.md)
 
-
 ## Create a DICOM Structured Report
 
 In this section you will learn how to create a DICOM Structured Report which will include a DICOM Segmentation and volumetric measurements.
