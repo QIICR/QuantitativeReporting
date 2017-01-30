@@ -1,4 +1,4 @@
-# Installation
+# Installation and Upgrade
 
 QuantitativeReporting should be available as an extension in the nightly version of 3D Slicer, starting Nov 24, 2016. We always suggest that you use the latest (nightly) version of the software when you try it for the first time.
 
