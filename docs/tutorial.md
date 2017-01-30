@@ -38,7 +38,7 @@ Once the DICOM sample dataset (or whichever dataset you would like to load into 
 
 **Note**: Initially every segment is assigned to the terminology category and type **"Tissue"**.
 
-#### Select terminology
+#### Select Terminology
 
 In order to make a segmentation more specific you can select another terminology by double clicking onto the color icon of the segment.
 
