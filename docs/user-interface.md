@@ -39,11 +39,10 @@ Currently only with one button for downloading and displaying a DICOM sample dat
 ### Segmentations Area
 ![](screenshots/segmentationsArea.png)
 This area is supposed to help you creating segmentations from scratch. The here integrated widget is the Slicer SegmentEditor. It adds capabilities for:
-   * add/remove segments:  
-   * add terminology for each segment  
-   * create surface from segmentations  
-   * use a variety of tools \(so called effects\) that help you creating a segmentation \(i.e. thresholding, scissors\)  
-   * and many more
+   * Add/remove segments:  
+   * Add terminology for each segment  
+   * Create surface from segmentations  
+   * Use a variety of tools \(so called effects\) that help you creating a segmentation \(i.e. thresholding, scissors\)  
 
    For further information also see [Slicer Segment Editor](https://www.slicer.org/wiki/Documentation/Nightly/Modules/SegmentEditor)
 
