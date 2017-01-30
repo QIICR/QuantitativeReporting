@@ -2,11 +2,9 @@
 
 ## 3D Slicer Interface Overview
 
-Once QuantitativeReporting is opened, note the purpose of the various components of the application interface.
+The screenshot below shown gives you a basic idea of the 3D Slicer UI components. For further information see [Slicer Documentation](https://www.slicer.org/wiki/Documentation/Nightly/SlicerApplication/MainApplicationGUI)
 
 ![Alt Text](screenshots/user_interface.png)
-
-For further information see [Slicer Documentation](https://www.slicer.org/wiki/Documentation/Nightly/SlicerApplication/MainApplicationGUI)
 
 ## QuantitativeReporting Interface Overview
 
