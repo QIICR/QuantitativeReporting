@@ -1,4 +1,4 @@
-# User guide
+# User Guide
 
 The following section is intended for the operator of QuantitativeReporting.
 
