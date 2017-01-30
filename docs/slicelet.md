@@ -39,14 +39,23 @@ In case that you installed a version of QuantitativeReporting with the aid of th
 
 #### Add Local QuantitativeReporting Module
 
-The last step is to add your locally checked out/downloaded QuantitativeReporting to Slicer. Just click "Add" and navigate to the root directory of your local version. Furthermore you will need to select the subdirectory **"Py"** since this directory holds all important source files for the module.
+The last step is to add your locally downloaded/cloned QuantitativeReporting to Slicer. Just click "Add" and navigate to the root directory of your local version. Furthermore you will need to select the subdirectory **"Py"** since this directory holds all important source files for the module.
 
 ![](screenshots/Add_module.png)
 
 
 ## Mac OS X
 
+1. Open terminal
+2. Navigate to the local directory of your downloaded/cloned QuantitativeReporting/Py
+3. Run
+```
+bash ./startSlicelet.sh 
+```
 
+The slicelet will be executed and displayed as followed:
+
+![](screenshots/slicelet.png)
 
 ## Windows
 
@@ -55,7 +64,6 @@ TODO
 ## Linux
 
 TODO
-
 
 [^1] Slicelet : https://www.slicer.org/wiki/Documentation/Nightly/Developers/Slicelets
 
