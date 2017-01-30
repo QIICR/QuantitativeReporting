@@ -62,7 +62,7 @@ Once you are done with creating a segmentation and you want to save the measurem
 This section will show you how to load a DICOM Structured Report from the Slicer DICOM database and how to load and display the results with Quantitative Reporting.
 
 1. Open Slicer DICOM browser
-2. Select the structured report that you want to load modality:**SR**)
+2. Select the structured report that you want to load (modality:**SR**)
 3. Select "Load" for loading the structured report into Slicer
 4. Switch to module "QuantitativeReporting"
 5. Select measurement report from dropdown: In case that you freshly restarted Slicer, you will just need to select the only available table from there. Otherwise select the last one.
