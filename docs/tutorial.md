@@ -44,13 +44,13 @@ In order to make a segmentation more specific you can select another terminology
 
 **add screenshot here** of terminology selection
 
-#### Segment by using SegmentEditor effects
+#### Segment by Using SegmentEditor Effects
 
 reference SegmentEditor and tutorials for that if exists
 
 **add screenshot here** of effects and segmentation result
 
-### Save report
+### Save Report
 Once you are done with creating a segmentation and you want to save the measurements result as DICOM, you can push one of the following buttons:
 ![](screenshots/reportButtons.png)
 
@@ -63,7 +63,7 @@ Once you are done with creating a segmentation and you want to save the measurem
 This section will show you how to load a DICOM Structured Report from the Slicer DICOM database and how to load and display the results with Quantitative Reporting.
 
 
-## Import your own DICOM dataset into 3D Slicer and load it
+## Import a Custom DICOM Dataset into 3D Slicer and Load It
 
 In case that you want to use your own dataset for running this tutorial, you will need to manually import it into 3D Slicer, load it and create a new measurement report in Quantitative Reporting. Depending on the size and speed of your internet connection this could take a few minutes. Once the DICOM dataset has been imported to 3D Slicer the other steps won't take much time.
 
