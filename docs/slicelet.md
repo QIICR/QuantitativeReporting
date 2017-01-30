@@ -53,8 +53,6 @@ The last step is to add your locally downloaded/cloned QuantitativeReporting to 
 bash ./startSlicelet.sh 
 ```
 
-The slicelet will be executed and displayed as followed:
-
 ![](screenshots/slicelet.png)
 
 ## Windows
