@@ -30,7 +30,7 @@ This button will do the following for you:
 
 Here you will get introduced to creating a segmentation.
 
-#### Add segment
+#### Add Segment(s)
 
 Once the DICOM sample dataset (or whichever dataset you would like to load into 3D Slicer) has been loaded into Quantitative Reporting you can go ahead and create a first segment. 
 
