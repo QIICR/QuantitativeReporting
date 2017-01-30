@@ -18,7 +18,13 @@ git clone https://github.com/QIICR/QuantitativeReporting.git
 
 ## Add Repository to Slicer Application Settings
 
-In order to make your local QuantitativeReporting available in Slicer you will need to add the subdirectory "Py" to your Slicer application settings. In order to do so, open the application settings:
+In order to make your local QuantitativeReporting available in Slicer you will need to add the subdirectory "Py" to your Slicer application settings. In order to do so, got to "Edit" and open "Application Settings":
+
+![](screenshots/open_application_settings.png)
+
+After that you need to navigate to the Modules settings and  :
+
+![](screenshots/application_settings.png)
 
 
 
