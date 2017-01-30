@@ -16,7 +16,7 @@ The following section describes all user interface components of the module GUI 
    ![](screenshots/tabs.png)
    **QR**: The actually **workspace** which will be used in 90% of your workflow
    
-   **DICOM**: The Slicer **DICOM Browser** to make it better accessible within the QuantitativeReporting extension \(especially for the Slicelet version   **.... add reference here to "how to run as a Slicelet"**\)
+   **DICOM**: The Slicer **DICOM Browser** to make it easier accessible within the QuantitativeReporting extension \(especially for the [Slicelet version](docs/slicelet.md))
 
 ### Information Display
 
