@@ -1,6 +1,7 @@
 {
     "plugins": [
-        "etoc"
+        "etoc",
+        "numbered-headings"
     ],
     "pluginsConfig": {
         "etoc": {
