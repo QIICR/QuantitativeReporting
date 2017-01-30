@@ -8,5 +8,6 @@
     * [Prerequisites](docs/tutorial.md#Prerequisites)
     * [Create a DICOM Structured Report](docs/tutorial.md#Create a DICOM Structured Report)
   * [Troubleshooting](docs/troubleshooting.md)
+  * [Slicelet](docs/slicelet.md)
 * [License](license.md)
 
