@@ -6,9 +6,9 @@ The screenshot below shown gives you a basic overview of the 3D Slicer UI compon
 
 ![Alt Text](screenshots/user_interface.png)
 
-## QuantitativeReporting Interface Overview
+## `QuantitativeReporting` Interface Overview
 
-The following section describes all QuantitativeReporting user interface components from top to bottom.
+The following section describes all `QuantitativeReporting` user interface components from top to bottom.
 
 ### Tabs
 
@@ -16,7 +16,7 @@ The following section describes all QuantitativeReporting user interface compone
 
 **QR**: The actually **workspace** which will be used in 90% of your workflow
 
-**DICOM**: The Slicer **DICOM Browser** to make it easier accessible within the QuantitativeReporting extension \(especially for the [Slicelet version](slicelet.md))
+**DICOM**: The Slicer **DICOM Browser** to make it easier accessible within the `QuantitativeReporting` extension \(especially for the [Slicelet version](slicelet.md))
 
 ### Information Display
 
