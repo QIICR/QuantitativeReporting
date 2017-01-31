@@ -1,6 +1,6 @@
 # User Guide
 
-The following section is intended for the operator of QuantitativeReporting.
+The following section is intended for the operator of `QuantitativeReporting`.
 
 We are continuously working on the content of this guide. It will change and improve in the future.
 
