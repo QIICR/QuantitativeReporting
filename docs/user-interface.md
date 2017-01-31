@@ -2,7 +2,7 @@
 
 ## 3D Slicer Interface Overview
 
-The screenshot below shown gives you a basic idea of the 3D Slicer UI components. For further information see [Slicer Documentation](https://www.slicer.org/wiki/Documentation/Nightly/SlicerApplication/MainApplicationGUI)
+The screenshot below shown gives you a basic overview of the 3D Slicer UI components. For further information see [Slicer Documentation](https://www.slicer.org/wiki/Documentation/Nightly/SlicerApplication/MainApplicationGUI)
 
 ![Alt Text](screenshots/user_interface.png)
 
