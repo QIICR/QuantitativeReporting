@@ -53,6 +53,8 @@ The thresholding effect can be used for specifying a range of valid grayscale va
 
 ![](screenshots/thresholding.png)
 
+Now go ahead and paint the along the ventricle of the brain. You will notice, that the thresholded paint will help you a lot going through the slices.
+
 ![](screenshots/thresholded_painting.png)
 
 ### Save Report
