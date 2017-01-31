@@ -25,7 +25,9 @@ The following section describes all QuantitativeReporting user interface compone
 This UI component is used for displaying general information about the currently selected master volume, which is used for creating segmentations and measurements. Furthermore the reader name is displayed.
 
 ### View Settings Area
+
 ![](screenshots/viewSettings.png)
+
 We added all currently supported Slicer viewer layouts and in addition to that a button for enabling/disabling the crosshair \(which can be very helpful when a segment is selected from the tables and you, the user needs to locate it within the viewers\)
 
 ### Test Area
