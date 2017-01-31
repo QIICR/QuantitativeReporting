@@ -8,7 +8,7 @@ The screenshot below shown gives you a basic overview of the 3D Slicer UI compon
 
 ## QuantitativeReporting Interface Overview
 
-The following section describes all user interface components of the module GUI from top to bottom.
+The following section describes all QuantitativeReporting user interface components from top to bottom.
 
 ### Tabs
    ![](screenshots/tabs.png)
