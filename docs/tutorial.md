@@ -12,13 +12,13 @@ In this section you will learn how to create a DICOM Structured Report which wil
 
 ### Load DICOM Sample Dataset
 
-First of all you will need to download a DICOM sample dataset.
+First of all you will need to download a DICOM sample dataset. 
 
 ![](screenshots/testarea.png)
 
 By using the button shown above the following tasks will be accomplished for you: 
 
-1. **Download** the DICOM sample dataset, 
+1. **Download** the DICOM sample dataset
 2. **Unpacking** and **importing** it into 3D Slicer 
 3. Initiating the **creation of a new measurement** table which references the downloaded DICOM sample dataset 
 4. **Display** the DICOM sample dataset in your current slice view layout
@@ -79,9 +79,9 @@ This section will show you how to load a DICOM Structured Report from the Slicer
 With completing the previously shown steps, `QuantitativeReporting` should be ready to display the results.  
 
 
-## Import a Custom DICOM Dataset into 3D Slicer and Load It
+## Import and Load a Custom DICOM Dataset into 3D Slicer
 
-In case that you want to use your own dataset for running this tutorial, you will need to manually import it into 3D Slicer, load it and create a new measurement report in `QuantitativeReporting`. Depending on the size and speed of your internet connection this could take a few minutes. Once the DICOM dataset has been imported to 3D Slicer the other steps won't take much time.
+In case that you want to use your own dataset for running this tutorial, you will need to manually import it into 3D Slicer, load it and create a new measurement report in `QuantitativeReporting`. Once the DICOM dataset has been imported to 3D Slicer the other steps won't take much time.
 
 
 **add screenshot here** of importing into Slicer
