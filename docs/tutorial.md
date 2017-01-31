@@ -35,21 +35,21 @@ Once the DICOM sample dataset (or whichever dataset you would like to load into 
 
 ![](screenshots/added_segment.png)
 
-**Note**: Initially each segment is assigned to the terminology category and type **"Tissue"**.
+**Note**: Initially each segment gets the terminology category and type **"Tissue"** assigned .
 
 #### Select Terminology
 
-In order to make a segmentation more specific you can select another terminology by double clicking onto the color icon of the segment. This is shown in the previously displayed picture. The following screenshot shows the terminology selection widget. Select for category "Anatomical Structure" and after that type "Brain" into the search mask of the "Property type". Choose "Brain ventricle" from proposed list.
+In order to make a segmentation more specific you can select another terminology by double clicking onto the color icon of the segment. This is shown in the previously displayed picture. The following screenshot shows the terminology selection widget. Select for category "Anatomical Structure" and after that type "Brain" into the search mask of the "Property type". Choose "Brain ventricle" from the proposed list.
 
 ![](screenshots/select_terminology.png)
 
-#### Segment by Using Threshold and Paint Effect
+#### Segment by Using `SegmentEditor` Effects
 
-In order to make segmentation easier for you, you can select the thresholding effect as displayed below.
+In order to make segmentation easier for you, you can select the `Threshold Effect` as displayed below.
 
 ![](screenshots/thresholding_tooltip.png)
 
-The thresholding effect can be used for specifying a range of valid grayscale values that can be used for painting. After you are done selecting the right range for your needs you can select the button "Use For Paint" and it will automatically switch to the "Paint Effect". 
+The `Threshold Effect` can be used for specifying a range of valid grayscale values that can be used for painting. After you are done selecting the right range for your needs you can select the button "Use For Paint" and it will automatically switch to the `Paint Effect`. 
 
 ![](screenshots/thresholding.png)
 
