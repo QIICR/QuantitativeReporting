@@ -11,10 +11,12 @@ The screenshot below shown gives you a basic overview of the 3D Slicer UI compon
 The following section describes all QuantitativeReporting user interface components from top to bottom.
 
 ### Tabs
-   ![](screenshots/tabs.png)
-   **QR**: The actually **workspace** which will be used in 90% of your workflow
-   
-   **DICOM**: The Slicer **DICOM Browser** to make it easier accessible within the QuantitativeReporting extension \(especially for the [Slicelet version](slicelet.md))
+
+![](screenshots/tabs.png)
+
+**QR**: The actually **workspace** which will be used in 90% of your workflow
+
+**DICOM**: The Slicer **DICOM Browser** to make it easier accessible within the QuantitativeReporting extension \(especially for the [Slicelet version](slicelet.md))
 
 ### Information Display
 
