@@ -31,7 +31,7 @@ In this section we will be segmenting ventricles of the human brain.
 
 #### Add Segment(s)
 
-Once the DICOM sample dataset (or whichever dataset you would like to load into 3D Slicer) has been loaded into Quantitative Reporting you can go ahead and create a first segment. By hovering over the segments color icon a tooltip will appear which gives you more information about the currently assigned terminology of this segment. 
+Once the DICOM sample dataset (or whichever dataset you would like to load into 3D Slicer) has been loaded into `QuantitativeReporting` you can go ahead and create a first segment. By hovering over the segments color icon a tooltip will appear which gives you more information about the currently assigned terminology of this segment. 
 
 ![](screenshots/added_segment.png)
 
@@ -68,20 +68,20 @@ Once you are done with creating a segmentation and you want to save the measurem
 
 ## Load a DICOM Structured Report
 
-This section will show you how to load a DICOM Structured Report from the Slicer DICOM database and how to load and display the results with Quantitative Reporting.
+This section will show you how to load a DICOM Structured Report from the Slicer DICOM database and how to load and display the results with `Quantitative Reporting`.
 
 1. Open Slicer DICOM browser
 2. Select the structured report that you want to load (modality:**SR**)
 3. Select "Load" for loading the structured report into Slicer
-4. Switch to module "QuantitativeReporting"
+4. Switch to module `QuantitativeReporting`
 5. Select measurement report from dropdown: In case that you freshly restarted Slicer, you will just need to select the only available table from there. Otherwise select the last one.
 
-With completing the previously shown steps, QuantitativeReporting should be ready to display the results.  
+With completing the previously shown steps, `QuantitativeReporting` should be ready to display the results.  
 
 
 ## Import a Custom DICOM Dataset into 3D Slicer and Load It
 
-In case that you want to use your own dataset for running this tutorial, you will need to manually import it into 3D Slicer, load it and create a new measurement report in Quantitative Reporting. Depending on the size and speed of your internet connection this could take a few minutes. Once the DICOM dataset has been imported to 3D Slicer the other steps won't take much time.
+In case that you want to use your own dataset for running this tutorial, you will need to manually import it into 3D Slicer, load it and create a new measurement report in `QuantitativeReporting`. Depending on the size and speed of your internet connection this could take a few minutes. Once the DICOM dataset has been imported to 3D Slicer the other steps won't take much time.
 
 
 **add screenshot here** of importing into Slicer
