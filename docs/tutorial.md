@@ -23,7 +23,7 @@ This button will do the following for you:
 3. Initiating the **creation of a new measurement** table which references the downloaded DICOM sample dataset finally 
 4. **Displays** it within your preferred slice view layout
 
-**add screenshot here**
+![](screenshots/loaded_sample_dataset.png)
 
 ### Create a Segmentation
 
@@ -31,17 +31,17 @@ Here you will get introduced to creating a segmentation.
 
 #### Add Segment(s)
 
-Once the DICOM sample dataset (or whichever dataset you would like to load into 3D Slicer) has been loaded into Quantitative Reporting you can go ahead and create a first segment. 
+Once the DICOM sample dataset (or whichever dataset you would like to load into 3D Slicer) has been loaded into Quantitative Reporting you can go ahead and create a first segment. By hovering over the segments color icon a tooltip will appear which gives you more information about the currently assigned terminology of this segment. 
 
-**add screenshot here** of a new segment
+![](screenshots/added_segment.png)
 
 **Note**: Initially every segment is assigned to the terminology category and type **"Tissue"**.
 
 #### Select Terminology
 
-In order to make a segmentation more specific you can select another terminology by double clicking onto the color icon of the segment.
+In order to make a segmentation more specific you can select another terminology by double clicking onto the color icon of the segment. This is shown in the previously displayed picture. The following screenshot shows the terminology selection widget.
 
-**add screenshot here** of terminology selection
+![](screenshots/select_terminology.png)
 
 #### Segment by Using SegmentEditor Effects
 
