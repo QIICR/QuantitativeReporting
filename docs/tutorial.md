@@ -47,6 +47,10 @@ In order to make a segmentation more specific you can select another terminology
 
 ![](screenshots/thresholding_tooltip.png)
 
+![](screenshots/thresholding.png)
+
+![](screenshots/thresholded_painting.png)
+
 ### Save Report
 Once you are done with creating a segmentation and you want to save the measurements result as DICOM, you can push one of the following buttons:
 ![](screenshots/reportButtons.png)
