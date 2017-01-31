@@ -12,16 +12,16 @@ In this section you will learn how to create a DICOM Structured Report which wil
 
 ### Load DICOM Sample Dataset
 
-First of all you will need to download a DICOM sample dataset. With using the button shown below this task will be performed for you.
+First of all you will need to download a DICOM sample dataset.
 
 ![](screenshots/testarea.png)
 
-This button will do the following for you: 
+By using the button shown above the following tasks will be accomplished for you: 
 
 1. **Download** the DICOM sample dataset, 
 2. **Unpacking** and **importing** it into 3D Slicer 
-3. Initiating the **creation of a new measurement** table which references the downloaded DICOM sample dataset finally 
-4. **Displays** it within your preferred slice view layout
+3. Initiating the **creation of a new measurement** table which references the downloaded DICOM sample dataset 
+4. **Display** the DICOM sample dataset in your current slice view layout
 
 ![](screenshots/loaded_sample_dataset.png)
 
@@ -31,11 +31,11 @@ In this section we will be segmenting ventricles of the human brain.
 
 #### Add Segment(s)
 
-Once the DICOM sample dataset (or whichever dataset you would like to load into 3D Slicer) has been loaded into `QuantitativeReporting` you can go ahead and create a first segment. By hovering over the segments color icon a tooltip will appear which gives you more information about the currently assigned terminology of this segment. 
+Once the DICOM sample dataset (or whichever dataset you would like to load into 3D Slicer) has been loaded into `QuantitativeReporting` you can create a first segment. By hovering over the segments color icon a tooltip will appear which gives you more information about the terminology which is currently assigned to this segment. 
 
 ![](screenshots/added_segment.png)
 
-**Note**: Initially every segment is assigned to the terminology category and type **"Tissue"**.
+**Note**: Initially each segment is assigned to the terminology category and type **"Tissue"**.
 
 #### Select Terminology
 
