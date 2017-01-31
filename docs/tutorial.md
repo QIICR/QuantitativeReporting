@@ -45,7 +45,11 @@ In order to make a segmentation more specific you can select another terminology
 
 #### Segment by Using Threshold and Paint Effect
 
+In order to make segmentation easier for you, you can select the thresholding effect as displayed below.
+
 ![](screenshots/thresholding_tooltip.png)
+
+The thresholding effect can be used for specifying a range of valid grayscale values that can be used for painting. After you are done selecting the right range for your needs you can select the button "Use For Paint" and it will automatically switch to the "Paint Effect". 
 
 ![](screenshots/thresholding.png)
 
