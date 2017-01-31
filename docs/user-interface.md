@@ -48,7 +48,7 @@ Currently only with one button for downloading and displaying a DICOM sample dat
 
 ![](screenshots/segmentationsArea.png)
 
-This area is supposed to help you creating segmentations from scratch. The here integrated widget is the Slicer SegmentEditor. It adds capabilities for:
+This area is supposed to help you creating segmentations. The here integrated widget is the Slicer SegmentEditor. It adds capabilities for:
    * Add/remove segments:  
    * Add terminology for each segment  
    * Create surface from segmentations  
