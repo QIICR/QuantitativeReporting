@@ -1,0 +1,13 @@
+{
+    "plugins": [
+        "etoc",
+        "numbered-headings"
+    ],
+    "pluginsConfig": {
+        "etoc": {
+            "mindepth": 3,
+            "maxdepth": 4,
+            "notoc": false
+        }
+    }
+}
