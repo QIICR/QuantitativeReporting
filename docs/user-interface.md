@@ -21,8 +21,8 @@ The following section describes all QuantitativeReporting user interface compone
 ### Information Display
 
 ![](screenshots/watchbox.png)
-about a\) the patient and b\) the reader
 
+This UI component is used for displaying general information about the currently selected master volume, which is used for creating segmentations and measurements. Furthermore the reader name is displayed.
 
 ### View Settings Area
 ![](screenshots/viewSettings.png)
