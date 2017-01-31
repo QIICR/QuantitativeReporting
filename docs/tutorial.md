@@ -51,11 +51,10 @@ In order to make a segmentation more specific you can select another terminology
 
 ![](screenshots/thresholded_painting.png)
 
-![](screenshots/save_report.png)
-
 ### Save Report
-Once you are done with creating a segmentation and you want to save the measurements result as DICOM, you can push one of the following buttons:
-![](screenshots/reportButtons.png)
+Once you are done with creating a segmentation and you want to save the measurements result as DICOM push one the button "Save Report":
+
+![](screenshots/save_report.png)
 
 **"Save Report"**: Will create the **partially completed** DICOM Structured Report which could be continued at a later time (work in progress)
 
