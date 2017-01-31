@@ -27,7 +27,7 @@ This button will do the following for you:
 
 ### Create a Segmentation
 
-Here you will get introduced to creating a segmentation.
+In this section we will be segmenting ventricles of the human brain.
 
 #### Add Segment(s)
 
@@ -39,7 +39,7 @@ Once the DICOM sample dataset (or whichever dataset you would like to load into 
 
 #### Select Terminology
 
-In order to make a segmentation more specific you can select another terminology by double clicking onto the color icon of the segment. This is shown in the previously displayed picture. The following screenshot shows the terminology selection widget.
+In order to make a segmentation more specific you can select another terminology by double clicking onto the color icon of the segment. This is shown in the previously displayed picture. The following screenshot shows the terminology selection widget. Select for category "Anatomical Structure" and after that type "Brain" into the search mask of the "Property type". Choose "Brain ventricle" from proposed list.
 
 ![](screenshots/select_terminology.png)
 
