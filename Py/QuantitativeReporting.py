@@ -32,7 +32,7 @@ class QuantitativeReporting(ScriptedLoadableModule):
                                 "Csaba Pinter (Queen's), Andras Lasso (Queen's), Steve Pieper (Isomics)"]
     self.parent.helpText = """
     Segmentation-based measurements with DICOM-based import and export of the results.
-    <a href="https://www.slicer.org/wiki/Documentation/Nightly/Extensions/QuantitativeReporting">Documentation.</a>
+    <a href="https://qiicr.gitbooks.io/quantitativereporting-guide">Documentation.</a>
     """  # TODO:
     self.parent.acknowledgementText = """
     This work was supported in part by the National Cancer Institute funding to the
