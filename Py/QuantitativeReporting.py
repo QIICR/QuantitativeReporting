@@ -390,8 +390,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     return segNode
 
   def onSegmentAdded(self, observer=None, caller=None):
-    segNode = self.segmentEditorWidget.segmentation
-    segment = segNode.GetSegment(self.segmentEditorWidget.logic.getSegmentIDs(segNode)[-1])
+    segment = self.segmentEditorWidget.logic.getAllSegments(self.segmentEditorWidget.segmentationNode)[-1]
     self.segmentEditorWidget.setDefaultTerminologyAndColor(segment)
 
   @postCall(refreshUIElementsAvailability)
@@ -399,11 +398,11 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.enableReportButtons(True)
     self.updateMeasurementsTable()
 
-  def updateMeasurementsTable(self, triggered=False):
+  def updateMeasurementsTable(self, triggered=False, visibleOnly=False):
     if not self.calculateAutomaticallyCheckbox.checked and not triggered:
       self.tableView.setStyleSheet("QTableView{border:2px solid red;};")
       return
-    table = self.segmentEditorWidget.calculateSegmentStatistics(self.tableNode)
+    table = self.segmentEditorWidget.calculateSegmentStatistics(self.tableNode, visibleOnly)
     self.setMeasurementsTable(table)
 
   def setMeasurementsTable(self, table):
@@ -439,6 +438,9 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self.tableNode.SetAttribute("readonly", "Yes")
 
   def saveReport(self, completed=False):
+    if self.segmentEditorWidget.hiddenSegmentsAvailable():
+      if not slicer.util.confirmYesNoDisplay("Hidden segments has been found. Do you want to export them as well?"):
+        self.updateMeasurementsTable(visibleOnly=True)
     try:
       dcmSegmentationPath = self.createSEG()
       self.createDICOMSR(dcmSegmentationPath, completed)
@@ -451,7 +453,6 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     return True
 
   def createSEG(self):
-    import vtkSegmentationCorePython as vtkSegmentationCore
     segmentStatisticsLogic = self.segmentEditorWidget.logic.segmentStatisticsLogic
     data = dict()
     data.update(self._getSeriesAttributes())
@@ -466,7 +467,6 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.tempDir = os.path.join(self.slicerTempDir, self.currentDateTime)
     os.mkdir(self.tempDir)
 
-    # TODO: delete from temp afterwards
     segmentFiles = []
     for segmentID in segmentStatisticsLogic.statistics["SegmentIDs"]:
       if not segmentStatisticsLogic.statistics[segmentID, "GS voxel count"] > 0:
@@ -674,7 +674,9 @@ class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidget
 
   @property
   def segments(self):
-    return self.logic.getSegments(self.segmentation)
+    if not self.segmentationNode:
+      return []
+    return self.logic.getAllSegments(self.segmentationNode)
 
   @property
   def table(self):
@@ -780,10 +782,10 @@ class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidget
     self.selectParameterNode()
     self.editor.updateWidgetFromMRML()
 
-  def calculateSegmentStatistics(self, tableNode):
+  def calculateSegmentStatistics(self, tableNode, visibleOnly):
     if not self.segmentationNode or not self.masterVolumeNode:
       return None
-    return self.logic.calculateSegmentStatistics(self.segmentationNode, self.masterVolumeNode, tableNode)
+    return self.logic.calculateSegmentStatistics(self.segmentationNode, self.masterVolumeNode, visibleOnly, tableNode)
 
   def createLabelNodeFromSegment(self, segmentID):
     return self.logic.createLabelNodeFromSegment(self.segmentationNode, segmentID)
@@ -821,8 +823,12 @@ class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidget
     return color
 
   def getNumberOfSegmentsStartingWith(self, name):
-    segments = self.logic.getSegments(self.segmentation)
+    segments = self.logic.getAllSegments(self.segmentationNode)
     return sum(1 for segment in segments if str.startswith(segment.GetName(), name))
+
+  def hiddenSegmentsAvailable(self):
+    return len(self.logic.getAllSegments(self.segmentationNode)) \
+           != len(self.logic.getVisibleSegments(self.segmentationNode))
 
 class QuantitativeReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
 
@@ -833,15 +839,22 @@ class QuantitativeReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
     self.segmentationsLogic = slicer.modules.segmentations.logic()
     self.segmentStatisticsLogic = CustomSegmentStatisticsLogic()
 
-  def getSegmentIDs(self, segmentation):
-    if not segmentation:
+  def getSegmentIDs(self, segmentationNode, visibleOnly):
+    if not segmentationNode:
       return []
     segmentIDs = vtk.vtkStringArray()
-    segmentation.GetSegmentIDs(segmentIDs)
+    segmentation = segmentationNode.GetSegmentation()
+    command = segmentationNode.GetDisplayNode().GetVisibleSegmentIDs if visibleOnly else segmentation.GetSegmentIDs
+    command(segmentIDs)
     return [segmentIDs.GetValue(idx) for idx in range(segmentIDs.GetNumberOfValues())]
 
-  def getSegments(self, segmentation):
-    return [segmentation.GetSegment(segmentID) for segmentID in self.getSegmentIDs(segmentation)]
+  def getAllSegments(self, segmentationNode):
+    segmentation = segmentationNode.GetSegmentation()
+    return [segmentation.GetSegment(segmentID) for segmentID in self.getSegmentIDs(segmentationNode, False)]
+
+  def getVisibleSegments(self, segmentationNode):
+    segmentation = segmentationNode.GetSegmentation()
+    return [segmentation.GetSegment(segmentID) for segmentID in self.getSegmentIDs(segmentationNode, True)]
 
   def getSegmentCentroid(self, segmentationNode, segment):
     imageData = vtkSegmentationCore.vtkOrientedImageData()
@@ -871,8 +884,8 @@ class QuantitativeReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
     thresh.Update()
     labelNode.SetAndObserveImageData(thresh.GetOutput())
 
-  def calculateSegmentStatistics(self, segNode, grayscaleNode, tableNode=None):
-    self.segmentStatisticsLogic.computeStatistics(segNode, grayscaleNode)
+  def calculateSegmentStatistics(self, segNode, grayscaleNode, visibleSegmentsOnly, tableNode=None):
+    self.segmentStatisticsLogic.computeStatistics(segNode, grayscaleNode, visibleSegmentsOnly=visibleSegmentsOnly)
 
     tableNode = self.segmentStatisticsLogic.exportToTable(tableNode)
     slicer.mrmlScene.AddNode(tableNode)
