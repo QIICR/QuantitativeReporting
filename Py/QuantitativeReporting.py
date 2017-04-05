@@ -657,7 +657,7 @@ class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidget
 
   @property
   def segmentationNodeSelector(self):
-    return self.find("MRMLNodeComboBox_Segmentation")
+    return self.find("SegmentationNodeComboBox")
 
   @property
   def masterVolumeNode(self):
@@ -665,7 +665,7 @@ class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidget
 
   @property
   def masterVolumeNodeSelector(self):
-    return self.find("MRMLNodeComboBox_MasterVolume")
+    return self.find("MasterVolumeNodeComboBox")
 
   @property
   @onExceptionReturnNone
@@ -689,7 +689,7 @@ class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidget
 
   @onExceptionReturnNone
   def find(self, objectName):
-    return self.findAll(objectName)[0]
+    return slicer.util.findChildren(self.layout.parent(), objectName)[0]
 
   @property
   def enabled(self):
@@ -698,16 +698,13 @@ class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidget
   @enabled.setter
   def enabled(self, enabled):
     self._enabled = enabled
-    for widgetName in ["UndoRedoButtonBox", "OptionsGroupBox", "MaskingGroupBox",
+    # TODO: once readonly mode in Segment Editor is available replace the following code
+    for widgetName in ["UndoRedoButtonBox", "EffectsGroupBox", "OptionsGroupBox", "MaskingGroupBox",
                        "AddSegmentButton", "RemoveSegmentButton", "CreateSurfaceButton"]:
       widget = self.find(widgetName)
       if widget:
         widget.visible = enabled
-    self.effectGroupBox.visible = enabled
     self.table.setReadOnly(not enabled)
-
-  def findAll(self, objectName):
-    return slicer.util.findChildren(self.layout.parent(), objectName)
 
   def __init__(self, parent):
     SegmentEditorWidget.__init__(self, parent)
@@ -717,10 +714,8 @@ class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidget
     super(QuantitativeReportingSegmentEditorWidget, self).setup()
     if self.developerMode:
       self.reloadCollapsibleButton.hide()
-    self.hideUnwantedEditorUIElements()
-    self.reorganizeEffectButtons()
-    self.changeUndoRedoSizePolicies()
-    self.appendOptionsAndMaskingGroupBoxAtTheEnd()
+    self.editor.segmentationNodeSelectorVisible = False
+    self.editor.setEffectButtonStyle(qt.Qt.ToolButtonIconOnly)
     self.clearSegmentationEditorSelectors()
 
   def onSegmentSelected(self, selectedRow):
@@ -739,39 +734,6 @@ class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidget
   def clearSegmentationEditorSelectors(self):
     self.editor.setSegmentationNode(None)
     self.editor.setMasterVolumeNode(None)
-
-  def hideUnwantedEditorUIElements(self):
-    self.editor.segmentationNodeSelectorVisible = False
-    self.table.parent().hide()
-    self.table.parent().parent().layout().addWidget(self.table)
-    self.table.setMinimumHeight(150)
-    self.table.setMaximumHeight(150)
-    masterVolumeLabel = self.find("label_MasterVolume")
-    if masterVolumeLabel:
-      masterVolumeLabel.hide()
-
-  def reorganizeEffectButtons(self):
-    widget = self.find("EffectsGroupBox")
-    if widget:
-      buttons = [b for b in widget.children() if isinstance(b, qt.QPushButton)]
-      self.effectGroupBox = self.createHLayout(buttons)
-      self.layout.addWidget(self.effectGroupBox)
-      widget.hide()
-
-  def appendOptionsAndMaskingGroupBoxAtTheEnd(self):
-    for widgetName in ["OptionsGroupBox", "MaskingGroupBox"]:
-      widget = self.find(widgetName)
-      self.layout.addWidget(widget)
-
-  def changeUndoRedoSizePolicies(self):
-    undo = self.find("UndoButton")
-    redo = self.find("RedoButton")
-    if undo and redo:
-      undo.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Expanding)
-      redo.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Expanding)
-      undoRedoGroupBox = self.createHLayout([undo, redo])
-      undoRedoGroupBox.objectName = "UndoRedoButtonBox"
-      self.layout.addWidget(undoRedoGroupBox)
 
   def enter(self):
     # overridden because SegmentEditorWidget automatically creates a new Segmentation upon instantiation
