@@ -1,7 +1,6 @@
 import glob, os, json
-import string
-import vtk, qt, ctk, slicer
-from DICOMPluginBase import DICOMPluginBase
+import vtk, slicer
+from base.DICOMPluginBase import DICOMPluginBase
 from DICOMLib import DICOMLoadable
 import logging
 

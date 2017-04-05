@@ -1,9 +1,10 @@
-import os
-import string
 import json
-import vtk, qt, ctk, slicer, logging
-from DICOMPluginBase import DICOMPluginBase
+import os
+
+import logging
+import slicer
 from DICOMLib import DICOMLoadable
+from base.DICOMPluginBase import DICOMPluginBase
 
 #
 # This is the plugin to handle translation of DICOM SEG objects
