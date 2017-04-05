@@ -134,7 +134,7 @@ class DICOMTID1500PluginClass(DICOMPluginBase):
       for segLoadable in segLoadables:
         if hasattr(segLoadable, "referencedSegInstanceUIDs"):
           segLoadable.referencedSegInstanceUIDs = list(set(segLoadable.referencedSegInstanceUIDs)-
-                                                       set(loadable.referencedSegInstanceUIDs))
+                                                       set(loadable.referencedInstanceUIDs))
         self.segPlugin.load(segLoadable)
         if hasattr(segLoadable, "referencedSeriesUID") and len(loadable.ReferencedRWVMSeriesInstanceUIDs)>0:
           self.determineAndApplyRWVMToReferencedSeries(loadable, segLoadable)
