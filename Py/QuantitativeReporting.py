@@ -439,7 +439,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
   def saveReport(self, completed=False):
     if self.segmentEditorWidget.hiddenSegmentsAvailable():
-      if not slicer.util.confirmYesNoDisplay("Hidden segments has been found. Do you want to export them as well?"):
+      if not slicer.util.confirmYesNoDisplay("Hidden segments have been found. Do you want to export them as well?"):
         self.updateMeasurementsTable(visibleOnly=True)
     try:
       dcmSegmentationPath = self.createSEG()
