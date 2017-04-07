@@ -20,10 +20,26 @@ include(${Slicer_USE_FILE})
 set(MODULE_NAME QuantitativeReporting)
 set(MODULE_TITLE ${MODULE_NAME})
 
+set(MODULE_PYTHON_RESOURCES
+  Resources/Icons/${MODULE_NAME}.png
+  )
+
+slicerMacroBuildScriptedModule(
+  NAME  ${MODULE_NAME}
+  SCRIPTS  ${MODULE_NAME}.py
+  RESOURCES ${MODULE_PYTHON_RESOURCES}
+  )
+
+slicerMacroBuildScriptedModule(
+  NAME SEGExporterSelfTest
+  SCRIPTS SEGExporterSelfTest.py
+  )
+
 string(TOUPPER ${MODULE_NAME} MODULE_NAME_UPPER)
 
 #-----------------------------------------------------------------------------
-add_subdirectory(Py)
+
+add_subdirectory(Plugins)
 
 #-----------------------------------------------------------------------------
 if(BUILD_TESTING)

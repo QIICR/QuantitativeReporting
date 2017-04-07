@@ -3,10 +3,6 @@ set(MODULE_PYTHON_SCRIPTS
   base/DICOMPluginBase.py
   )
 
-set(MODULE_PYTHON_RESOURCES
-  Resources/Icons/QuantitativeReporting.png
-  )
-
 slicerMacroBuildScriptedModule(
   NAME DICOMSegmentationPlugin
   SCRIPTS ${MODULE_PYTHON_SCRIPTS} DICOMSegmentationPlugin.py
@@ -20,15 +16,4 @@ slicerMacroBuildScriptedModule(
 slicerMacroBuildScriptedModule(
   NAME DICOMTID1500Plugin
   SCRIPTS ${MODULE_PYTHON_SCRIPTS} DICOMTID1500Plugin.py
-  )
-
-slicerMacroBuildScriptedModule(
-  NAME SEGExporterSelfTest
-  SCRIPTS SEGExporterSelfTest.py
-  )
-
-slicerMacroBuildScriptedModule(
-  NAME QuantitativeReporting
-  SCRIPTS QuantitativeReporting.py
-  RESOURCES ${MODULE_PYTHON_RESOURCES}
   )
