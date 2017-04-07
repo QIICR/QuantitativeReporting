@@ -30,11 +30,6 @@ slicerMacroBuildScriptedModule(
   RESOURCES ${MODULE_PYTHON_RESOURCES}
   )
 
-slicerMacroBuildScriptedModule(
-  NAME SEGExporterSelfTest
-  SCRIPTS SEGExporterSelfTest.py
-  )
-
 string(TOUPPER ${MODULE_NAME} MODULE_NAME_UPPER)
 
 #-----------------------------------------------------------------------------
