@@ -1,7 +1,11 @@
 set(MODULE_PYTHON_SCRIPTS
   base/__init__.py
   base/DICOMPluginBase.py
-)
+  )
+
+set(MODULE_PYTHON_RESOURCES
+  Resources/Icons/QuantitativeReporting.png
+  )
 
 slicerMacroBuildScriptedModule(
   NAME DICOMSegmentationPlugin
@@ -26,4 +30,5 @@ slicerMacroBuildScriptedModule(
 slicerMacroBuildScriptedModule(
   NAME QuantitativeReporting
   SCRIPTS QuantitativeReporting.py
+  RESOURCES ${MODULE_PYTHON_RESOURCES}
   )

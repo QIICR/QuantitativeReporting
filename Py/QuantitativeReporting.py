@@ -25,18 +25,18 @@ class QuantitativeReporting(ScriptedLoadableModule):
   def __init__(self, parent):
     ScriptedLoadableModule.__init__(self, parent)
     self.parent.title = "Quantitative Reporting"
-    self.parent.categories = ["Informatics"]
+    self.parent.categories = ["Informatics", "Quantification", "Segmentation"]
     self.parent.dependencies = ["SlicerProstate"]
     self.parent.contributors = ["Christian Herz (SPL), Andrey Fedorov (SPL, BWH), "
                                 "Csaba Pinter (Queen's), Andras Lasso (Queen's), Steve Pieper (Isomics)"]
     self.parent.helpText = """
     Segmentation-based measurements with DICOM-based import and export of the results.
     <a href="https://qiicr.gitbooks.io/quantitativereporting-guide">Documentation.</a>
-    """  # TODO:
+    """
     self.parent.acknowledgementText = """
     This work was supported in part by the National Cancer Institute funding to the
     Quantitative Image Informatics for Cancer Research (QIICR) (U24 CA180918).
-    """  # TODO: replace with organization, grant and thanks.
+    """
 
 
 class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
