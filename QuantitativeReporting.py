@@ -131,10 +131,9 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     def loadTestData():
       mrHeadSeriesUID = "2.16.840.1.113662.4.4168496325.1025306170.548651188813145058"
       if not len(slicer.dicomDatabase.filesForSeries(mrHeadSeriesUID)):
-        from SEGExporterSelfTest import SEGExporterSelfTestLogic
-        sampleData = SEGExporterSelfTestLogic.downloadSampleData()
-        unzipped = SEGExporterSelfTestLogic.unzipSampleData(sampleData)
-        SEGExporterSelfTestLogic.importIntoDICOMDatabase(unzipped)
+        sampleData = TestDataLogic.downloadSampleData()
+        unzipped = TestDataLogic.unzipSampleData(sampleData)
+        TestDataLogic.importIntoDICOMDatabase(unzipped)
       self.loadSeries(mrHeadSeriesUID)
       masterNode = slicer.util.getNode('2: SAG*')
       tableNode = slicer.vtkMRMLTableNode()
@@ -1081,6 +1080,35 @@ class CustomDICOMDetailsWidget(DICOMDetailsWidget, ParameterNodeObservationMixin
     DICOMDetailsWidget.onLoadingFinished(self)
     if not self.browserPersistent:
       self.invokeEvent(self.FinishedLoadingEvent)
+
+
+class TestDataLogic(ScriptedLoadableModuleLogic):
+  @staticmethod
+  def importIntoDICOMDatabase(dicomFilesDirectory):
+    indexer = ctk.ctkDICOMIndexer()
+    indexer.addDirectory(slicer.dicomDatabase, dicomFilesDirectory, None)
+    indexer.waitForImportFinished()
+
+  @staticmethod
+  def unzipSampleData(filePath):
+    dicomFilesDirectory = slicer.app.temporaryPath + '/dicomFiles'
+    qt.QDir().mkpath(dicomFilesDirectory)
+    slicer.app.applicationLogic().Unzip(filePath, dicomFilesDirectory)
+    return dicomFilesDirectory
+
+  @staticmethod
+  def downloadSampleData():
+    import urllib
+    downloads = (
+      ('http://slicer.kitware.com/midas3/download/item/220834/PieperMRHead.zip', 'PieperMRHead.zip'),
+    )
+    slicer.util.delayDisplay("Downloading", 1000)
+    for url, name in downloads:
+      filePath = slicer.app.temporaryPath + '/' + name
+      if not os.path.exists(filePath) or os.stat(filePath).st_size == 0:
+        slicer.util.delayDisplay('Requesting download %s from %s...\n' % (name, url), 1000)
+        urllib.urlretrieve(url, filePath)
+    return filePath
 
 
 class QuantitativeReportingSlicelet(qt.QWidget, ModuleWidgetMixin):
