@@ -1,6 +1,5 @@
 import getpass
 import json
-import logging, os
 from datetime import datetime
 
 from slicer.ScriptedLoadableModule import *
@@ -26,18 +25,18 @@ class QuantitativeReporting(ScriptedLoadableModule):
   def __init__(self, parent):
     ScriptedLoadableModule.__init__(self, parent)
     self.parent.title = "Quantitative Reporting"
-    self.parent.categories = ["Informatics"]
+    self.parent.categories = ["Informatics", "Quantification", "Segmentation"]
     self.parent.dependencies = ["SlicerProstate"]
     self.parent.contributors = ["Christian Herz (SPL), Andrey Fedorov (SPL, BWH), "
                                 "Csaba Pinter (Queen's), Andras Lasso (Queen's), Steve Pieper (Isomics)"]
     self.parent.helpText = """
     Segmentation-based measurements with DICOM-based import and export of the results.
     <a href="https://qiicr.gitbooks.io/quantitativereporting-guide">Documentation.</a>
-    """  # TODO:
+    """
     self.parent.acknowledgementText = """
     This work was supported in part by the National Cancer Institute funding to the
     Quantitative Image Informatics for Cancer Research (QIICR) (U24 CA180918).
-    """  # TODO: replace with organization, grant and thanks.
+    """
 
 
 class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
@@ -72,9 +71,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
         pass
 
   def refreshUIElementsAvailability(self):
-    self.imageVolumeSelector.enabled = self.measurementReportSelector.currentNode() is not None \
+    self.segmentEditorWidget.editor.masterVolumeNodeSelectorVisible = self.measurementReportSelector.currentNode() is not None \
                                        and not self.getReferencedVolumeFromSegmentationNode(self.segmentEditorWidget.segmentationNode)
-    self.segmentationGroupBox.enabled = self.imageVolumeSelector.currentNode() is not None
     self.measurementsGroupBox.enabled = len(self.segmentEditorWidget.segments)
     if not self.tableNode:
       self.enableReportButtons(False)
@@ -143,7 +141,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       tableNode.SetAttribute("QuantitativeReporting", "Yes")
       slicer.mrmlScene.AddNode(tableNode)
       self.measurementReportSelector.setCurrentNode(tableNode)
-      self.imageVolumeSelector.setCurrentNode(masterNode)
+      self.segmentEditorWidget.editor.setMasterVolumeNode(masterNode)
       self.retrieveTestDataButton.enabled = False
 
     self.testArea = qt.QGroupBox("Test Area")
@@ -164,10 +162,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     dicomWidget.detailsPopup.loadCheckedLoadables()
 
   def setupSelectionArea(self):
-
-    self.imageVolumeSelector = self.segmentEditorWidget.masterVolumeNodeSelector
-    self.imageVolumeSelector.addAttribute("vtkMRMLScalarVolumeNode", "DICOM.instanceUIDs", None)
-    self.segmentationNodeSelector = self.segmentEditorWidget.segmentationNodeSelector
+    self.segmentEditorWidget.editor.masterVolumeNodeSelectorAddAttribute("vtkMRMLScalarVolumeNode", "DICOM.instanceUIDs", None)
     self.measurementReportSelector = self.createComboBox(nodeTypes=["vtkMRMLTableNode", ""], showChildNodeTypes=False,
                                                          addEnabled=True, removeEnabled=True, noneEnabled=True,
                                                          selectNodeUponCreation=True, toolTip="Select measurement report")
@@ -179,8 +174,6 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
     self.selectionAreaWidgetLayout.addWidget(qt.QLabel("Measurement report"), 0, 0)
     self.selectionAreaWidgetLayout.addWidget(self.measurementReportSelector, 0, 1)
-    self.selectionAreaWidgetLayout.addWidget(qt.QLabel("Image volume to annotate"), 1, 0)
-    self.selectionAreaWidgetLayout.addWidget(self.imageVolumeSelector, 1, 1)
     self.mainModuleWidgetLayout.addWidget(self.selectionAreaWidget)
     self.mainModuleWidgetLayout.addWidget(self.segmentationGroupBox)
 
@@ -229,7 +222,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
   def setupConnections(self, funcName="connect"):
 
     def setupSelectorConnections():
-      getattr(self.imageVolumeSelector, funcName)('currentNodeChanged(vtkMRMLNode*)', self.onImageVolumeSelected)
+      # TODO: the following line needs to be added once that slot is exposed
+      # getattr(self.segmentEditorWidget.editor, funcName)('onMasterVolumeNodeChanged(vtkMRMLNode*)', self.onImageVolumeSelected)
       getattr(self.measurementReportSelector, funcName)('currentNodeChanged(vtkMRMLNode*)', self.onMeasurementReportSelected)
 
     def setupButtonConnections():
@@ -241,8 +235,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       getattr(self.layoutManager.layoutChanged, funcName)(self.onLayoutChanged)
       getattr(self.layoutManager.layoutChanged, funcName)(self.setupFourUpTableViewConnection)
       getattr(self.calculateAutomaticallyCheckbox.toggled, funcName)(self.onCalcAutomaticallyToggled)
-      getattr(self.segmentEditorWidget.tableWidget.selectionModel().selectionChanged, funcName)(self.onSegmentSelected)
-      getattr(self.tableView.selectionModel().selectionChanged, funcName)(self.onSegmentSelected)
+      getattr(self.segmentEditorWidget.editor.currentSegmentIDChanged, funcName)(self.onCurrentSegmentIDChanged)
+      getattr(self.tableView.selectionModel().selectionChanged, funcName)(self.onSegmentSelectionChanged)
       getattr(self.tabWidget.currentChanged, funcName)(self.onTabWidgetClicked)
 
     setupSelectorConnections()
@@ -267,14 +261,23 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.tabWidget.widget(index).adjustSize()
     # self.parent.resize(self.parent.minimumSizeHint)
 
-  def onSegmentSelected(self, itemSelection):
+  def onCurrentSegmentIDChanged(self, segmentID):
+    if segmentID == '':
+      return
+    selectedRow = self.segmentEditorWidget.getSegmentIndexByID(segmentID)
+    self.onSegmentSelected(selectedRow)
+
+  def onSegmentSelectionChanged(self, itemSelection):
     selectedRow = itemSelection.indexes()[0].row() if len(itemSelection.indexes()) else None
     if selectedRow is not None:
-      self.segmentEditorWidget.tableWidget.selectRow(selectedRow)
-      self.selectRowIfNotSelected(self.segmentEditorWidget.tableWidget, selectedRow)
-      self.selectRowIfNotSelected(self.tableView, selectedRow)
-      self.selectRowIfNotSelected(self.fourUpTableView, selectedRow)
-      self.segmentEditorWidget.onSegmentSelected(selectedRow)
+      self.onSegmentSelected(selectedRow)
+
+  def onSegmentSelected(self, index):
+    segmentID = self.segmentEditorWidget.getSegmentIDByIndex(index)
+    self.segmentEditorWidget.editor.setCurrentSegmentID(segmentID)
+    self.selectRowIfNotSelected(self.tableView, index)
+    self.selectRowIfNotSelected(self.fourUpTableView, index)
+    self.segmentEditorWidget.onSegmentSelected(index)
 
   def selectRowIfNotSelected(self, tableView, selectedRow):
     if tableView:
@@ -287,7 +290,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
   def removeConnections(self):
     self.setupConnections(funcName="disconnect")
     if self.fourUpTableView:
-      self.fourUpTableView.selectionModel().selectionChanged.disconnect(self.onSegmentSelected)
+      self.fourUpTableView.selectionModel().selectionChanged.disconnect(self.onSegmentSelectionChanged)
 
   def onCalcAutomaticallyToggled(self, checked):
     if checked and self.segmentEditorWidget.segmentation is not None:
@@ -304,7 +307,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     if not self.fourUpTableView and self.layoutManager.layout == self.fourUpSliceTableViewLayoutButton.LAYOUT:
       if slicer.app.layoutManager().tableWidget(0):
         self.fourUpTableView = slicer.app.layoutManager().tableWidget(0).tableView()
-        self.fourUpTableView.selectionModel().selectionChanged.connect(self.onSegmentSelected)
+        self.fourUpTableView.selectionModel().selectionChanged.connect(self.onSegmentSelectionChanged)
         self.fourUpTableView.setSelectionBehavior(qt.QTableView.SelectRows)
 
   def onLoadingFinishedEvent(self, caller, event):
@@ -312,9 +315,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
   def onLayoutChanged(self):
     self.onDisplayMeasurementsTable()
-    selectedIndexes = self.segmentEditorWidget.tableWidget.selectedIndexes()
-    if selectedIndexes:
-      self.segmentEditorWidget.tableWidget.selectRow(selectedIndexes[0].row())
+    self.onCurrentSegmentIDChanged(self.segmentEditorWidget.editor.currentSegmentID())
 
   @postCall(refreshUIElementsAvailability)
   def onImageVolumeSelected(self, node):
@@ -324,12 +325,12 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
   @postCall(refreshUIElementsAvailability)
   def onMeasurementReportSelected(self, node):
     self.removeSegmentationObserver()
-    self.imageVolumeSelector.setCurrentNode(None)
+    self.segmentEditorWidget.editor.setMasterVolumeNode(None)
     self.calculateAutomaticallyCheckbox.checked = True
     self.tableNode = node
     self.hideAllSegmentations()
     if node is None:
-      self.segmentationNodeSelector.setCurrentNode(None)
+      self.segmentEditorWidget.editor.setSegmentationNode(None)
       return
 
     segmentationNodeID = self.tableNode.GetAttribute('ReferencedSegmentationNodeID')
@@ -339,13 +340,12 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     else:
       segmentationNode = self.createNewSegmentationNode()
       self.tableNode.SetAttribute('ReferencedSegmentationNodeID', segmentationNode.GetID())
-    self.segmentationNodeSelector.setCurrentNode(segmentationNode)
+    self.segmentEditorWidget.editor.setSegmentationNode(segmentationNode)
     segmentationNode.SetDisplayVisibility(True)
     self.setupSegmentationObservers()
     if self.tableNode.GetAttribute("readonly"):
       logging.debug("Selected measurements report is readonly")
       self.setMeasurementsTable(self.tableNode)
-      self.segmentEditorWidget.table.setReadOnly(True)
       self.segmentEditorWidget.enabled = False
       self.enableReportButtons(False)
       self.calculateAutomaticallyCheckbox.enabled = False
@@ -656,16 +656,8 @@ class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidget
     return self.editor.segmentationNode()
 
   @property
-  def segmentationNodeSelector(self):
-    return self.find("MRMLNodeComboBox_Segmentation")
-
-  @property
   def masterVolumeNode(self):
     return self.editor.masterVolumeNode()
-
-  @property
-  def masterVolumeNodeSelector(self):
-    return self.find("MRMLNodeComboBox_MasterVolume")
 
   @property
   @onExceptionReturnNone
@@ -679,35 +671,12 @@ class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidget
     return self.logic.getAllSegments(self.segmentationNode)
 
   @property
-  def table(self):
-    return self.find("SegmentsTableView")
-
-  @property
-  @onExceptionReturnNone
-  def tableWidget(self):
-    return self.table.tableWidget()
-
-  @onExceptionReturnNone
-  def find(self, objectName):
-    return self.findAll(objectName)[0]
-
-  @property
   def enabled(self):
     return self.editor.enabled
 
   @enabled.setter
   def enabled(self, enabled):
-    self._enabled = enabled
-    for widgetName in ["UndoRedoButtonBox", "OptionsGroupBox", "MaskingGroupBox",
-                       "AddSegmentButton", "RemoveSegmentButton", "CreateSurfaceButton"]:
-      widget = self.find(widgetName)
-      if widget:
-        widget.visible = enabled
-    self.effectGroupBox.visible = enabled
-    self.table.setReadOnly(not enabled)
-
-  def findAll(self, objectName):
-    return slicer.util.findChildren(self.layout.parent(), objectName)
+    self.editor.setReadOnly(not enabled)
 
   def __init__(self, parent):
     SegmentEditorWidget.__init__(self, parent)
@@ -717,10 +686,8 @@ class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidget
     super(QuantitativeReportingSegmentEditorWidget, self).setup()
     if self.developerMode:
       self.reloadCollapsibleButton.hide()
-    self.hideUnwantedEditorUIElements()
-    self.reorganizeEffectButtons()
-    self.changeUndoRedoSizePolicies()
-    self.appendOptionsAndMaskingGroupBoxAtTheEnd()
+    self.editor.segmentationNodeSelectorVisible = False
+    self.editor.setEffectButtonStyle(qt.Qt.ToolButtonIconOnly)
     self.clearSegmentationEditorSelectors()
 
   def onSegmentSelected(self, selectedRow):
@@ -739,39 +706,6 @@ class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidget
   def clearSegmentationEditorSelectors(self):
     self.editor.setSegmentationNode(None)
     self.editor.setMasterVolumeNode(None)
-
-  def hideUnwantedEditorUIElements(self):
-    self.editor.segmentationNodeSelectorVisible = False
-    self.table.parent().hide()
-    self.table.parent().parent().layout().addWidget(self.table)
-    self.table.setMinimumHeight(150)
-    self.table.setMaximumHeight(150)
-    masterVolumeLabel = self.find("label_MasterVolume")
-    if masterVolumeLabel:
-      masterVolumeLabel.hide()
-
-  def reorganizeEffectButtons(self):
-    widget = self.find("EffectsGroupBox")
-    if widget:
-      buttons = [b for b in widget.children() if isinstance(b, qt.QPushButton)]
-      self.effectGroupBox = self.createHLayout(buttons)
-      self.layout.addWidget(self.effectGroupBox)
-      widget.hide()
-
-  def appendOptionsAndMaskingGroupBoxAtTheEnd(self):
-    for widgetName in ["OptionsGroupBox", "MaskingGroupBox"]:
-      widget = self.find(widgetName)
-      self.layout.addWidget(widget)
-
-  def changeUndoRedoSizePolicies(self):
-    undo = self.find("UndoButton")
-    redo = self.find("RedoButton")
-    if undo and redo:
-      undo.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Expanding)
-      redo.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Expanding)
-      undoRedoGroupBox = self.createHLayout([undo, redo])
-      undoRedoGroupBox.objectName = "UndoRedoButtonBox"
-      self.layout.addWidget(undoRedoGroupBox)
 
   def enter(self):
     # overridden because SegmentEditorWidget automatically creates a new Segmentation upon instantiation
@@ -830,6 +764,13 @@ class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidget
     return len(self.logic.getAllSegments(self.segmentationNode)) \
            != len(self.logic.getVisibleSegments(self.segmentationNode))
 
+  def getSegmentIndexByID(self, segmentID):
+    return self.logic.getSegmentIndexByID(self.segmentationNode, segmentID)
+
+  def getSegmentIDByIndex(self, index):
+    return self.logic.getSegmentIDs(self.segmentationNode, False)[index]
+
+
 class QuantitativeReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
 
   def __init__(self, parent=None):
@@ -855,6 +796,10 @@ class QuantitativeReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
   def getVisibleSegments(self, segmentationNode):
     segmentation = segmentationNode.GetSegmentation()
     return [segmentation.GetSegment(segmentID) for segmentID in self.getSegmentIDs(segmentationNode, True)]
+
+  def getSegmentIndexByID(self, segmentationNode, segmentID):
+    segmentIDs = self.getSegmentIDs(segmentationNode, False)
+    return segmentIDs.index(segmentID)
 
   def getSegmentCentroid(self, segmentationNode, segment):
     imageData = vtkSegmentationCore.vtkOrientedImageData()
