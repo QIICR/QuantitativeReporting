@@ -84,7 +84,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
     self.initializeMembers()
     self.setupTabBarNavigation()
-    self.setupWatchbox()
+    self.setupWatchBox()
     self.setupViewSettingsArea()
     self.setupTestArea()
     self.setupSegmentationsArea()
@@ -117,7 +117,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.saveReportButton.enabled = enabled
     self.completeReportButton.enabled = enabled
 
-  def setupWatchbox(self):
+  def setupWatchBox(self):
     self.watchBoxInformation = [
       WatchBoxAttribute('StudyID', 'Study ID: ', DICOMTAGS.STUDY_ID),
       WatchBoxAttribute('PatientName', 'Patient Name: ', DICOMTAGS.PATIENT_NAME),
@@ -221,8 +221,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
   def setupConnections(self, funcName="connect"):
 
     def setupSelectorConnections():
-      # TODO: the following line needs to be added once that slot is exposed
-      # getattr(self.segmentEditorWidget.editor, funcName)('onMasterVolumeNodeChanged(vtkMRMLNode*)', self.onImageVolumeSelected)
+      getattr(self.segmentEditorWidget.editor.masterVolumeNodeChanged, funcName)(self.onImageVolumeSelected)
       getattr(self.measurementReportSelector, funcName)('currentNodeChanged(vtkMRMLNode*)', self.onMeasurementReportSelected)
 
     def setupButtonConnections():
@@ -548,6 +547,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
   def _getSeriesAttributes(self):
     attributes = dict()
+    self.seriesNumber = getattr(self, "seriesNumber", None)
     if not self.seriesNumber:
       self.seriesNumber = ModuleLogicMixin.getDICOMValue(self.watchBox.sourceFile, DICOMTAGS.SERIES_NUMBER)
     self.seriesNumber = "100" if self.seriesNumber in [None,''] else str(int(self.seriesNumber)+100)
