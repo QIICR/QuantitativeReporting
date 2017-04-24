@@ -1,15 +1,24 @@
 import getpass
 import json
+import logging
+import slicer
+import qt
+import ctk
+import vtk
+import os
+
 from datetime import datetime
 
 from slicer.ScriptedLoadableModule import *
 import vtkSegmentationCorePython as vtkSegmentationCore
 
-from SlicerProstateUtils.mixins import *
-from SlicerProstateUtils.decorators import *
-from SlicerProstateUtils.helpers import WatchBoxAttribute, DICOMBasedInformationWatchBox
-from SlicerProstateUtils.constants import DICOMTAGS
-from SlicerProstateUtils.buttons import *
+from SlicerDevelopmentToolboxUtils.mixins import ModuleWidgetMixin, ModuleLogicMixin, ParameterNodeObservationMixin
+from SlicerDevelopmentToolboxUtils.decorators import onExceptionReturnNone, postCall
+from SlicerDevelopmentToolboxUtils.helpers import WatchBoxAttribute
+from SlicerDevelopmentToolboxUtils.widgets import DICOMBasedInformationWatchBox
+from SlicerDevelopmentToolboxUtils.constants import DICOMTAGS
+from SlicerDevelopmentToolboxUtils.buttons import RedSliceLayoutButton, FourUpLayoutButton, FourUpTableViewLayoutButton
+from SlicerDevelopmentToolboxUtils.buttons import CrosshairButton
 
 from SegmentEditor import SegmentEditorWidget
 from SegmentStatistics import SegmentStatisticsLogic
@@ -26,8 +35,8 @@ class QuantitativeReporting(ScriptedLoadableModule):
     ScriptedLoadableModule.__init__(self, parent)
     self.parent.title = "Quantitative Reporting"
     self.parent.categories = ["Informatics", "Quantification", "Segmentation"]
-    self.parent.dependencies = ["SlicerProstate"]
-    self.parent.contributors = ["Christian Herz (SPL), Andrey Fedorov (SPL, BWH), "
+    self.parent.dependencies = ["SlicerDevelopmentToolbox"]
+    self.parent.contributors = ["Christian Herz (SPL, BWH), Andrey Fedorov (SPL, BWH), "
                                 "Csaba Pinter (Queen's), Andras Lasso (Queen's), Steve Pieper (Isomics)"]
     self.parent.helpText = """
     Segmentation-based measurements with DICOM-based import and export of the results.
