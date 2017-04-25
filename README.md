@@ -5,5 +5,5 @@ measurements with DICOM-based import and export of the results.
 
 ![](Resources/Screenshots/QuantitativeReporting-screenshot.jpg)
 
-Documentation stub: https://www.slicer.org/wiki/Documentation/Nightly/Extensions/QuantitativeReporting
+Documentation: https://qiicr.gitbooks.io/quantitativereporting-guide/content/
 
