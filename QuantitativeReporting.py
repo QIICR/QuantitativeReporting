@@ -385,11 +385,14 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       segNode.AddObserver(vtkSegmentationCore.vtkSegmentation.SegmentAdded, self.onSegmentAdded))
 
   def initializeWatchBox(self, node):
-    try:
-      dicomFileName = node.GetStorageNode().GetFileName()
-      self.watchBox.sourceFile = dicomFileName if os.path.exists(dicomFileName) else None
-    except AttributeError:
+    if not node:
       self.watchBox.sourceFile = None
+      return
+    dicomFileName = slicer.dicomDatabase.fileForInstance(node.GetAttribute("DICOM.instanceUIDs").split(" ")[0])
+    if not dicomFileName or not os.path.exists(dicomFileName):
+      self.watchBox.sourceFile = None
+      raise ValueError("Cannot retrieve DICOM information from selected master volume node.")
+    self.watchBox.sourceFile = dicomFileName
 
   def createNewSegmentationNode(self):
     segNode = slicer.vtkMRMLSegmentationNode()
