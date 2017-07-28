@@ -7,7 +7,6 @@ import logging
 #
 # This is the plugin to handle translation of DICOM SEG objects
 #
-
 class DICOMSegmentationPluginClass(DICOMPluginBase):
 
   def __init__(self):
@@ -25,7 +24,6 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
     return loadables
 
   def examineFiles(self,files):
-
     """ Returns a list of DICOMLoadable instances
     corresponding to ways of interpreting the
     files parameter.
@@ -210,7 +208,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
           labelNode.SetAttribute("ColorG", str(rgb[1]))
           labelNode.SetAttribute("ColorB", str(rgb[2]))
 
-          # create Subject hierarchy nodes for the loaded series
+          # Create subject hierarchy for the loaded series
           self.addSeriesInSubjectHierarchy(loadable, labelNode)
 
       metaFile.close()
@@ -256,14 +254,14 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
 
     return True
 
-  def examineForExport(self, node):
-
+  def examineForExport(self, subjectHierarchyItemID):
     exportable = None
 
-    if node.GetAssociatedNode() and node.GetAssociatedNode().IsA('vtkMRMLSegmentationNode'):
-
+    shNode = slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(slicer.mrmlScene)
+    dataNode = shNode.GetItemDataNode(subjectHierarchyItemID)
+    if dataNode and dataNode.IsA('vtkMRMLSegmentationNode'):
       # Check to make sure all referenced UIDs exist in the database.
-      instanceUIDs = node.GetAttribute("DICOM.ReferencedInstanceUIDs").split()
+      instanceUIDs = shNode.GetItemAttribute(subjectHierarchyItemID, "DICOM.ReferencedInstanceUIDs").split()
       if instanceUIDs == "":
           return []
 
@@ -279,7 +277,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
     if exportable is not None:
       exportable.name = self.loadType
       exportable.tooltip = "Create DICOM files from segmentation"
-      exportable.nodeID = node.GetID()
+      exportable.subjectHierarchyItemID = subjectHierarchyItemID
       exportable.pluginClass = self.__module__
       # Define common required tags and default values
       exportable.setTag('SeriesDescription', 'No series description')
@@ -289,7 +287,6 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
     return []
 
   def export(self, exportables):
-
     exportablesCollection = vtk.vtkCollection()
     for exportable in exportables:
       vtkExportable = slicer.vtkSlicerDICOMExportable()
@@ -306,14 +303,14 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
     """
 
     if hasattr(slicer.modules, 'segmentations'):
-
       exportable = exportablesCollection.GetItemAsObject(0)
-      subjectHierarchyNode = slicer.mrmlScene.GetNodeByID(exportable.GetNodeID())
+      shNode = slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(slicer.mrmlScene)
+      subjectHierarchyItemID = exportable.GetSubjectHierarchyItemID()
 
-      instanceUIDs = subjectHierarchyNode.GetAttribute("DICOM.ReferencedInstanceUIDs").split()
+      instanceUIDs = shNode.GetItemAttribute(subjectHierarchyItemID, "DICOM.ReferencedInstanceUIDs").split()
 
       if instanceUIDs == "":
-        raise Exception("Editor master node does not have DICOM information")
+        raise Exception("Segment Editor master volume node does not have DICOM information")
 
       # get the list of source DICOM files
       inputDICOMImageFileNames = ""
@@ -329,22 +326,15 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
       writer = vtkITK.vtkITKImageWriter()
       rasToIJKMatrix = vtk.vtkMatrix4x4()
 
-      import vtkSegmentationCore
-      import vtkSlicerSegmentationsModuleLogic
+      import vtkSegmentationCorePython as vtkSegmentationCore
+      import vtkSlicerSegmentationsModuleLogicPython as vtkSlicerSegmentationsModuleLogic
       logic = vtkSlicerSegmentationsModuleLogic.vtkSlicerSegmentationsModuleLogic()
 
-      segmentationNode = subjectHierarchyNode.GetAssociatedNode()
-
-      mergedSegmentationImageData = segmentationNode.GetImageData()
-      mergedSegmentationLabelmapNode = slicer.vtkMRMLLabelMapVolumeNode()
-
-      segmentationNode.GetRASToIJKMatrix(rasToIJKMatrix)
-      mergedSegmentationLabelmapNode.SetRASToIJKMatrix(rasToIJKMatrix)
-      mergedSegmentationLabelmapNode.SetAndObserveImageData(mergedSegmentationImageData)
-      mergedSegmentationOrientedImageData = logic.CreateOrientedImageDataFromVolumeNode(mergedSegmentationLabelmapNode)
+      segmentationNode = shNode.GetItemDataNode(subjectHierarchyItemID)
+      mergedSegmentationOrientedImageData = vtkSegmentationCore.vtkOrientedImageData()
+      segmentationNode.GenerateMergedLabelmapForAllSegments(mergedSegmentationOrientedImageData)
 
       segmentation = segmentationNode.GetSegmentation()
-
       segmentIDs = vtk.vtkStringArray()
       segmentation.GetSegmentIDs(segmentIDs)
       segmentationName = segmentationNode.GetName()
@@ -377,12 +367,11 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
       inputSegmentationsFileNames = inputSegmentationsFileNames[:-1] # strip last comma
 
       # save the per-structure volumes label attributes
-      colorNode = segmentationNode.GetNodeReference('colorNodeID')
-
-      terminologyName = colorNode.GetAttribute("TerminologyName")
-      colorLogic = slicer.modules.colors.logic()
-      if not terminologyName or not colorLogic:
-        raise Exception("No terminology or color logic - cannot export")
+      terminologyName = ''
+      terminologiesLogic = slicer.modules.terminologies.logic()
+      terminologyWidget = slicer.qSlicerTerminologyNavigatorWidget() # TODO: Even though a static method is called, an instance is needed for some reason
+      if not terminologiesLogic or not terminologyWidget:
+        raise Exception("No terminology logic or widget - cannot export")
 
       inputLabelAttributesFileNames = ""
 
@@ -392,40 +381,65 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
 
         segmentName = segment.GetName()
         structureName = segmentName[len(segmentationName)+1:-1*len('-label')]
-        labelIndex = colorNode.GetColorIndexByName( structureName )
+        
+        segmentTerminologyStr = vtk.mutable('')
+        segment.GetTag(vtkSegmentationCore.vtkSegment.GetTerminologyEntryTagName(),segmentTerminologyStr)
+        terminologyEntry = slicer.vtkSlicerTerminologyEntry()
+        terminologyWidget.deserializeTerminologyEntry(segmentTerminologyStr, terminologyEntry)
 
-        rgbColor = [0,]*4
-        colorNode.GetColor(labelIndex, rgbColor)
-        rgbColor = map(lambda e: e*255., rgbColor)
+        currentTerminologyName = terminologyEntry.GetTerminologyContextName()
+        if terminologyName == '':
+          terminologyName = currentTerminologyName
+        elif terminologyName != currentTerminologyName:
+          raise Exception("Terminology context names within the segmentation do not match - cannot export")
+
+        rgbColor = terminologyEntry.GetTypeObject().GetRecommendedDisplayRGBValue()
 
         # get the attributes and convert to format CodeValue,CodeMeaning,CodingSchemeDesignator
         # or empty strings if not defined
-        propertyCategoryWithColons = colorLogic.GetSegmentedPropertyCategory(labelIndex, terminologyName)
-        if propertyCategoryWithColons == '':
-          logging.debug ('ERROR: no segmented property category found for label ',str(labelIndex))
-          # Try setting a default as this section is required
-          propertyCategory = "C94970,NCIt,Reference Region"
-        else:
-          propertyCategory = propertyCategoryWithColons.replace(':',',')
 
-        propertyTypeWithColons = colorLogic.GetSegmentedPropertyType(labelIndex, terminologyName)
-        propertyType = propertyTypeWithColons.replace(':',',')
+        propertyCategory = "C94970,NCIt,Reference Region" # Set a default as this section is required
+        if terminologyEntry.GetCategoryObject() and terminologyEntry.GetCategoryObject().GetCodeValue():
+          propertyCategory = str(terminologyEntry.GetCategoryObject().GetCodeValue()) \
+            + ',' + str(terminologyEntry.GetCategoryObject().GetCodingScheme()) \
+            + ',' + str(terminologyEntry.GetCategoryObject().GetCodeMeaning())
 
-        propertyTypeModifierWithColons = colorLogic.GetSegmentedPropertyTypeModifier(labelIndex, terminologyName)
-        propertyTypeModifier = propertyTypeModifierWithColons.replace(':',',')
+        propertyType = ""
+        if terminologyEntry.GetTypeObject() and terminologyEntry.GetTypeObject().GetCodeValue():
+          propertyType = str(terminologyEntry.GetTypeObject().GetCodeValue()) \
+            + ',' + str(terminologyEntry.GetTypeObject().GetCodingScheme()) \
+            + ',' + str(terminologyEntry.GetTypeObject().GetCodeMeaning())
 
-        anatomicRegionWithColons = colorLogic.GetAnatomicRegion(labelIndex, terminologyName)
-        anatomicRegion = anatomicRegionWithColons.replace(':',',')
+        propertyTypeModifier = ""
+        if terminologyEntry.GetTypeModifierObject() and terminologyEntry.GetTypeModifierObject().GetCodeValue():
+          propertyTypeModifier = str(terminologyEntry.GetTypeModifierObject().GetCodeValue()) \
+            + ',' + str(terminologyEntry.GetTypeModifierObject().GetCodingScheme()) \
+            + ',' + str(terminologyEntry.GetTypeModifierObject().GetCodeMeaning())
 
-        anatomicRegionModifierWithColons = colorLogic.GetAnatomicRegionModifier(labelIndex, terminologyName)
-        anatomicRegionModifier = anatomicRegionModifierWithColons.replace(':',',')
+        anatomicRegion = ""
+        if terminologyEntry.GetAnatomicRegionObject() and terminologyEntry.GetAnatomicRegionObject().GetCodeValue():
+          anatomicRegion = str(terminologyEntry.GetAnatomicRegionObject().GetCodeValue()) \
+            + ',' + str(terminologyEntry.GetAnatomicRegionObject().GetCodingScheme()) \
+            + ',' + str(terminologyEntry.GetAnatomicRegionObject().GetCodeMeaning())
+
+        anatomicRegionModifier = ""
+        if terminologyEntry.GetAnatomicRegionModifierObject() and terminologyEntry.GetAnatomicRegionModifierObject().GetCodeValue():
+          anatomicRegionModifier = str(terminologyEntry.GetAnatomicRegionModifierObject().GetCodeValue()) \
+            + ',' + str(terminologyEntry.GetAnatomicRegionModifierObject().GetCodingScheme()) \
+            + ',' + str(terminologyEntry.GetAnatomicRegionModifierObject().GetCodeMeaning())
+
+        print('ZZZ propertyCategory: ' + propertyCategory)
+        print('ZZZ propertyType: ' + propertyType)
+        print('ZZZ propertyTypeModifier: ' + propertyTypeModifier)
+        print('ZZZ anatomicRegion: ' + anatomicRegion)
+        print('ZZZ anatomicRegionModifier: ' + anatomicRegionModifier)
 
         structureFileName = structureName + str(random.randint(0,vtk.VTK_INT_MAX)) + ".info"
         filePath = os.path.join(slicer.app.temporaryPath, structureFileName)
 
         # EncodeSEG is expecting a file of format:
         # labelNum;SegmentedPropertyCategory:codeValue,codeScheme,codeMeaning;SegmentedPropertyType:v,m,s etc
-        attributes = "%d" % labelIndex
+        attributes = "%d" % i
         attributes += ";SegmentedPropertyCategory:"+propertyCategory
         if propertyType != "":
           attributes += ";SegmentedPropertyType:" + propertyType
@@ -437,7 +451,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
           attributes += ";AnatomicRegionModifier:" + anatomicRegionModifier
         attributes += ";SegmentAlgorithmType:AUTOMATIC"
         attributes += ";SegmentAlgorithmName:SlicerSelfTest"
-        attributes += ";RecommendedDisplayRGBValue:%g,%g,%g" % tuple(rgbColor[:-1])
+        attributes += ";RecommendedDisplayRGBValue:%g,%g,%g" % rgbColor
         fp = open(filePath, "w")
         fp.write(attributes)
         fp.close()
