@@ -24,6 +24,7 @@ from SlicerDevelopmentToolboxUtils.buttons import CrosshairButton
 from SegmentEditor import SegmentEditorWidget
 from SegmentStatistics import SegmentStatisticsLogic, SegmentStatisticsParameterEditorDialog
 from SegmentStatisticsCalculators import ScalarVolumeSegmentStatisticsCalculator
+from SegmentStatisticsCalculators import SegmentStatisticsCalculatorBase
 
 from DICOMLib.DICOMWidgets import DICOMDetailsWidget
 
@@ -82,8 +83,9 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
         pass
 
   def refreshUIElementsAvailability(self):
-    self.segmentEditorWidget.editor.masterVolumeNodeSelectorVisible = self.measurementReportSelector.currentNode() is not None \
-                                       and not self.getReferencedVolumeFromSegmentationNode(self.segmentEditorWidget.segmentationNode)
+    self.segmentEditorWidget.editor.masterVolumeNodeSelectorVisible = \
+      self.measurementReportSelector.currentNode() is not None and \
+      not self.getReferencedVolumeFromSegmentationNode(self.segmentEditorWidget.segmentationNode)
     self.measurementsGroupBox.enabled = len(self.segmentEditorWidget.segments)
     if not self.tableNode:
       self.enableReportButtons(False)
@@ -174,10 +176,12 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     dicomWidget.detailsPopup.loadCheckedLoadables()
 
   def setupSelectionArea(self):
-    self.segmentEditorWidget.editor.masterVolumeNodeSelectorAddAttribute("vtkMRMLScalarVolumeNode", "DICOM.instanceUIDs", None)
+    self.segmentEditorWidget.editor.masterVolumeNodeSelectorAddAttribute("vtkMRMLScalarVolumeNode",
+                                                                         "DICOM.instanceUIDs", None)
     self.measurementReportSelector = self.createComboBox(nodeTypes=["vtkMRMLTableNode", ""], showChildNodeTypes=False,
                                                          addEnabled=True, removeEnabled=True, noneEnabled=True,
-                                                         selectNodeUponCreation=True, toolTip="Select measurement report")
+                                                         selectNodeUponCreation=True,
+                                                         toolTip="Select measurement report")
     self.measurementReportSelector.addAttribute("vtkMRMLTableNode", "QuantitativeReporting", "Yes")
 
     self.selectionAreaWidget = qt.QWidget()
@@ -251,14 +255,16 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.saveReportButton = self.createButton("Save Report")
     self.completeReportButton = self.createButton("Complete Report")
     self.enableReportButtons(False)
-    self.mainModuleWidgetLayout.addWidget(self.createHLayout([self.calculateMeasurementsButton, self.calculateAutomaticallyCheckbox]))
+    self.mainModuleWidgetLayout.addWidget(self.createHLayout([self.calculateMeasurementsButton,
+                                                              self.calculateAutomaticallyCheckbox]))
     self.mainModuleWidgetLayout.addWidget(self.createHLayout([self.saveReportButton, self.completeReportButton]))
 
   def setupConnections(self, funcName="connect"):
 
     def setupSelectorConnections():
       getattr(self.segmentEditorWidget.editor.masterVolumeNodeChanged, funcName)(self.onImageVolumeSelected)
-      getattr(self.measurementReportSelector, funcName)('currentNodeChanged(vtkMRMLNode*)', self.onMeasurementReportSelected)
+      getattr(self.measurementReportSelector, funcName)('currentNodeChanged(vtkMRMLNode*)',
+                                                        self.onMeasurementReportSelected)
 
     def setupButtonConnections():
       getattr(self.saveReportButton.clicked, funcName)(self.onSaveReportButtonClicked)
@@ -550,12 +556,14 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     data = self._getSeriesAttributes()
     data["SeriesDescription"] = "Measurement Report"
 
-    compositeContextDataDir, data["compositeContext"] = os.path.dirname(referencedSegmentation), [os.path.basename(referencedSegmentation)]
+    compositeContextDataDir, data["compositeContext"] = os.path.dirname(referencedSegmentation), \
+                                                        [os.path.basename(referencedSegmentation)]
     imageLibraryDataDir, data["imageLibrary"] = self.getDICOMFileList(self.segmentEditorWidget.masterVolumeNode)
     data.update(self._getAdditionalSRInformation(completed))
 
-    data["Measurements"] = self.segmentEditorWidget.logic.segmentStatisticsLogic.generateJSON4DcmSR(referencedSegmentation,
-                                                                                                    self.segmentEditorWidget.masterVolumeNode)
+    data["Measurements"] = \
+      self.segmentEditorWidget.logic.segmentStatisticsLogic.generateJSON4DcmSR(referencedSegmentation,
+                                                                               self.segmentEditorWidget.masterVolumeNode)
     logging.debug("DICOM SR Metadata output:")
     logging.debug(json.dumps(data, indent=2, separators=(',', ': ')))
 
@@ -980,11 +988,12 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
                                        termTypeObject.GetCodeMeaning()])
 
   def getJSONFromVtkSlicerTerminology(self, termTypeObject):
-    return self._createCodeSequence(termTypeObject.GetCodeValue(), termTypeObject.GetCodingScheme(), termTypeObject.GetCodeMeaning())
+    return SegmentStatisticsCalculatorBase.getDICOMTriplet(termTypeObject.GetCodeValue(),
+                                                           termTypeObject.GetCodingSchemeDesignator(),
+                                                           termTypeObject.GetCodeMeaning())
 
   def generateJSON4DcmSR(self, dcmSegmentationFile, sourceVolumeNode):
     measurements = []
-    modality = ModuleLogicMixin.getDICOMValue(sourceVolumeNode, "0008,0060")
 
     sourceImageSeriesUID = ModuleLogicMixin.getDICOMValue(sourceVolumeNode, "0020,000E")
     logging.debug("SourceImageSeriesUID: {}".format(sourceImageSeriesUID))
@@ -1008,69 +1017,33 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
       anatomicContext = self.createJSONFromAnatomicContext(terminologyEntry)
       if anatomicContext.has_key("AnatomicRegionSequence"):
         data["FindingSite"] = anatomicContext["AnatomicRegionSequence"]
-      data["measurementItems"] = self.createMeasurementItemsForLabelValue(segmentID, modality)
+      data["measurementItems"] = self.createMeasurementItemsForLabelValue(segmentID)
       measurements.append(data)
 
     return measurements
 
-  def createMeasurementItemsForLabelValue(self, segmentValue, modality):
+  def createMeasurementItemsForLabelValue(self, segmentValue):
     measurementItems = []
     for key in [k for k in self.getNonEmptyKeys() if k not in ["Segment", "Labelmap.voxel_count"]]:
-      try:
+      measurementInfo = self.getMeasurementInfo(key)
+      if measurementInfo:
         item = dict()
         item["value"] = str(self.statistics[segmentValue, key])
-        item["quantity"] = self.getQuantityCodeSequenceForKey(key)
-        item["units"] = self.getUnitsCodeSequenceForKey(key, modality)
-        derivationModifier = self.getDerivationModifierCodeSequenceForKey(key)
-        if derivationModifier:
-          item["derivationModifier"] = derivationModifier
+        item["quantity"] = self._createCodeSequence(measurementInfo["DICOM.QuantityCode"])
+        item["units"] = self._createCodeSequence(measurementInfo["DICOM.UnitsCode"])
+        if measurementInfo.has_key("DICOM.UnitsCode"):
+          item["derivationModifier"] = self._createCodeSequence(measurementInfo["DICOM.UnitsCode"])
         measurementItems.append(item)
-      except ValueError as exc:
-        logging.info(exc.message)
-        continue
+      else:
+        logging.info("No measurements found for %s" % key)
     return measurementItems
 
-  def getQuantityCodeSequenceForKey(self, key, modality="CT"):
-    if key in ["Scalar Volume.min", "Scalar Volume.max", "Scalar Volume.mean", "Scalar Volume.stdev"]:
-      if modality == "CT":
-        return self._createCodeSequence("122713", "DCM", "Attenuation Coefficient")
-      elif modality == "MR":
-        return self._createCodeSequence("110852", "DCM", "MR signal intensity")
-    elif key in ["Scalar Volume.volume_cc", "Scalar Volume.volume_mm3"]:
-      return self._createCodeSequence("G-D705", "SRT", "Volume")
-    raise ValueError("No matching quantity code sequence found for key {}".format(key))
-
-  def getUnitsCodeSequenceForKey(self, key, modality="CT"):
-    keys = ["Scalar Volume.min", "Scalar Volume.max", "Scalar Volume.mean", "Scalar Volume.stdev"]
-    if key in keys:
-      if modality == "CT":
-        return self._createCodeSequence("[hnsf'U]", "UCUM", "Hounsfield unit")
-      elif modality == "MR":
-        return self._createCodeSequence("1", "UCUM", "no units")
-      raise ValueError("No matching units code sequence found for key {}".format(key))
-    elif key == "Scalar Volume.volume_mm3":
-      return self._createCodeSequence("mm3", "UCUM", "cubic millimeter")
-    elif key == "Scalar Volume.volume_cc":
-      return self._createCodeSequence("cm3", "UCUM", "cubic centimeter")
-    raise ValueError("No matching unit code sequence found for key {}".format(key))
-
-  def getDerivationModifierCodeSequenceForKey(self, key):
-    keys = ["Scalar Volume.min", "Scalar Volume.max", "Scalar Volume.mean", "Scalar Volume.stdev"]
-    if key in keys:
-      if key == keys[0]:
-        return self._createCodeSequence("R-404FB", "SRT", "Minimum")
-      elif key == keys[1]:
-        return self._createCodeSequence("G-A437", "SRT", "Maximum")
-      elif key == keys[2]:
-        return self._createCodeSequence("R-00317", "SRT", "Mean")
-      else:
-        return self._createCodeSequence("R-10047", "SRT", "Standard Deviation")
-    raise ValueError("No matching derivation modifier code sequence found for key {}".format(key))
-
-  def _createCodeSequence(self, value, designator, meaning):
-    return {"CodeValue": value,
-            "CodingSchemeDesignator": designator,
-            "CodeMeaning": meaning}
+  def _createCodeSequence(self, vtkStringifiedCodedEntry):
+    codeSequence = dict()
+    for each in vtkStringifiedCodedEntry.split('|'):
+      key, value = each.split(":")
+      codeSequence[key] = value
+    return codeSequence
 
   def checkTerminologyOfSegments(self):
     for segmentID in self.statistics["SegmentIDs"]:
