@@ -1031,8 +1031,8 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
         item["value"] = str(self.statistics[segmentValue, key])
         item["quantity"] = self._createCodeSequence(measurementInfo["DICOM.QuantityCode"])
         item["units"] = self._createCodeSequence(measurementInfo["DICOM.UnitsCode"])
-        if measurementInfo.has_key("DICOM.UnitsCode"):
-          item["derivationModifier"] = self._createCodeSequence(measurementInfo["DICOM.UnitsCode"])
+        if measurementInfo.has_key("DICOM.DerivationCode"):
+          item["derivationModifier"] = self._createCodeSequence(measurementInfo["DICOM.DerivationCode"])
         measurementItems.append(item)
       else:
         logging.info("No measurements found for %s" % key)
