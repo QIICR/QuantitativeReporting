@@ -229,9 +229,9 @@ class DICOMTID1500PluginClass(DICOMPluginBase):
         col = table.AddColumn()
 
         if "derivationModifier" in measurementItem.keys():
-          col.SetName(SegmentStatisticsDICOMMeaningMapping.getKeyForValue(measurementItem["derivationModifier"]["CodeMeaning"]))
+          col.SetName(measurementItem["derivationModifier"]["CodeMeaning"])
         else:
-          col.SetName(SegmentStatisticsDICOMMeaningMapping.getKeyForValue(measurementItem["quantity"]["CodeMeaning"] +" "+measurementItem["units"]["CodeValue"]))
+          col.SetName("%s %s" %(measurementItem["quantity"]["CodeMeaning"], measurementItem["units"]["CodeValue"]))
 
       for measurement in data["Measurements"]:
         name = measurement["TrackingIdentifier"]
@@ -245,33 +245,6 @@ class DICOMTID1500PluginClass(DICOMPluginBase):
       slicer.app.applicationLogic().GetSelectionNode().SetReferenceActiveTableID(table.GetID())
       slicer.app.applicationLogic().PropagateTableSelection()
     return table
-
-
-class SegmentStatisticsDICOMMeaningMapping(object):
-
-  mapping = {"GS min": "Minimum",
-             "GS max": "Maximum",
-             "GS mean": "Mean",
-             "GS stdev": "Standard Deviation",
-             "GS volume cc": ("cm3", "Volume cm3"),
-             "GS volume mm3": ("mm3", "Volume mm3")}
-
-  @staticmethod
-  def getValueForKey(name, longVersion=False):
-    try:
-      value = SegmentStatisticsDICOMMeaningMapping.mapping[name]
-      if type(value) is tuple:
-        return value[1 if longVersion else 0]
-      return value
-    except KeyError:
-      return name
-
-  @staticmethod
-  def getKeyForValue(name):
-    for index, value in enumerate(SegmentStatisticsDICOMMeaningMapping.mapping.values()):
-      if name in value:
-        return SegmentStatisticsDICOMMeaningMapping.mapping.keys()[index]
-    return name
 
 
 class DICOMTID1500Plugin:

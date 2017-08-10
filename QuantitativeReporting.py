@@ -86,7 +86,6 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.segmentEditorWidget.editor.masterVolumeNodeSelectorVisible = \
       self.measurementReportSelector.currentNode() is not None and \
       not self.getReferencedVolumeFromSegmentationNode(self.segmentEditorWidget.segmentationNode)
-    self.measurementsGroupBox.enabled = len(self.segmentEditorWidget.segments)
     if not self.tableNode:
       self.enableReportButtons(False)
       self.updateMeasurementsTable(triggered=True)
@@ -289,6 +288,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     pNode = self.segmentEditorWidget.logic.segmentStatisticsLogic.getParameterNode()
     if pNode:
       SegmentStatisticsParameterEditorDialog.editParameters(pNode,calculatorName)
+      self.updateMeasurementsTable(triggered=True)
 
   def onTabWidgetClicked(self, currentIndex):
     if currentIndex == 0:
@@ -467,7 +467,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.onDisplayMeasurementsTable()
 
   def onDisplayMeasurementsTable(self):
-    self.measurementsGroupBox.visible = not self.layoutManager.layout == self.fourUpSliceTableViewLayoutButton.LAYOUT
+    self.tableView.visible = not self.layoutManager.layout == self.fourUpSliceTableViewLayoutButton.LAYOUT
     if self.layoutManager.layout == self.fourUpSliceTableViewLayoutButton.LAYOUT and self.tableNode:
       slicer.app.applicationLogic().GetSelectionNode().SetReferenceActiveTableID(self.tableNode.GetID())
       slicer.app.applicationLogic().PropagateTableSelection()
@@ -518,7 +518,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
     segmentFiles = []
     for segmentID in segmentStatisticsLogic.statistics["SegmentIDs"]:
-      if not segmentStatisticsLogic.statistics[segmentID, "Labelmap.voxel_count"] > 0:
+      if not segmentStatisticsLogic.isSegmentValid(segmentID):
         continue
       segmentLabelmap = self.segmentEditorWidget.createLabelNodeFromSegment(segmentID)
       filename = os.path.join(self.tempDir, "{}.nrrd".format(segmentLabelmap.GetName()))
@@ -734,11 +734,6 @@ class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidget
     SegmentEditorWidget.__init__(self, parent)
     self.logic = QuantitativeReportingSegmentEditorLogic()
 
-  def onEditParameters(self, calculatorName=None):
-    """Open dialog box to edit calculator's parameters"""
-    if self.parameterNodeSelector.currentNode():
-      SegmentStatisticsParameterEditorDialog.editParameters(self.parameterNodeSelector.currentNode(), calculatorName)
-
   def setup(self):
     super(QuantitativeReportingSegmentEditorWidget, self).setup()
     if self.developerMode:
@@ -920,13 +915,13 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
 
   def filterEmptySegments(self):
     return [self.segmentationNode.GetSegmentation().GetSegment(s) for s in self.statistics["SegmentIDs"]
-            if self.statistics[s, "Labelmap.voxel_count"] > 0]
+            if self.isSegmentValid(s)]
 
   def generateJSON4DcmSEGExport(self):
     self.checkTerminologyOfSegments()
     segmentsData = []
     for segmentID in self.statistics["SegmentIDs"]:
-      if self.statistics[segmentID, "Labelmap.voxel_count"] == 0:
+      if not self.isSegmentValid(segmentID):
         continue
       segmentData = dict()
       segmentData["labelID"] = 1
@@ -946,6 +941,14 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
     if not len(segmentsData):
       raise ValueError("No segments with pixel data found.")
     return segmentsData
+
+  def isSegmentValid(self, segmentID):
+    for key in self.getNonEmptyKeys():
+      if isinstance(self.statistics[segmentID, key], str):
+        continue
+      if self.statistics[segmentID, key] != 0:
+        return True
+    return False
 
   def createJSONFromTerminologyContext(self, terminologyEntry):
 
@@ -1001,7 +1004,7 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
     logging.debug("SegmentationSOPInstanceUID: {}".format(segmentationSOPInstanceUID))
 
     for segmentID in self.statistics["SegmentIDs"]:
-      if self.statistics[segmentID, "Labelmap.voxel_count"] == 0:
+      if not self.isSegmentValid(segmentID):
         continue
 
       data = dict()
@@ -1024,7 +1027,7 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
 
   def createMeasurementItemsForLabelValue(self, segmentValue):
     measurementItems = []
-    for key in [k for k in self.getNonEmptyKeys() if k not in ["Segment", "Labelmap.voxel_count"]]:
+    for key in self.getNonEmptyKeys():
       measurementInfo = self.getMeasurementInfo(key)
       if measurementInfo:
         item = dict()
@@ -1034,8 +1037,6 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
         if measurementInfo.has_key("DICOM.DerivationCode"):
           item["derivationModifier"] = self._createCodeSequence(measurementInfo["DICOM.DerivationCode"])
         measurementItems.append(item)
-      else:
-        logging.info("No measurements found for %s" % key)
     return measurementItems
 
   def _createCodeSequence(self, vtkStringifiedCodedEntry):
