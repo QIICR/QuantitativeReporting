@@ -228,10 +228,20 @@ class DICOMTID1500PluginClass(DICOMPluginBase):
       for measurementItem in measurement["measurementItems"]:
         col = table.AddColumn()
 
+        unit = measurementItem["units"]["CodeValue"]
+        unit = unit if unit != "1" else measurementItem["units"]["CodeMeaning"]
+
         if "derivationModifier" in measurementItem.keys():
-          col.SetName(measurementItem["derivationModifier"]["CodeMeaning"])
+          description = columnName = measurementItem["derivationModifier"]["CodeMeaning"]
         else:
-          col.SetName("%s %s" %(measurementItem["quantity"]["CodeMeaning"], measurementItem["units"]["CodeValue"]))
+          description = measurementItem["quantity"]["CodeMeaning"]
+          columnName = "%s %s" % (description, unit)
+          description = "%s in %s" % (description, unit)
+
+        col.SetName(columnName)
+        table.SetColumnLongName(columnName, columnName)
+        table.SetColumnUnitLabel(columnName, unit)
+        table.SetColumnDescription(columnName, str(description))
 
       for measurement in data["Measurements"]:
         name = measurement["TrackingIdentifier"]
