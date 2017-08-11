@@ -960,10 +960,12 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
     return segmentData
 
   def isTerminologyInformationValid(self, termTypeObject):
-    return all(t is not None for t in [termTypeObject.GetCodeValue(), termTypeObject.GetCodingScheme(), termTypeObject.GetCodeMeaning()])
+    return all(t is not None for t in [termTypeObject.GetCodeValue(), termTypeObject.GetCodingSchemeDesignator(),
+                                       termTypeObject.GetCodeMeaning()])
 
   def getJSONFromVtkSlicerTerminology(self, termTypeObject):
-    return self.createCodeSequence(termTypeObject.GetCodeValue(), termTypeObject.GetCodingScheme(), termTypeObject.GetCodeMeaning())
+    return self.createCodeSequence(termTypeObject.GetCodeValue(), termTypeObject.GetCodingSchemeDesignator(),
+                                   termTypeObject.GetCodeMeaning())
 
   def generateJSON4DcmSR(self, dcmSegmentationFile, sourceVolumeNode):
     measurements = []
