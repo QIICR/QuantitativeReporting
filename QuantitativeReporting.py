@@ -15,7 +15,8 @@ import vtkSegmentationCorePython as vtkSegmentationCore
 from SlicerDevelopmentToolboxUtils.mixins import ModuleWidgetMixin, ModuleLogicMixin, ParameterNodeObservationMixin
 from SlicerDevelopmentToolboxUtils.decorators import onExceptionReturnNone, postCall
 from SlicerDevelopmentToolboxUtils.helpers import WatchBoxAttribute
-from SlicerDevelopmentToolboxUtils.widgets import DICOMBasedInformationWatchBox
+from SlicerDevelopmentToolboxUtils.widgets import DICOMBasedInformationWatchBox, ImportLabelMapIntoSegmentationWidget
+from SlicerDevelopmentToolboxUtils.widgets import CopySegmentBetweenSegmentationsWidget
 from SlicerDevelopmentToolboxUtils.constants import DICOMTAGS
 from SlicerDevelopmentToolboxUtils.buttons import RedSliceLayoutButton, FourUpLayoutButton, FourUpTableViewLayoutButton
 from SlicerDevelopmentToolboxUtils.buttons import CrosshairButton
@@ -98,6 +99,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.setupTestArea()
     self.setupSegmentationsArea()
     self.setupSelectionArea()
+    self.setupImportArea()
+    self.mainModuleWidgetLayout.addWidget(self.segmentationGroupBox)
     self.setupMeasurementsArea()
     self.setupActionButtons()
 
@@ -183,7 +186,28 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.selectionAreaWidgetLayout.addWidget(qt.QLabel("Measurement report"), 0, 0)
     self.selectionAreaWidgetLayout.addWidget(self.measurementReportSelector, 0, 1)
     self.mainModuleWidgetLayout.addWidget(self.selectionAreaWidget)
-    self.mainModuleWidgetLayout.addWidget(self.segmentationGroupBox)
+
+  def setupImportArea(self):
+    self.importCollapsibleButton = ctk.ctkCollapsibleButton()
+    self.importCollapsibleButton.collapsed = True
+    self.importCollapsibleButton.text = "Import segments (segmentation/labelmap)"
+    self.importCollapsibleLayout= qt.QGridLayout(self.importCollapsibleButton)
+
+    self.importSegmentsGroupBox = qt.QGroupBox("Copy segments between segmentations")
+    self.importSegmentsGroupBox.setLayout(qt.QGridLayout())
+    self.segmentImportWidget = CopySegmentBetweenSegmentationsWidget()
+    self.segmentImportWidget.currentSegmentationNodeSelectorEnabled = False
+    self.importSegmentsGroupBox.layout().addWidget(self.segmentImportWidget)
+    self.importCollapsibleLayout.addWidget(self.importSegmentsGroupBox)
+
+    self.importLabelMapGroupBox = qt.QGroupBox("Import from labelmap")
+    self.importLabelMapGroupBox.setLayout(qt.QGridLayout())
+    self.labelMapImportWidget = ImportLabelMapIntoSegmentationWidget()
+    self.labelMapImportWidget.segmentationNodeSelectorVisible = False
+    self.importLabelMapGroupBox.layout().addWidget(self.labelMapImportWidget)
+    self.importCollapsibleLayout.addWidget(self.importLabelMapGroupBox)
+
+    self.mainModuleWidgetLayout.addWidget(self.importCollapsibleButton)
 
   def setupViewSettingsArea(self):
     self.redSliceLayoutButton = RedSliceLayoutButton()
@@ -338,6 +362,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.hideAllSegmentations()
     if node is None:
       self.segmentEditorWidget.editor.setSegmentationNode(None)
+      self.updateImportArea(None)
       return
 
     segmentationNodeID = self.tableNode.GetAttribute('ReferencedSegmentationNodeID')
@@ -349,6 +374,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self.tableNode.SetAttribute('ReferencedSegmentationNodeID', segmentationNode.GetID())
     self.segmentEditorWidget.editor.setSegmentationNode(segmentationNode)
     segmentationNode.SetDisplayVisibility(True)
+    self.updateImportArea(segmentationNode)
     self.setupSegmentationObservers()
     if self.tableNode.GetAttribute("readonly"):
       logging.debug("Selected measurements report is readonly")
@@ -360,6 +386,10 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self.segmentEditorWidget.enabled = True
       self.calculateAutomaticallyCheckbox.enabled = True
       self.onSegmentationNodeChanged()
+
+  def updateImportArea(self, node):
+    self.segmentImportWidget.setCurrentSegmentationNode(node)
+    self.labelMapImportWidget.setSegmentationNode(node)
 
   def hideAllSegmentations(self):
     segmentations = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode")
