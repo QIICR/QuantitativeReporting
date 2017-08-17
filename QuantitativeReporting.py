@@ -388,6 +388,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self.onSegmentationNodeChanged()
 
   def updateImportArea(self, node):
+    self.segmentImportWidget.otherSegmentationNodeSelector.setCurrentNode(None)
     self.segmentImportWidget.setCurrentSegmentationNode(node)
     self.labelMapImportWidget.setSegmentationNode(node)
 
