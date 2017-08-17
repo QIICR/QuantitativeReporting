@@ -405,14 +405,12 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     segNode = self.segmentEditorWidget.segmentation
     if not segNode:
       return
-    segmentationEvents = [vtkSegmentationCore.vtkSegmentation.SegmentAdded, vtkSegmentationCore.vtkSegmentation.SegmentRemoved,
+    segmentationEvents = [vtkSegmentationCore.vtkSegmentation.SegmentAdded,
+                          vtkSegmentationCore.vtkSegmentation.SegmentRemoved,
                           vtkSegmentationCore.vtkSegmentation.SegmentModified,
                           vtkSegmentationCore.vtkSegmentation.RepresentationModified]
     for event in segmentationEvents:
       self.segmentationObservers.append(segNode.AddObserver(event, self.onSegmentationNodeChanged))
-
-    self.segmentationObservers.append(
-      segNode.AddObserver(vtkSegmentationCore.vtkSegmentation.SegmentAdded, self.onSegmentAdded))
 
   def initializeWatchBox(self, node):
     if not node:
@@ -425,13 +423,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.watchBox.sourceFile = dicomFileName
 
   def createNewSegmentationNode(self):
-    segNode = slicer.vtkMRMLSegmentationNode()
-    slicer.mrmlScene.AddNode(segNode)
-    return segNode
-
-  def onSegmentAdded(self, observer=None, caller=None):
-    segment = self.segmentEditorWidget.logic.getAllSegments(self.segmentEditorWidget.segmentationNode)[-1]
-    self.segmentEditorWidget.setDefaultTerminologyAndColor(segment)
+    return slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
 
   @postCall(refreshUIElementsAvailability)
   def onSegmentationNodeChanged(self, observer=None, caller=None):
@@ -764,42 +756,6 @@ class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidget
 
   def createLabelNodeFromSegment(self, segmentID):
     return self.logic.createLabelNodeFromSegment(self.segmentationNode, segmentID)
-
-  def setDefaultTerminologyAndColor(self, segment):
-    meaning, terminologyEntryString = self.getDefaultTerminologyString()
-    segment.SetTag(vtkSegmentationCore.vtkSegment.GetTerminologyEntryTagName(),
-                   terminologyEntryString)
-    color = self.getColorFromTerminologyEntry(terminologyEntryString)
-    segment.SetColor(map(lambda c: float(c) / 255., [color.red(), color.green(), color.blue()]))
-    segment.SetName("{}_{}".format(meaning, str(self.getNumberOfSegmentsStartingWith(meaning) + 1)))
-
-  def getDefaultTerminologyString(self):
-    terminologies = slicer.modules.terminologies.logic()
-    loadedTerminologyContextNames = vtk.vtkStringArray()
-    terminologies.GetLoadedTerminologyNames(loadedTerminologyContextNames)
-    loadedAnatomyContextNames = vtk.vtkStringArray()
-    terminologies.GetLoadedAnatomicContextNames(loadedAnatomyContextNames)
-    terminologyWidget = slicer.qSlicerTerminologyNavigatorWidget()
-    code, scheme, meaning = ['T-D0050', 'SRT', 'Tissue']
-    terminologyEntryString = terminologyWidget.serializeTerminologyEntry(
-      loadedTerminologyContextNames.GetValue(int(loadedTerminologyContextNames.GetNumberOfValues() - 2)),
-      code, scheme, meaning,
-      code, scheme, meaning,
-      "", "", "",
-      loadedAnatomyContextNames.GetValue(int(loadedAnatomyContextNames.GetNumberOfValues() - 1)),
-      "", "", "", "", "", "")
-    return meaning, terminologyEntryString
-
-  def getColorFromTerminologyEntry(self, segmentTerminologyTag):
-    terminologyWidget = slicer.qSlicerTerminologyNavigatorWidget()
-    terminologyEntry = slicer.vtkSlicerTerminologyEntry()
-    terminologyWidget.deserializeTerminologyEntry(segmentTerminologyTag, terminologyEntry)
-    color = terminologyWidget.recommendedColorFromTerminology(terminologyEntry)
-    return color
-
-  def getNumberOfSegmentsStartingWith(self, name):
-    segments = self.logic.getAllSegments(self.segmentationNode)
-    return sum(1 for segment in segments if str.startswith(segment.GetName(), name))
 
   def hiddenSegmentsAvailable(self):
     return len(self.logic.getAllSegments(self.segmentationNode)) \
