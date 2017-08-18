@@ -15,7 +15,8 @@ import vtkSegmentationCorePython as vtkSegmentationCore
 from SlicerDevelopmentToolboxUtils.mixins import ModuleWidgetMixin, ModuleLogicMixin, ParameterNodeObservationMixin
 from SlicerDevelopmentToolboxUtils.decorators import onExceptionReturnNone, postCall
 from SlicerDevelopmentToolboxUtils.helpers import WatchBoxAttribute
-from SlicerDevelopmentToolboxUtils.widgets import DICOMBasedInformationWatchBox
+from SlicerDevelopmentToolboxUtils.widgets import DICOMBasedInformationWatchBox, ImportLabelMapIntoSegmentationWidget
+from SlicerDevelopmentToolboxUtils.widgets import CopySegmentBetweenSegmentationsWidget
 from SlicerDevelopmentToolboxUtils.constants import DICOMTAGS
 from SlicerDevelopmentToolboxUtils.buttons import RedSliceLayoutButton, FourUpLayoutButton, FourUpTableViewLayoutButton
 from SlicerDevelopmentToolboxUtils.buttons import CrosshairButton
@@ -98,6 +99,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.setupTestArea()
     self.setupSegmentationsArea()
     self.setupSelectionArea()
+    self.setupImportArea()
+    self.mainModuleWidgetLayout.addWidget(self.segmentationGroupBox)
     self.setupMeasurementsArea()
     self.setupActionButtons()
 
@@ -183,7 +186,28 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.selectionAreaWidgetLayout.addWidget(qt.QLabel("Measurement report"), 0, 0)
     self.selectionAreaWidgetLayout.addWidget(self.measurementReportSelector, 0, 1)
     self.mainModuleWidgetLayout.addWidget(self.selectionAreaWidget)
-    self.mainModuleWidgetLayout.addWidget(self.segmentationGroupBox)
+
+  def setupImportArea(self):
+    self.importCollapsibleButton = ctk.ctkCollapsibleButton()
+    self.importCollapsibleButton.collapsed = True
+    self.importCollapsibleButton.text = "Import segments (segmentation/labelmap)"
+    self.importCollapsibleLayout= qt.QGridLayout(self.importCollapsibleButton)
+
+    self.importSegmentsGroupBox = qt.QGroupBox("Copy segments between segmentations")
+    self.importSegmentsGroupBox.setLayout(qt.QGridLayout())
+    self.segmentImportWidget = CopySegmentBetweenSegmentationsWidget()
+    self.segmentImportWidget.currentSegmentationNodeSelectorEnabled = False
+    self.importSegmentsGroupBox.layout().addWidget(self.segmentImportWidget)
+    self.importCollapsibleLayout.addWidget(self.importSegmentsGroupBox)
+
+    self.importLabelMapGroupBox = qt.QGroupBox("Import from labelmap")
+    self.importLabelMapGroupBox.setLayout(qt.QGridLayout())
+    self.labelMapImportWidget = ImportLabelMapIntoSegmentationWidget()
+    self.labelMapImportWidget.segmentationNodeSelectorVisible = False
+    self.importLabelMapGroupBox.layout().addWidget(self.labelMapImportWidget)
+    self.importCollapsibleLayout.addWidget(self.importLabelMapGroupBox)
+
+    self.mainModuleWidgetLayout.addWidget(self.importCollapsibleButton)
 
   def setupViewSettingsArea(self):
     self.redSliceLayoutButton = RedSliceLayoutButton()
@@ -338,6 +362,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.hideAllSegmentations()
     if node is None:
       self.segmentEditorWidget.editor.setSegmentationNode(None)
+      self.updateImportArea(None)
       return
 
     segmentationNodeID = self.tableNode.GetAttribute('ReferencedSegmentationNodeID')
@@ -349,6 +374,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self.tableNode.SetAttribute('ReferencedSegmentationNodeID', segmentationNode.GetID())
     self.segmentEditorWidget.editor.setSegmentationNode(segmentationNode)
     segmentationNode.SetDisplayVisibility(True)
+    self.updateImportArea(segmentationNode)
     self.setupSegmentationObservers()
     if self.tableNode.GetAttribute("readonly"):
       logging.debug("Selected measurements report is readonly")
@@ -360,6 +386,11 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self.segmentEditorWidget.enabled = True
       self.calculateAutomaticallyCheckbox.enabled = True
       self.onSegmentationNodeChanged()
+
+  def updateImportArea(self, node):
+    self.segmentImportWidget.otherSegmentationNodeSelector.setCurrentNode(None)
+    self.segmentImportWidget.setCurrentSegmentationNode(node)
+    self.labelMapImportWidget.setSegmentationNode(node)
 
   def hideAllSegmentations(self):
     segmentations = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode")
@@ -375,14 +406,12 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     segNode = self.segmentEditorWidget.segmentation
     if not segNode:
       return
-    segmentationEvents = [vtkSegmentationCore.vtkSegmentation.SegmentAdded, vtkSegmentationCore.vtkSegmentation.SegmentRemoved,
+    segmentationEvents = [vtkSegmentationCore.vtkSegmentation.SegmentAdded,
+                          vtkSegmentationCore.vtkSegmentation.SegmentRemoved,
                           vtkSegmentationCore.vtkSegmentation.SegmentModified,
                           vtkSegmentationCore.vtkSegmentation.RepresentationModified]
     for event in segmentationEvents:
       self.segmentationObservers.append(segNode.AddObserver(event, self.onSegmentationNodeChanged))
-
-    self.segmentationObservers.append(
-      segNode.AddObserver(vtkSegmentationCore.vtkSegmentation.SegmentAdded, self.onSegmentAdded))
 
   def initializeWatchBox(self, node):
     if not node:
@@ -395,13 +424,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.watchBox.sourceFile = dicomFileName
 
   def createNewSegmentationNode(self):
-    segNode = slicer.vtkMRMLSegmentationNode()
-    slicer.mrmlScene.AddNode(segNode)
-    return segNode
-
-  def onSegmentAdded(self, observer=None, caller=None):
-    segment = self.segmentEditorWidget.logic.getAllSegments(self.segmentEditorWidget.segmentationNode)[-1]
-    self.segmentEditorWidget.setDefaultTerminologyAndColor(segment)
+    return slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
 
   @postCall(refreshUIElementsAvailability)
   def onSegmentationNodeChanged(self, observer=None, caller=None):
@@ -734,42 +757,6 @@ class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidget
 
   def createLabelNodeFromSegment(self, segmentID):
     return self.logic.createLabelNodeFromSegment(self.segmentationNode, segmentID)
-
-  def setDefaultTerminologyAndColor(self, segment):
-    meaning, terminologyEntryString = self.getDefaultTerminologyString()
-    segment.SetTag(vtkSegmentationCore.vtkSegment.GetTerminologyEntryTagName(),
-                   terminologyEntryString)
-    color = self.getColorFromTerminologyEntry(terminologyEntryString)
-    segment.SetColor(map(lambda c: float(c) / 255., [color.red(), color.green(), color.blue()]))
-    segment.SetName("{}_{}".format(meaning, str(self.getNumberOfSegmentsStartingWith(meaning) + 1)))
-
-  def getDefaultTerminologyString(self):
-    terminologies = slicer.modules.terminologies.logic()
-    loadedTerminologyContextNames = vtk.vtkStringArray()
-    terminologies.GetLoadedTerminologyNames(loadedTerminologyContextNames)
-    loadedAnatomyContextNames = vtk.vtkStringArray()
-    terminologies.GetLoadedAnatomicContextNames(loadedAnatomyContextNames)
-    terminologyWidget = slicer.qSlicerTerminologyNavigatorWidget()
-    code, scheme, meaning = ['T-D0050', 'SRT', 'Tissue']
-    terminologyEntryString = terminologyWidget.serializeTerminologyEntry(
-      loadedTerminologyContextNames.GetValue(int(loadedTerminologyContextNames.GetNumberOfValues() - 2)),
-      code, scheme, meaning,
-      code, scheme, meaning,
-      "", "", "",
-      loadedAnatomyContextNames.GetValue(int(loadedAnatomyContextNames.GetNumberOfValues() - 1)),
-      "", "", "", "", "", "")
-    return meaning, terminologyEntryString
-
-  def getColorFromTerminologyEntry(self, segmentTerminologyTag):
-    terminologyWidget = slicer.qSlicerTerminologyNavigatorWidget()
-    terminologyEntry = slicer.vtkSlicerTerminologyEntry()
-    terminologyWidget.deserializeTerminologyEntry(segmentTerminologyTag, terminologyEntry)
-    color = terminologyWidget.recommendedColorFromTerminology(terminologyEntry)
-    return color
-
-  def getNumberOfSegmentsStartingWith(self, name):
-    segments = self.logic.getAllSegments(self.segmentationNode)
-    return sum(1 for segment in segments if str.startswith(segment.GetName(), name))
 
   def hiddenSegmentsAvailable(self):
     return len(self.logic.getAllSegments(self.segmentationNode)) \
