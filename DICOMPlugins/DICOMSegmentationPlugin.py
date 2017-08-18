@@ -273,7 +273,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
       # Check to make sure all referenced UIDs exist in the database.
       instanceUIDs = shNode.GetItemAttribute(subjectHierarchyItemID, "DICOM.ReferencedInstanceUIDs").split()
       if instanceUIDs == "":
-          return []
+        return []
 
       for instanceUID in instanceUIDs:
         inputDICOMImageFileName = slicer.dicomDatabase.fileForInstance(instanceUID)
@@ -322,11 +322,16 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
       try:
         segFileName = "subject_hierarchy_export.SEG" + exporter.currentDateTime + ".dcm"
         segFilePath = os.path.join(slicer.app.temporaryPath, segFileName)
-        exporter.export(segFilePath)
-
+        try:
+          exporter.export(segFilePath)
+        except DICOMSegmentationExporter.EmptySegmentsFoundError as exc:
+          if slicer.util.confirmYesNoDisplay(exc.message):
+            exporter.export(segFilePath, skipEmpty=True)
+          else:
+            raise ValueError("Export canceled")
         slicer.dicomDatabase.insert(segFilePath)
         logging.info("Added segmentation to DICOM database (%s)", segFilePath)
-      except ValueError as exc:
+      except (DICOMSegmentationExporter.NoNonEmptySegmentsFoundError, ValueError) as exc:
         return exc.message
       finally:
         exporter.cleanup()
@@ -335,6 +340,12 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
 
 class DICOMSegmentationExporter(ModuleLogicMixin):
   """This class can be used for exporting a segmentation into DICOM """
+
+  class EmptySegmentsFoundError(ValueError):
+    pass
+
+  class NoNonEmptySegmentsFoundError(ValueError):
+      pass
 
   @staticmethod
   def saveJSON(data, destination):
@@ -389,7 +400,7 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
 
   def __init__(self, segmentationNode, contentCreatorName=None):
     self.segmentationNode = segmentationNode
-    self.contentCreatorName = contentCreatorName if contentCreatorName else getpass.getuser()
+    self.contentCreatorName = contentCreatorName if contentCreatorName else "Slicer"
 
   def cleanup(self):
     try:
@@ -399,7 +410,7 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     except AttributeError:
       pass
 
-  def export(self, segFilePath, segmentIDs=None):
+  def export(self, segFilePath, segmentIDs=None, skipEmpty=False):
     data = self._getSeriesAttributes()
     data["SeriesDescription"] = "Segmentation"
     data.update(self._getAdditionalSeriesAttributes())
@@ -407,10 +418,17 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     segmentIDs = segmentIDs if segmentIDs else self.getSegmentIDs(self.segmentationNode)
 
     # NB: for now segments are filter if they are empty and only the non empty ones are returned
-    segmentIDs = self.getNonEmptySegmentIDs(segmentIDs)
+
+    nonEmptySegmentIDs = self.getNonEmptySegmentIDs(segmentIDs)
+
+    if skipEmpty is False and len(nonEmptySegmentIDs) and len(segmentIDs) != len(nonEmptySegmentIDs):
+      raise self.EmptySegmentsFoundError("Empty segments found in segmentation. Currently the export of empty segments "
+                                         "is not supported. Do you want to skip empty segments and proceed exporting?")
+
+    segmentIDs = nonEmptySegmentIDs
 
     if not len(segmentIDs):
-      raise ValueError("No non empty segments found.")
+      raise self.NoNonEmptySegmentsFoundError("No non empty segments found.")
 
     data["segmentAttributes"] = self.generateJSON4DcmSEGExport(segmentIDs)
 
@@ -466,6 +484,7 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
       segmentLabelmap = self.createLabelNodeFromSegment(self.segmentationNode, segmentID)
       filename = os.path.join(self.tempDir, "{}.nrrd".format(segmentLabelmap.GetName()))
       slicer.util.saveNode(segmentLabelmap, filename)
+      slicer.mrmlScene.RemoveNode(segmentLabelmap)
       segmentFiles.append(filename)
     return segmentFiles
 
