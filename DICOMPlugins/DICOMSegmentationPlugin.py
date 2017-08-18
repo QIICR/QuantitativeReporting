@@ -303,7 +303,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
       exportable.copyToVtkExportable(vtkExportable)
       exportablesCollection.AddItem(vtkExportable)
 
-    self.exportAsDICOMSEG(exportablesCollection)
+    return self.exportAsDICOMSEG(exportablesCollection)
 
   def exportAsDICOMSEG(self, exportablesCollection):
     """Export the given node to a segmentation object and load it in the DICOM database
@@ -317,36 +317,24 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
       subjectHierarchyItemID = exportable.GetSubjectHierarchyItemID()
       segmentationNode = shNode.GetItemDataNode(subjectHierarchyItemID)
 
-      # TODO: move this part into exporter?
-      instanceUIDs = shNode.GetItemAttribute(subjectHierarchyItemID, "DICOM.ReferencedInstanceUIDs").split()
-
-      if instanceUIDs == "":
-        raise Exception("Segment Editor master volume node does not have DICOM information")
-
-      # get the list of source DICOM files
-      inputDICOMImageFileNames = ""
-      for instanceUID in instanceUIDs:
-        inputDICOMImageFileNames += slicer.dicomDatabase.fileForInstance(instanceUID) + ","
-      inputDICOMImageFileNames = inputDICOMImageFileNames[:-1] # strip last comma
-
-      import random # TODO: better way to generate temp file names?
-
-      segFileName = "subject_hierarchy_export.SEG" + str(random.randint(0, vtk.VTK_INT_MAX)) + ".dcm"
-      segFilePath = os.path.join(slicer.app.temporaryPath, segFileName)
-
       exporter = DICOMSegmentationExporter(segmentationNode)
-      exporter.export(segFilePath)
 
-      logging.info("Added segmentation to DICOM database (%s)", segFilePath)
-      slicer.dicomDatabase.insert(segFilePath)
+      try:
+        segFileName = "subject_hierarchy_export.SEG" + exporter.currentDateTime + ".dcm"
+        segFilePath = os.path.join(slicer.app.temporaryPath, segFileName)
+        exporter.export(segFilePath)
+
+        slicer.dicomDatabase.insert(segFilePath)
+        logging.info("Added segmentation to DICOM database (%s)", segFilePath)
+      except ValueError as exc:
+        return exc.message
+      finally:
+        exporter.cleanup()
+    return ""
 
 
 class DICOMSegmentationExporter(ModuleLogicMixin):
   """This class can be used for exporting a segmentation into DICOM """
-
-  def filterEmptySegments(self):
-    # TODO: implement
-    pass
 
   @staticmethod
   def saveJSON(data, destination):
@@ -395,13 +383,21 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     return segmentationNode.GetNodeReference(segmentationNode.GetReferenceImageGeometryReferenceRole())
 
   @property
-  def currentDateTime(self):
+  def currentDateTime(self, outputFormat='%Y-%m-%d_%H%M%S'):
     from datetime import datetime
-    return datetime.now().strftime('%Y-%m-%d_%H%M%S')
+    return datetime.now().strftime(outputFormat)
 
   def __init__(self, segmentationNode, contentCreatorName=None):
     self.segmentationNode = segmentationNode
     self.contentCreatorName = contentCreatorName if contentCreatorName else getpass.getuser()
+
+  def cleanup(self):
+    try:
+      import shutil
+      logging.debug("Cleaning up temporarily created directory {}".format(self.tempDir))
+      shutil.rmtree(self.tempDir)
+    except AttributeError:
+      pass
 
   def export(self, segFilePath, segmentIDs=None):
     data = self._getSeriesAttributes()
@@ -410,7 +406,12 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
 
     segmentIDs = segmentIDs if segmentIDs else self.getSegmentIDs(self.segmentationNode)
 
-    # TODO: check if segments are empty
+    # NB: for now segments are filter if they are empty and only the non empty ones are returned
+    segmentIDs = self.getNonEmptySegmentIDs(segmentIDs)
+
+    if not len(segmentIDs):
+      raise ValueError("No non empty segments found.")
+
     data["segmentAttributes"] = self.generateJSON4DcmSEGExport(segmentIDs)
 
     logging.debug("DICOM SEG Metadata output:")
@@ -450,6 +451,15 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     logging.debug("Saved DICOM Segmentation to {}".format(segFilePath))
     return True
 
+  def getNonEmptySegmentIDs(self, segmentIDs):
+    segmentation = self.segmentationNode.GetSegmentation()
+    return [segmentID for segmentID in segmentIDs if not self.isSegmentEmpty(segmentation.GetSegment(segmentID))]
+
+  def isSegmentEmpty(self, segment):
+    bounds = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    segment.GetBounds(bounds)
+    return bounds[1] < 0 and bounds[3] < 0 and bounds[5] < 0
+
   def createAndGetLabelMapsFromSegments(self, segmentIDs):
     segmentFiles = []
     for segmentID in segmentIDs:
@@ -477,6 +487,7 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
 
   def getInstanceUIDDirectoryAndFileName(self, uid):
     # TODO: move this method to a general class
+    # duplicate in quantitative Reporting
     path = slicer.dicomDatabase.fileForInstance(uid)
     return os.path.dirname(path), os.path.basename(path)
 
@@ -510,7 +521,6 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     segment = self.segmentationNode.GetSegmentation().GetSegment(segmentID)
     terminologyEntry = self.getDeserializedTerminologyEntry(segment)
     category = terminologyEntry.GetCategoryObject()
-    # TODO: segmentData["SegmentDescription"] = category.GetCodeMeaning() if category != "" else self.statistics[segmentID, "Segment"]
     segmentData["SegmentDescription"] = category.GetCodeMeaning()
     segmentData["SegmentAlgorithmType"] = "MANUAL"
     rgb = segment.GetColor()
@@ -520,6 +530,7 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     return segmentData
 
   def checkTerminologyOfSegments(self, segmentIDs):
+    # TODO: not sure if this is still needed since there is always a terminology assigned by default
     for segmentID in segmentIDs:
       segment = self.segmentationNode.GetSegmentation().GetSegment(segmentID)
       terminologyEntry = self.getDeserializedTerminologyEntry(segment)
@@ -539,8 +550,6 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
   def createJSONFromTerminologyContext(self, terminologyEntry):
     segmentData = dict()
 
-    # Both Category and Type are required, so return if not available
-    # TODO: consider populating to "Tissue" if not available?
     categoryObject = terminologyEntry.GetCategoryObject()
     if categoryObject is None or not self.isTerminologyInformationValid(categoryObject):
       return {}
