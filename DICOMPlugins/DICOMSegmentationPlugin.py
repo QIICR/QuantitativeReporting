@@ -411,7 +411,7 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
       pass
 
   def export(self, segFilePath, segmentIDs=None, skipEmpty=False):
-    data = self._getSeriesAttributes()
+    data = self.getSeriesAttributes()
     data["SeriesDescription"] = "Segmentation"
     data.update(self._getAdditionalSeriesAttributes())
 
@@ -510,7 +510,7 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     path = slicer.dicomDatabase.fileForInstance(uid)
     return os.path.dirname(path), os.path.basename(path)
 
-  def _getSeriesAttributes(self):
+  def getSeriesAttributes(self):
     attributes = dict()
     volumeNode = self.getReferencedVolumeFromSegmentationNode(self.segmentationNode)
     seriesNumber = ModuleLogicMixin.getDICOMValue(volumeNode, DICOMTAGS.SERIES_NUMBER)

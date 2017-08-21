@@ -7,8 +7,6 @@ import ctk
 import vtk
 import os
 
-from datetime import datetime
-
 from slicer.ScriptedLoadableModule import *
 import vtkSegmentationCorePython as vtkSegmentationCore
 
@@ -25,6 +23,7 @@ from SegmentEditor import SegmentEditorWidget
 from SegmentStatistics import SegmentStatisticsLogic, SegmentStatisticsParameterEditorDialog
 
 from DICOMLib.DICOMWidgets import DICOMDetailsWidget
+from DICOMSegmentationPlugin import DICOMSegmentationExporter
 
 
 class QuantitativeReporting(ScriptedLoadableModule):
@@ -62,6 +61,14 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
   def initializeMembers(self):
     self.tableNode = None
     self.segmentationObservers = []
+    self.dicomSegmentationExporter = None
+
+  def enter(self):
+    self.segmentEditorWidget.editor.masterVolumeNodeChanged.connect(self.onImageVolumeSelected)
+
+  def exit(self):
+    self.measurementReportSelector.setCurrentNode(None)
+    self.segmentEditorWidget.editor.masterVolumeNodeChanged.disconnect(self.onImageVolumeSelected)
 
   def onReload(self):
     self.cleanupUIElements()
@@ -259,7 +266,6 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
   def setupConnections(self, funcName="connect"):
 
     def setupSelectorConnections():
-      getattr(self.segmentEditorWidget.editor.masterVolumeNodeChanged, funcName)(self.onImageVolumeSelected)
       getattr(self.measurementReportSelector, funcName)('currentNodeChanged(vtkMRMLNode*)',
                                                         self.onMeasurementReportSelected)
 
@@ -379,17 +385,12 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self.updateImportArea(None)
       return
 
-    segmentationNodeID = self.tableNode.GetAttribute('ReferencedSegmentationNodeID')
-    logging.debug("ReferencedSegmentationNodeID {}".format(segmentationNodeID))
-    if segmentationNodeID:
-      segmentationNode = slicer.mrmlScene.GetNodeByID(segmentationNodeID)
-    else:
-      segmentationNode = self.createNewSegmentationNode()
-      self.tableNode.SetAttribute('ReferencedSegmentationNodeID', segmentationNode.GetID())
-    self.segmentEditorWidget.editor.setSegmentationNode(segmentationNode)
-    segmentationNode.SetDisplayVisibility(True)
+    segmentationNode = self._getOrCreateSegmentationNodeAndConfigure()
     self.updateImportArea(segmentationNode)
-    self.setupSegmentationObservers()
+    self._setupSegmentationObservers()
+    self._configureReadWriteAccess()
+
+  def _configureReadWriteAccess(self):
     if self.tableNode.GetAttribute("readonly"):
       logging.debug("Selected measurements report is readonly")
       self.setMeasurementsTable(self.tableNode)
@@ -401,22 +402,36 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self.calculateAutomaticallyCheckbox.enabled = True
       self.onSegmentationNodeChanged()
 
+  def _getOrCreateSegmentationNodeAndConfigure(self):
+    segmentationNodeID = self.tableNode.GetAttribute('ReferencedSegmentationNodeID')
+    logging.debug("ReferencedSegmentationNodeID {}".format(segmentationNodeID))
+    if segmentationNodeID:
+      segmentationNode = slicer.mrmlScene.GetNodeByID(segmentationNodeID)
+    else:
+      segmentationNode = self.createNewSegmentationNode()
+      self.tableNode.SetAttribute('ReferencedSegmentationNodeID', segmentationNode.GetID())
+    self.segmentEditorWidget.editor.setSegmentationNode(segmentationNode)
+    segmentationNode.SetDisplayVisibility(True)
+    return segmentationNode
+
   def updateImportArea(self, node):
     self.segmentImportWidget.otherSegmentationNodeSelector.setCurrentNode(None)
     self.segmentImportWidget.setCurrentSegmentationNode(node)
     self.labelMapImportWidget.setSegmentationNode(node)
 
   def hideAllSegmentations(self):
+    # TODO: might be useful to move up in general helper/mixin class
     segmentations = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode")
     for segmentation in [segmentations.GetItemAsObject(idx) for idx in range(0, segmentations.GetNumberOfItems())]:
       segmentation.SetDisplayVisibility(False)
 
   def getReferencedVolumeFromSegmentationNode(self, segmentationNode):
+    # TODO: might be useful to move up in general helper/mixin class
     if not segmentationNode:
       return None
     return segmentationNode.GetNodeReference(segmentationNode.GetReferenceImageGeometryReferenceRole())
 
-  def setupSegmentationObservers(self):
+  def _setupSegmentationObservers(self):
     segNode = self.segmentEditorWidget.segmentation
     if not segNode:
       return
@@ -489,7 +504,9 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       if not slicer.util.confirmYesNoDisplay("Hidden segments have been found. Do you want to export them as well?"):
         self.updateMeasurementsTable(visibleOnly=True)
     try:
-      dcmSegmentationPath = self.createSEG()
+      self.dicomSegmentationExporter = DICOMSegmentationExporter(self.segmentEditorWidget.segmentationNode)
+      dcmSegmentationPath = "quantitative_reporting_export.SEG" + self.dicomSegmentationExporter.currentDateTime + ".dcm"
+      self.createSEG(dcmSegmentationPath)
       self.createDICOMSR(dcmSegmentationPath, completed)
       self.addProducedDataToDICOMDatabase()
     except (RuntimeError, ValueError, AttributeError) as exc:
@@ -499,64 +516,27 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self.cleanupTemporaryData()
     return True
 
-  def createSEG(self):
-    segmentStatisticsLogic = self.segmentEditorWidget.logic.segmentStatisticsLogic
-    data = dict()
-    data.update(self._getSeriesAttributes())
-    data["SeriesDescription"] =  "Segmentation"
-    data.update(self._getAdditionalSeriesAttributes())
-    data["segmentAttributes"] = segmentStatisticsLogic.generateJSON4DcmSEGExport()
+  def createSEG(self, dcmSegmentationPath):
+    try:
+      try:
+        self.dicomSegmentationExporter.export(dcmSegmentationPath)
+      except DICOMSegmentationExporter.EmptySegmentsFoundError:
+        raise ValueError("Empty segments found. Please make sure that there are no empty segments.")
+      slicer.dicomDatabase.insert(dcmSegmentationPath)
+      logging.info("Added segmentation to DICOM database (%s)", dcmSegmentationPath)
+    except (DICOMSegmentationExporter.NoNonEmptySegmentsFoundError, ValueError) as exc:
+      raise ValueError(exc.message)
 
-    logging.debug("DICOM SEG Metadata output:")
-    logging.debug(data)
-
-    self.currentDateTime = datetime.now().strftime('%Y-%m-%d_%H%M%S')
-    self.tempDir = os.path.join(self.slicerTempDir, self.currentDateTime)
-    os.mkdir(self.tempDir)
-
-    segmentFiles = []
-    for segmentID in segmentStatisticsLogic.statistics["SegmentIDs"]:
-      if not segmentStatisticsLogic.isSegmentValid(segmentID):
-        continue
-      segmentLabelmap = self.segmentEditorWidget.createLabelNodeFromSegment(segmentID)
-      filename = os.path.join(self.tempDir, "{}.nrrd".format(segmentLabelmap.GetName()))
-      slicer.util.saveNode(segmentLabelmap, filename)
-      segmentFiles.append(filename)
-
-    metaFilePath = self.saveJSON(data, os.path.join(self.tempDir, "seg_meta.json"))
-    outputSegmentationPath = os.path.join(self.tempDir, "seg.dcm")
-
-    params = {"dicomImageFiles": ', '.join(self.getDICOMFileList(self.segmentEditorWidget.masterVolumeNode,
-                                                                 absolutePaths=True)).replace(', ', ","),
-              "segImageFiles": ', '.join(segmentFiles).replace(', ', ","),
-              "metaDataFileName": metaFilePath,
-              "outputSEGFileName": outputSegmentationPath}
-
-    logging.debug(params)
-
-    cliNode = None
-    cliNode = slicer.cli.run(slicer.modules.itkimage2segimage, cliNode, params, wait_for_completion=True)
-    waitCount = 0
-    while cliNode.IsBusy() and waitCount < 20:
-      slicer.util.delayDisplay("Running SEG Encoding... %d" % waitCount, 1000)
-      waitCount += 1
-
-    if cliNode.GetStatusString() != 'Completed':
-      raise RuntimeError("itkimage2segimage CLI did not complete cleanly")
-
-    if not os.path.exists(outputSegmentationPath):
-      raise RuntimeError("DICOM Segmentation was not created. Check Error Log for further information.")
-
-    logging.debug("Saved DICOM Segmentation to {}".format(outputSegmentationPath))
-    return outputSegmentationPath
+    logging.debug("Saved DICOM Segmentation to {}".format(dcmSegmentationPath))
 
   def createDICOMSR(self, referencedSegmentation, completed):
-    data = self._getSeriesAttributes()
+    data = self.dicomSegmentationExporter.getSeriesAttributes()
     data["SeriesDescription"] = "Measurement Report"
 
-    compositeContextDataDir, data["compositeContext"] = os.path.dirname(referencedSegmentation), \
-                                                        [os.path.basename(referencedSegmentation)]
-    imageLibraryDataDir, data["imageLibrary"] = self.getDICOMFileList(self.segmentEditorWidget.masterVolumeNode)
+    compositeContextDataDir, data["compositeContext"] = \
+      os.path.dirname(referencedSegmentation), [os.path.basename(referencedSegmentation)]
+    imageLibraryDataDir, data["imageLibrary"] = \
+      self.dicomSegmentationExporter.getDICOMFileList(self.segmentEditorWidget.masterVolumeNode)
     data.update(self._getAdditionalSRInformation(completed))
 
     data["Measurements"] = \
@@ -565,8 +545,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     logging.debug("DICOM SR Metadata output:")
     logging.debug(json.dumps(data, indent=2, separators=(',', ': ')))
 
-    metaFilePath = self.saveJSON(data, os.path.join(self.tempDir, "sr_meta.json"))
-    outputSRPath = os.path.join(self.tempDir, "sr.dcm")
+    metaFilePath = self.saveJSON(data, os.path.join(self.dicomSegmentationExporter.tempDir, "sr_meta.json"))
+    outputSRPath = os.path.join(self.dicomSegmentationExporter.tempDir, "sr.dcm")
 
     params = {"metaDataFileName": metaFilePath,
               "compositeContextDataDir": compositeContextDataDir,
@@ -586,31 +566,12 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
   def addProducedDataToDICOMDatabase(self):
     indexer = ctk.ctkDICOMIndexer()
-    indexer.addDirectory(slicer.dicomDatabase, self.tempDir, "copy")  # TODO: doesn't really expect a destination dir
+    indexer.addDirectory(slicer.dicomDatabase, self.dicomSegmentationExporter.tempDir, "copy")  # TODO: doesn't really expect a destination dir
 
   def cleanupTemporaryData(self):
-    try:
-      import shutil
-      logging.debug("Cleaning up temporarily created directory {}".format(self.tempDir))
-      shutil.rmtree(self.tempDir)
-    except AttributeError:
-      pass
-
-  def _getSeriesAttributes(self):
-    attributes = dict()
-    self.seriesNumber = getattr(self, "seriesNumber", None)
-    if not self.seriesNumber:
-      self.seriesNumber = ModuleLogicMixin.getDICOMValue(self.watchBox.sourceFile, DICOMTAGS.SERIES_NUMBER)
-    self.seriesNumber = "100" if self.seriesNumber in [None,''] else str(int(self.seriesNumber)+100)
-    attributes["SeriesNumber"] = self.seriesNumber
-    attributes["InstanceNumber"] = "1"
-    return attributes
-
-  def _getAdditionalSeriesAttributes(self):
-    return {"ContentCreatorName": self.watchBox.getAttribute("Reader").value,
-            "ClinicalTrialSeriesID": "1",
-            "ClinicalTrialTimePointID": "1",
-            "ClinicalTrialCoordinatingCenterName": "QIICR"}
+    if self.dicomSegmentationExporter:
+      self.dicomSegmentationExporter.cleanup()
+    self.dicomSegmentationExporter = None
 
   def _getAdditionalSRInformation(self, completed=False):
     data = dict()
@@ -626,26 +587,6 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     with open(os.path.join(destination), 'w') as outfile:
       json.dump(data, outfile, indent=2)
     return destination
-
-  def getDICOMFileList(self, volumeNode, absolutePaths=False):
-    # TODO: move to general class
-    attributeName = "DICOM.instanceUIDs"
-    instanceUIDs = volumeNode.GetAttribute(attributeName)
-    if not instanceUIDs:
-      raise ValueError("VolumeNode {0} has no attribute {1}".format(volumeNode.GetName(), attributeName))
-    fileList = []
-    rootDir = None
-    for uid in instanceUIDs.split():
-      rootDir, filename = self.getInstanceUIDDirectoryAndFileName(uid)
-      fileList.append(str(filename if not absolutePaths else os.path.join(rootDir, filename)))
-    if not absolutePaths:
-      return rootDir, fileList
-    return fileList
-
-  def getInstanceUIDDirectoryAndFileName(self, uid):
-    # TODO: move this method to a general class
-    path = slicer.dicomDatabase.fileForInstance(uid)
-    return os.path.dirname(path), os.path.basename(path)
 
 
 class QuantitativeReportingTest(ScriptedLoadableModuleTest):
@@ -771,9 +712,6 @@ class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidget
       return None
     return self.logic.calculateSegmentStatistics(self.segmentationNode, self.masterVolumeNode, visibleOnly, tableNode)
 
-  def createLabelNodeFromSegment(self, segmentID):
-    return self.logic.createLabelNodeFromSegment(self.segmentationNode, segmentID)
-
   def hiddenSegmentsAvailable(self):
     return len(self.logic.getAllSegments(self.segmentationNode)) \
            != len(self.logic.getVisibleSegments(self.segmentationNode))
@@ -845,7 +783,6 @@ class QuantitativeReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
 
   def calculateSegmentStatistics(self, segNode, grayscaleNode, visibleSegmentsOnly, tableNode=None):
     self.segmentStatisticsLogic.getParameterNode().SetParameter("visibleSegmentsOnly", str(visibleSegmentsOnly))
-    # set up parameters for computation
     self.segmentStatisticsLogic.getParameterNode().SetParameter("Segmentation", segNode.GetID())
     if grayscaleNode:
       self.segmentStatisticsLogic.getParameterNode().SetParameter("ScalarVolume", grayscaleNode.GetID())
@@ -854,25 +791,6 @@ class QuantitativeReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
     self.segmentStatisticsLogic.computeStatistics()
     tableNode = self.segmentStatisticsLogic.exportToTable(tableNode)
     return tableNode
-
-  def createLabelNodeFromSegment(self, segmentationNode, segmentID):
-    labelNode = slicer.vtkMRMLLabelMapVolumeNode()
-    slicer.mrmlScene.AddNode(labelNode)
-    segmentationsLogic = slicer.modules.segmentations.logic()
-
-    def vtkStringArrayFromList(listToConvert):
-      stringArray = vtk.vtkStringArray()
-      for listElement in listToConvert:
-        stringArray.InsertNextValue(listElement)
-      return stringArray
-
-    mergedImageData = vtkSegmentationCore.vtkOrientedImageData()
-    segmentationNode.GenerateMergedLabelmapForAllSegments(mergedImageData, 0, None, vtkStringArrayFromList([segmentID]))
-    if not segmentationsLogic.CreateLabelmapVolumeFromOrientedImageData(mergedImageData, labelNode):
-      slicer.mrmlScene.RemoveNode(labelNode)
-      return None
-    labelNode.SetName("{}_label".format(segmentID))
-    return labelNode
 
 
 class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
@@ -896,17 +814,7 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
     self.terminologyLogic = slicer.modules.terminologies.logic()
     self.segmentationsLogic = slicer.modules.segmentations.logic()
 
-  def reset(self):
-    if hasattr(self, "statistics"):
-      for segmentID in self.statistics["SegmentIDs"]:
-        try:
-          labelmap = self.statistics[segmentID, "LM label map"]
-          slicer.mrmlScene.RemoveNode(labelmap)
-        except Exception:
-          continue
-    SegmentStatisticsLogic.reset(self)
-
-  def exportToTable(self, table=None, nonEmptyKeysOnly = True):
+  def exportToTable(self, table=None, nonEmptyKeysOnly=True):
     if not table:
       table = slicer.vtkMRMLTableNode()
       table.SetName(slicer.mrmlScene.GenerateUniqueName(self.grayscaleNode.GetName() + ' statistics'))
@@ -914,35 +822,6 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
     table.SetUseColumnNameAsColumnHeader(True)
     SegmentStatisticsLogic.exportToTable(self, table, nonEmptyKeysOnly)
     return table
-
-  def filterEmptySegments(self):
-    return [self.segmentationNode.GetSegmentation().GetSegment(s) for s in self.statistics["SegmentIDs"]
-            if self.isSegmentValid(s)]
-
-  def generateJSON4DcmSEGExport(self):
-    self.checkTerminologyOfSegments()
-    segmentsData = []
-    for segmentID in self.statistics["SegmentIDs"]:
-      if not self.isSegmentValid(segmentID):
-        continue
-      segmentData = dict()
-      segmentData["labelID"] = 1
-      segment = self.segmentationNode.GetSegmentation().GetSegment(segmentID)
-
-      terminologyEntry = self.getDeserializedTerminologyEntry(segment)
-
-      category = terminologyEntry.GetCategoryObject()
-      segmentData["SegmentDescription"] = category.GetCodeMeaning() if category != "" else self.statistics[segmentID,
-                                                                                                           "Segment"]
-      segmentData["SegmentAlgorithmType"] = "MANUAL"
-      rgb = segment.GetColor()
-      segmentData["recommendedDisplayRGBValue"] = [rgb[0]*255, rgb[1]*255, rgb[2]*255]
-      segmentData.update(self.createJSONFromTerminologyContext(terminologyEntry))
-      segmentData.update(self.createJSONFromAnatomicContext(terminologyEntry))
-      segmentsData.append([segmentData])
-    if not len(segmentsData):
-      raise ValueError("No segments with pixel data found.")
-    return segmentsData
 
   def isSegmentValid(self, segmentID):
     for key in self.getNonEmptyKeys():
@@ -953,11 +832,8 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
     return False
 
   def createJSONFromTerminologyContext(self, terminologyEntry):
-
     segmentData = dict()
 
-    # Both Category and Type are required, so return if not available
-    # TODO: consider populating to "Tissue" if not available?
     categoryObject = terminologyEntry.GetCategoryObject()
     if categoryObject is None or not self.isTerminologyInformationValid(categoryObject):
       return {}
@@ -975,7 +851,6 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
     return segmentData
 
   def createJSONFromAnatomicContext(self, terminologyEntry):
-
     segmentData = dict()
 
     regionObject = terminologyEntry.GetAnatomicRegionObject()
@@ -1046,25 +921,6 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
       key, value = each.split(":")
       codeSequence[key] = value
     return codeSequence
-
-  def checkTerminologyOfSegments(self):
-    for segmentID in self.statistics["SegmentIDs"]:
-      segment = self.segmentationNode.GetSegmentation().GetSegment(segmentID)
-      terminologyEntry = self.getDeserializedTerminologyEntry(segment)
-      category = terminologyEntry.GetCategoryObject()
-      propType = terminologyEntry.GetTypeObject()
-      if any(v is None for v in [category, propType]):
-        raise ValueError("Segment {} has missing attributes. Make sure to set terminology.".format(segment.GetName()))
-
-  def isSegmentEmpty(self, segment):
-    bounds = [0.0,0.0,0.0,0.0,0.0,0.0]
-    segment.GetBounds(bounds)
-    return bounds[1] < 0 and bounds[3] < 0 and bounds[5] < 0
-
-  def getTagValue(self, segment, tagName):
-    value = vtk.mutable("")
-    segment.GetTag(tagName, value)
-    return value.get()
 
   def getDeserializedTerminologyEntry(self, segment):
     terminologyWidget = slicer.qSlicerTerminologyNavigatorWidget()
