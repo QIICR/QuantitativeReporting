@@ -1,13 +1,22 @@
-import glob, os, json
-import vtk, slicer
-from base.DICOMPluginBase import DICOMPluginBase
-from DICOMLib import DICOMLoadable
+import glob
+import os
+import json
+import vtk
 import logging
+import getpass
+
+from base.DICOMPluginBase import DICOMPluginBase
+
+import slicer
+from DICOMLib import DICOMLoadable
+
+from SlicerDevelopmentToolboxUtils.mixins import ModuleLogicMixin
+from SlicerDevelopmentToolboxUtils.constants import DICOMTAGS
+
 
 #
 # This is the plugin to handle translation of DICOM SEG objects
 #
-
 class DICOMSegmentationPluginClass(DICOMPluginBase):
 
   def __init__(self):
@@ -25,7 +34,6 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
     return loadables
 
   def examineFiles(self,files):
-
     """ Returns a list of DICOMLoadable instances
     corresponding to ways of interpreting the
     files parameter.
@@ -210,7 +218,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
           labelNode.SetAttribute("ColorG", str(rgb[1]))
           labelNode.SetAttribute("ColorB", str(rgb[2]))
 
-          # create Subject hierarchy nodes for the loaded series
+          # Create subject hierarchy for the loaded series
           self.addSeriesInSubjectHierarchy(loadable, labelNode)
 
       metaFile.close()
@@ -256,16 +264,16 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
 
     return True
 
-  def examineForExport(self, node):
-
+  def examineForExport(self, subjectHierarchyItemID):
     exportable = None
 
-    if node.GetAssociatedNode() and node.GetAssociatedNode().IsA('vtkMRMLSegmentationNode'):
-
+    shNode = slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(slicer.mrmlScene)
+    dataNode = shNode.GetItemDataNode(subjectHierarchyItemID)
+    if dataNode and dataNode.IsA('vtkMRMLSegmentationNode'):
       # Check to make sure all referenced UIDs exist in the database.
-      instanceUIDs = node.GetAttribute("DICOM.ReferencedInstanceUIDs").split()
+      instanceUIDs = shNode.GetItemAttribute(subjectHierarchyItemID, "DICOM.ReferencedInstanceUIDs").split()
       if instanceUIDs == "":
-          return []
+        return []
 
       for instanceUID in instanceUIDs:
         inputDICOMImageFileName = slicer.dicomDatabase.fileForInstance(instanceUID)
@@ -279,7 +287,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
     if exportable is not None:
       exportable.name = self.loadType
       exportable.tooltip = "Create DICOM files from segmentation"
-      exportable.nodeID = node.GetID()
+      exportable.subjectHierarchyItemID = subjectHierarchyItemID
       exportable.pluginClass = self.__module__
       # Define common required tags and default values
       exportable.setTag('SeriesDescription', 'No series description')
@@ -289,203 +297,319 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
     return []
 
   def export(self, exportables):
-
     exportablesCollection = vtk.vtkCollection()
     for exportable in exportables:
       vtkExportable = slicer.vtkSlicerDICOMExportable()
       exportable.copyToVtkExportable(vtkExportable)
       exportablesCollection.AddItem(vtkExportable)
 
-    self.exportAsDICOMSEG(exportablesCollection)
+    return self.exportAsDICOMSEG(exportablesCollection)
 
   def exportAsDICOMSEG(self, exportablesCollection):
-    """Export the given node to a segmentation object and load it in the
-    DICOM database
+    """Export the given node to a segmentation object and load it in the DICOM database
 
     This function was copied and modified from the EditUtil.py function of the same name in Slicer.
     """
 
     if hasattr(slicer.modules, 'segmentations'):
-
       exportable = exportablesCollection.GetItemAsObject(0)
-      subjectHierarchyNode = slicer.mrmlScene.GetNodeByID(exportable.GetNodeID())
+      shNode = slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(slicer.mrmlScene)
+      subjectHierarchyItemID = exportable.GetSubjectHierarchyItemID()
+      segmentationNode = shNode.GetItemDataNode(subjectHierarchyItemID)
 
-      instanceUIDs = subjectHierarchyNode.GetAttribute("DICOM.ReferencedInstanceUIDs").split()
-
-      if instanceUIDs == "":
-        raise Exception("Editor master node does not have DICOM information")
-
-      # get the list of source DICOM files
-      inputDICOMImageFileNames = ""
-      for instanceUID in instanceUIDs:
-        inputDICOMImageFileNames += slicer.dicomDatabase.fileForInstance(instanceUID) + ","
-      inputDICOMImageFileNames = inputDICOMImageFileNames[:-1] # strip last comma
-
-      # save the per-structure volumes in the temp directory
-      inputSegmentationsFileNames = ""
-
-      import random # TODO: better way to generate temp file names?
-      import vtkITK
-      writer = vtkITK.vtkITKImageWriter()
-      rasToIJKMatrix = vtk.vtkMatrix4x4()
-
-      import vtkSegmentationCore
-      import vtkSlicerSegmentationsModuleLogic
-      logic = vtkSlicerSegmentationsModuleLogic.vtkSlicerSegmentationsModuleLogic()
-
-      segmentationNode = subjectHierarchyNode.GetAssociatedNode()
-
-      mergedSegmentationImageData = segmentationNode.GetImageData()
-      mergedSegmentationLabelmapNode = slicer.vtkMRMLLabelMapVolumeNode()
-
-      segmentationNode.GetRASToIJKMatrix(rasToIJKMatrix)
-      mergedSegmentationLabelmapNode.SetRASToIJKMatrix(rasToIJKMatrix)
-      mergedSegmentationLabelmapNode.SetAndObserveImageData(mergedSegmentationImageData)
-      mergedSegmentationOrientedImageData = logic.CreateOrientedImageDataFromVolumeNode(mergedSegmentationLabelmapNode)
-
-      segmentation = segmentationNode.GetSegmentation()
-
-      segmentIDs = vtk.vtkStringArray()
-      segmentation.GetSegmentIDs(segmentIDs)
-      segmentationName = segmentationNode.GetName()
-
-      for i in range(0, segmentIDs.GetNumberOfValues()):
-        segmentID = segmentIDs.GetValue(i)
-        segment = segmentation.GetSegment(segmentID)
-
-        segmentName = segment.GetName()
-        structureName = segmentName[len(segmentationName)+1:-1*len('-label')]
-
-        structureFileName = structureName + str(random.randint(0,vtk.VTK_INT_MAX)) + ".nrrd"
-        filePath = os.path.join(slicer.app.temporaryPath, structureFileName)
-        writer.SetFileName(filePath)
-
-        segmentImageData = segment.GetRepresentation(vtkSegmentationCore.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName())
-        paddedImageData = vtkSegmentationCore.vtkOrientedImageData()
-        vtkSegmentationCore.vtkOrientedImageDataResample.PadImageToContainImage(segmentImageData, mergedSegmentationOrientedImageData, paddedImageData)
-
-        labelmapImageData = slicer.vtkMRMLLabelMapVolumeNode()
-        logic.CreateLabelmapVolumeFromOrientedImageData(paddedImageData, labelmapImageData)
-
-        writer.SetInputDataObject(labelmapImageData.GetImageData())
-
-        labelmapImageData.GetRASToIJKMatrix(rasToIJKMatrix)
-        writer.SetRasToIJKMatrix(rasToIJKMatrix)
-        logging.debug("Saving to %s..." % filePath)
-        writer.Write()
-        inputSegmentationsFileNames += filePath + ","
-      inputSegmentationsFileNames = inputSegmentationsFileNames[:-1] # strip last comma
-
-      # save the per-structure volumes label attributes
-      colorNode = segmentationNode.GetNodeReference('colorNodeID')
-
-      terminologyName = colorNode.GetAttribute("TerminologyName")
-      colorLogic = slicer.modules.colors.logic()
-      if not terminologyName or not colorLogic:
-        raise Exception("No terminology or color logic - cannot export")
-
-      inputLabelAttributesFileNames = ""
-
-      for i in range(0, segmentIDs.GetNumberOfValues()):
-        segmentID = segmentIDs.GetValue(i)
-        segment = segmentation.GetSegment(segmentID)
-
-        segmentName = segment.GetName()
-        structureName = segmentName[len(segmentationName)+1:-1*len('-label')]
-        labelIndex = colorNode.GetColorIndexByName( structureName )
-
-        rgbColor = [0,]*4
-        colorNode.GetColor(labelIndex, rgbColor)
-        rgbColor = map(lambda e: e*255., rgbColor)
-
-        # get the attributes and convert to format CodeValue,CodeMeaning,CodingSchemeDesignator
-        # or empty strings if not defined
-        propertyCategoryWithColons = colorLogic.GetSegmentedPropertyCategory(labelIndex, terminologyName)
-        if propertyCategoryWithColons == '':
-          logging.debug ('ERROR: no segmented property category found for label ',str(labelIndex))
-          # Try setting a default as this section is required
-          propertyCategory = "C94970,NCIt,Reference Region"
-        else:
-          propertyCategory = propertyCategoryWithColons.replace(':',',')
-
-        propertyTypeWithColons = colorLogic.GetSegmentedPropertyType(labelIndex, terminologyName)
-        propertyType = propertyTypeWithColons.replace(':',',')
-
-        propertyTypeModifierWithColons = colorLogic.GetSegmentedPropertyTypeModifier(labelIndex, terminologyName)
-        propertyTypeModifier = propertyTypeModifierWithColons.replace(':',',')
-
-        anatomicRegionWithColons = colorLogic.GetAnatomicRegion(labelIndex, terminologyName)
-        anatomicRegion = anatomicRegionWithColons.replace(':',',')
-
-        anatomicRegionModifierWithColons = colorLogic.GetAnatomicRegionModifier(labelIndex, terminologyName)
-        anatomicRegionModifier = anatomicRegionModifierWithColons.replace(':',',')
-
-        structureFileName = structureName + str(random.randint(0,vtk.VTK_INT_MAX)) + ".info"
-        filePath = os.path.join(slicer.app.temporaryPath, structureFileName)
-
-        # EncodeSEG is expecting a file of format:
-        # labelNum;SegmentedPropertyCategory:codeValue,codeScheme,codeMeaning;SegmentedPropertyType:v,m,s etc
-        attributes = "%d" % labelIndex
-        attributes += ";SegmentedPropertyCategory:"+propertyCategory
-        if propertyType != "":
-          attributes += ";SegmentedPropertyType:" + propertyType
-        if propertyTypeModifier != "":
-          attributes += ";SegmentedPropertyTypeModifier:" + propertyTypeModifier
-        if anatomicRegion != "":
-          attributes += ";AnatomicRegion:" + anatomicRegion
-        if anatomicRegionModifier != "":
-          attributes += ";AnatomicRegionModifier:" + anatomicRegionModifier
-        attributes += ";SegmentAlgorithmType:AUTOMATIC"
-        attributes += ";SegmentAlgorithmName:SlicerSelfTest"
-        attributes += ";RecommendedDisplayRGBValue:%g,%g,%g" % tuple(rgbColor[:-1])
-        fp = open(filePath, "w")
-        fp.write(attributes)
-        fp.close()
-        logging.debug ("filePath: %s", filePath)
-        logging.debug ("attributes: %s", attributes)
-        inputLabelAttributesFileNames += filePath + ","
-      inputLabelAttributesFileNames = inputLabelAttributesFileNames[:-1] # strip last comma'''
+      exporter = DICOMSegmentationExporter(segmentationNode)
 
       try:
-        user = os.environ['USER']
-      except KeyError:
-        user = "Unspecified"
-      segFileName = "editor_export.SEG" + str(random.randint(0,vtk.VTK_INT_MAX)) + ".dcm"
-      segFilePath = os.path.join(slicer.app.temporaryPath, segFileName)
-      # TODO: define a way to set parameters like description
-      # TODO: determine a good series number automatically by looking in the database
-      parameters = {
-        "inputDICOMImageFileNames": inputDICOMImageFileNames,
-        "inputSegmentationsFileNames": inputSegmentationsFileNames,
-        "inputLabelAttributesFileNames": inputLabelAttributesFileNames,
-        "readerId": user,
-        "sessionId": "1",
-        "timePointId": "1",
-        "seriesDescription": "SlicerEditorSEGExport",
-        "seriesNumber": "100",
-        "instanceNumber": "1",
-        "bodyPart": "HEAD",
-        "algorithmDescriptionFileName": "Editor",
-        "outputSEGFileName": segFilePath,
-        "skipEmptySlices": False,
-        "compress": False,
-        }
+        segFileName = "subject_hierarchy_export.SEG" + exporter.currentDateTime + ".dcm"
+        segFilePath = os.path.join(slicer.app.temporaryPath, segFileName)
+        try:
+          exporter.export(segFilePath)
+        except DICOMSegmentationExporter.EmptySegmentsFoundError as exc:
+          if slicer.util.confirmYesNoDisplay(exc.message):
+            exporter.export(segFilePath, skipEmpty=True)
+          else:
+            raise ValueError("Export canceled")
+        slicer.dicomDatabase.insert(segFilePath)
+        logging.info("Added segmentation to DICOM database (%s)", segFilePath)
+      except (DICOMSegmentationExporter.NoNonEmptySegmentsFoundError, ValueError) as exc:
+        return exc.message
+      finally:
+        exporter.cleanup()
+    return ""
 
-      encodeSEG = slicer.modules.encodeseg
-      cliNode = None
 
-      cliNode = slicer.cli.run(encodeSEG, cliNode, parameters, delete_temporary_files=False)
-      waitCount = 0
-      while cliNode.IsBusy() and waitCount < 20:
-        slicer.util.delayDisplay( "Running SEG Encoding... %d" % waitCount, 1000 )
-        waitCount += 1
+class DICOMSegmentationExporter(ModuleLogicMixin):
+  """This class can be used for exporting a segmentation into DICOM """
 
-      if cliNode.GetStatusString() != 'Completed':
-        raise Exception("encodeSEG CLI did not complete cleanly")
+  class EmptySegmentsFoundError(ValueError):
+    pass
 
-      logging.info("Added segmentation to DICOM database (%s)", segFilePath)
-      slicer.dicomDatabase.insert(segFilePath)
+  class NoNonEmptySegmentsFoundError(ValueError):
+      pass
 
+  @staticmethod
+  def saveJSON(data, destination):
+    with open(os.path.join(destination), 'w') as outfile:
+      json.dump(data, outfile, indent=2)
+    return destination
+
+  @staticmethod
+  def vtkStringArrayFromList(listToConvert):
+    stringArray = vtk.vtkStringArray()
+    for listElement in listToConvert:
+      stringArray.InsertNextValue(listElement)
+    return stringArray
+
+  @staticmethod
+  def createLabelNodeFromSegment(segmentationNode, segmentID):
+    labelNode = slicer.vtkMRMLLabelMapVolumeNode()
+    slicer.mrmlScene.AddNode(labelNode)
+    segmentationsLogic = slicer.modules.segmentations.logic()
+
+    import vtkSegmentationCorePython as vtkSegmentationCore
+
+    mergedImageData = vtkSegmentationCore.vtkOrientedImageData()
+    segmentationNode.GenerateMergedLabelmapForAllSegments(mergedImageData, 0, None,
+                                                          DICOMSegmentationExporter.vtkStringArrayFromList([segmentID]))
+    if not segmentationsLogic.CreateLabelmapVolumeFromOrientedImageData(mergedImageData, labelNode):
+      slicer.mrmlScene.RemoveNode(labelNode)
+      return None
+    labelNode.SetName("{}_label".format(segmentID))
+    return labelNode
+
+  @staticmethod
+  def getSegmentIDs(segmentationNode, visibleOnly=False):
+    if not segmentationNode:
+      raise AttributeError("SegmentationNode must not be None!")
+    segmentIDs = vtk.vtkStringArray()
+    segmentation = segmentationNode.GetSegmentation()
+    command = segmentationNode.GetDisplayNode().GetVisibleSegmentIDs if visibleOnly else segmentation.GetSegmentIDs
+    command(segmentIDs)
+    return [segmentIDs.GetValue(idx) for idx in range(segmentIDs.GetNumberOfValues())]
+
+  @staticmethod
+  def getReferencedVolumeFromSegmentationNode(segmentationNode):
+    if not segmentationNode:
+      return None
+    return segmentationNode.GetNodeReference(segmentationNode.GetReferenceImageGeometryReferenceRole())
+
+  @property
+  def currentDateTime(self, outputFormat='%Y-%m-%d_%H%M%S'):
+    from datetime import datetime
+    return datetime.now().strftime(outputFormat)
+
+  def __init__(self, segmentationNode, contentCreatorName=None):
+    self.segmentationNode = segmentationNode
+    self.contentCreatorName = contentCreatorName if contentCreatorName else "Slicer"
+
+  def cleanup(self):
+    try:
+      import shutil
+      logging.debug("Cleaning up temporarily created directory {}".format(self.tempDir))
+      shutil.rmtree(self.tempDir)
+    except AttributeError:
+      pass
+
+  def export(self, segFilePath, segmentIDs=None, skipEmpty=False):
+    data = self._getSeriesAttributes()
+    data["SeriesDescription"] = "Segmentation"
+    data.update(self._getAdditionalSeriesAttributes())
+
+    segmentIDs = segmentIDs if segmentIDs else self.getSegmentIDs(self.segmentationNode)
+
+    # NB: for now segments are filter if they are empty and only the non empty ones are returned
+
+    nonEmptySegmentIDs = self.getNonEmptySegmentIDs(segmentIDs)
+
+    if skipEmpty is False and len(nonEmptySegmentIDs) and len(segmentIDs) != len(nonEmptySegmentIDs):
+      raise self.EmptySegmentsFoundError("Empty segments found in segmentation. Currently the export of empty segments "
+                                         "is not supported. Do you want to skip empty segments and proceed exporting?")
+
+    segmentIDs = nonEmptySegmentIDs
+
+    if not len(segmentIDs):
+      raise self.NoNonEmptySegmentsFoundError("No non empty segments found.")
+
+    data["segmentAttributes"] = self.generateJSON4DcmSEGExport(segmentIDs)
+
+    logging.debug("DICOM SEG Metadata output:")
+    logging.debug(data)
+
+    self.tempDir = os.path.join(slicer.util.tempDirectory(), self.currentDateTime)
+    os.mkdir(self.tempDir)
+
+
+    metaFilePath = self.saveJSON(data, os.path.join(self.tempDir, "seg_meta.json"))
+
+    segmentFiles = self.createAndGetLabelMapsFromSegments(segmentIDs)
+    inputDICOMImageFileNames = self.getDICOMFileList(self.getReferencedVolumeFromSegmentationNode(self.segmentationNode),
+                                                     absolutePaths=True)
+
+    params = {
+      "dicomImageFiles": ', '.join(inputDICOMImageFileNames).replace(', ', ","),
+      "segImageFiles": ', '.join(segmentFiles).replace(', ', ","),
+      "metaDataFileName": metaFilePath,
+      "outputSEGFileName": segFilePath
+    }
+
+    logging.debug(params)
+
+    cliNode = slicer.cli.run(slicer.modules.itkimage2segimage, None, params, wait_for_completion=True)
+    waitCount = 0
+    while cliNode.IsBusy() and waitCount < 20:
+      slicer.util.delayDisplay("Running SEG Encoding... %d" % waitCount, 1000)
+      waitCount += 1
+
+    if cliNode.GetStatusString() != 'Completed':
+      raise RuntimeError("itkimage2segimage CLI did not complete cleanly")
+
+    if not os.path.exists(segFilePath):
+      raise RuntimeError("DICOM Segmentation was not created. Check Error Log for further information.")
+
+    logging.debug("Saved DICOM Segmentation to {}".format(segFilePath))
+    return True
+
+  def getNonEmptySegmentIDs(self, segmentIDs):
+    segmentation = self.segmentationNode.GetSegmentation()
+    return [segmentID for segmentID in segmentIDs if not self.isSegmentEmpty(segmentation.GetSegment(segmentID))]
+
+  def isSegmentEmpty(self, segment):
+    bounds = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    segment.GetBounds(bounds)
+    return bounds[1] < 0 and bounds[3] < 0 and bounds[5] < 0
+
+  def createAndGetLabelMapsFromSegments(self, segmentIDs):
+    segmentFiles = []
+    for segmentID in segmentIDs:
+      segmentLabelmap = self.createLabelNodeFromSegment(self.segmentationNode, segmentID)
+      filename = os.path.join(self.tempDir, "{}.nrrd".format(segmentLabelmap.GetName()))
+      slicer.util.saveNode(segmentLabelmap, filename)
+      slicer.mrmlScene.RemoveNode(segmentLabelmap)
+      segmentFiles.append(filename)
+    return segmentFiles
+
+  def getDICOMFileList(self, volumeNode, absolutePaths=False):
+    # TODO: move to general class
+    # duplicate in quantitative Reporting
+    attributeName = "DICOM.instanceUIDs"
+    instanceUIDs = volumeNode.GetAttribute(attributeName)
+    if not instanceUIDs:
+      raise ValueError("VolumeNode {0} has no attribute {1}".format(volumeNode.GetName(), attributeName))
+    fileList = []
+    rootDir = None
+    for uid in instanceUIDs.split():
+      rootDir, filename = self.getInstanceUIDDirectoryAndFileName(uid)
+      fileList.append(str(filename if not absolutePaths else os.path.join(rootDir, filename)))
+    if not absolutePaths:
+      return rootDir, fileList
+    return fileList
+
+  def getInstanceUIDDirectoryAndFileName(self, uid):
+    # TODO: move this method to a general class
+    # duplicate in quantitative Reporting
+    path = slicer.dicomDatabase.fileForInstance(uid)
+    return os.path.dirname(path), os.path.basename(path)
+
+  def _getSeriesAttributes(self):
+    attributes = dict()
+    volumeNode = self.getReferencedVolumeFromSegmentationNode(self.segmentationNode)
+    seriesNumber = ModuleLogicMixin.getDICOMValue(volumeNode, DICOMTAGS.SERIES_NUMBER)
+    attributes["SeriesNumber"] = "100" if seriesNumber in [None,''] else str(int(seriesNumber)+100)
+    attributes["InstanceNumber"] = "1"
+    return attributes
+
+  def _getAdditionalSeriesAttributes(self):
+    return {"ContentCreatorName": self.contentCreatorName,
+            "ClinicalTrialSeriesID": "1",
+            "ClinicalTrialTimePointID": "1",
+            "ClinicalTrialCoordinatingCenterName": "QIICR"}
+
+  def generateJSON4DcmSEGExport(self, segmentIDs):
+    self.checkTerminologyOfSegments(segmentIDs)
+    segmentsData = []
+    for segmentID in segmentIDs:
+      segmentData = self._createSegmentData(segmentID)
+      segmentsData.append([segmentData])
+    if not len(segmentsData):
+      raise ValueError("No segments with pixel data found.")
+    return segmentsData
+
+  def _createSegmentData(self, segmentID):
+    segmentData = dict()
+    segmentData["labelID"] = 1
+    segment = self.segmentationNode.GetSegmentation().GetSegment(segmentID)
+    terminologyEntry = self.getDeserializedTerminologyEntry(segment)
+    category = terminologyEntry.GetCategoryObject()
+    segmentData["SegmentDescription"] = category.GetCodeMeaning()
+    segmentData["SegmentAlgorithmType"] = "MANUAL"
+    rgb = segment.GetColor()
+    segmentData["recommendedDisplayRGBValue"] = [rgb[0] * 255, rgb[1] * 255, rgb[2] * 255]
+    segmentData.update(self.createJSONFromTerminologyContext(terminologyEntry))
+    segmentData.update(self.createJSONFromAnatomicContext(terminologyEntry))
+    return segmentData
+
+  def checkTerminologyOfSegments(self, segmentIDs):
+    # TODO: not sure if this is still needed since there is always a terminology assigned by default
+    for segmentID in segmentIDs:
+      segment = self.segmentationNode.GetSegmentation().GetSegment(segmentID)
+      terminologyEntry = self.getDeserializedTerminologyEntry(segment)
+      category = terminologyEntry.GetCategoryObject()
+      propType = terminologyEntry.GetTypeObject()
+      if any(v is None for v in [category, propType]):
+        raise ValueError("Segment {} has missing attributes. Make sure to set terminology.".format(segment.GetName()))
+
+  def getDeserializedTerminologyEntry(self, vtkSegment):
+    terminologyWidget = slicer.qSlicerTerminologyNavigatorWidget()
+    terminologyEntry = slicer.vtkSlicerTerminologyEntry()
+    tag = vtk.mutable("")
+    vtkSegment.GetTag(vtkSegment.GetTerminologyEntryTagName(), tag)
+    terminologyWidget.deserializeTerminologyEntry(tag, terminologyEntry)
+    return terminologyEntry
+
+  def createJSONFromTerminologyContext(self, terminologyEntry):
+    segmentData = dict()
+
+    categoryObject = terminologyEntry.GetCategoryObject()
+    if categoryObject is None or not self.isTerminologyInformationValid(categoryObject):
+      return {}
+    segmentData["SegmentedPropertyCategoryCodeSequence"] = self.getJSONFromVtkSlicerTerminology(categoryObject)
+
+    typeObject = terminologyEntry.GetTypeObject()
+    if typeObject is None or not self.isTerminologyInformationValid(typeObject):
+      return {}
+    segmentData["SegmentedPropertyTypeCodeSequence"] = self.getJSONFromVtkSlicerTerminology(typeObject)
+
+    modifierObject = terminologyEntry.GetTypeModifierObject()
+    if modifierObject is not None and self.isTerminologyInformationValid(modifierObject):
+      segmentData["SegmentedPropertyTypeModifierCodeSequence"] = self.getJSONFromVtkSlicerTerminology(modifierObject)
+
+    return segmentData
+
+  def createJSONFromAnatomicContext(self, terminologyEntry):
+    segmentData = dict()
+
+    regionObject = terminologyEntry.GetAnatomicRegionObject()
+    if regionObject is None or not self.isTerminologyInformationValid(regionObject):
+      return {}
+    segmentData["AnatomicRegionSequence"] = self.getJSONFromVtkSlicerTerminology(regionObject)
+
+    regionModifierObject = terminologyEntry.GetAnatomicRegionModifierObject()
+    if regionModifierObject is not None and self.isTerminologyInformationValid(regionModifierObject):
+      segmentData["AnatomicRegionModifierSequence"] = self.getJSONFromVtkSlicerTerminology(regionModifierObject)
+    return segmentData
+
+  def isTerminologyInformationValid(self, termTypeObject):
+    return all(t is not None for t in [termTypeObject.GetCodeValue(), termTypeObject.GetCodingSchemeDesignator(),
+                                       termTypeObject.GetCodeMeaning()])
+
+  def getJSONFromVtkSlicerTerminology(self, termTypeObject):
+    return self.createCodeSequence(termTypeObject.GetCodeValue(), termTypeObject.GetCodingSchemeDesignator(),
+                                   termTypeObject.GetCodeMeaning())
+
+  def createCodeSequence(self, value, designator, meaning):
+    return {"CodeValue": value,
+            "CodingSchemeDesignator": designator,
+            "CodeMeaning": meaning}
 
 #
 # DICOMSegmentationPlugin
