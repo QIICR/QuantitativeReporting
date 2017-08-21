@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-
+from collections import Counter
 import dicom
 
 import slicer
@@ -211,50 +211,84 @@ class DICOMTID1500PluginClass(DICOMPluginBase):
 
   def metadata2vtkTableNode(self, metafile):
     with open(metafile) as datafile:
-      table = slicer.vtkMRMLTableNode()
-      slicer.mrmlScene.AddNode(table)
-      table.SetAttribute("QuantitativeReporting", "Yes")
-      table.SetAttribute("readonly", "Yes")
-      table.SetUseColumnNameAsColumnHeader(True)
-
       data = json.load(datafile)
+      measurement = data["Measurements"][0]
+
+      table = self.createAndConfigureTable()
 
       tableWasModified = table.StartModify()
-
-      measurement = data["Measurements"][0]
-      col = table.AddColumn()
-      col.SetName("Segment")
-
-      for measurementItem in measurement["measurementItems"]:
-        col = table.AddColumn()
-
-        unit = measurementItem["units"]["CodeValue"]
-        unit = unit if unit != "1" else measurementItem["units"]["CodeMeaning"]
-
-        if "derivationModifier" in measurementItem.keys():
-          description = columnName = measurementItem["derivationModifier"]["CodeMeaning"]
-        else:
-          description = measurementItem["quantity"]["CodeMeaning"]
-          columnName = "%s %s" % (description, unit)
-          description = "%s in %s" % (description, unit)
-
-        col.SetName(columnName)
-        table.SetColumnLongName(columnName, columnName)
-        table.SetColumnUnitLabel(columnName, unit)
-        table.SetColumnDescription(columnName, str(description))
-
-      for measurement in data["Measurements"]:
-        name = measurement["TrackingIdentifier"]
-        value = measurement["ReferencedSegment"]
-        rowIndex = table.AddEmptyRow()
-        table.SetCellText(rowIndex, 0, name)
-        for columnIndex, measurementItem in enumerate(measurement["measurementItems"]):
-          table.SetCellText(rowIndex, columnIndex+1, measurementItem["value"])
-
+      self.setupTableInformation(measurement, table)
+      self.addMeasurementsToTable(data, table)
       table.EndModify(tableWasModified)
+
       slicer.app.applicationLogic().GetSelectionNode().SetReferenceActiveTableID(table.GetID())
       slicer.app.applicationLogic().PropagateTableSelection()
     return table
+
+  def addMeasurementsToTable(self, data, table):
+    for measurement in data["Measurements"]:
+      name = measurement["TrackingIdentifier"]
+      value = measurement["ReferencedSegment"]
+      rowIndex = table.AddEmptyRow()
+      table.SetCellText(rowIndex, 0, name)
+      for columnIndex, measurementItem in enumerate(measurement["measurementItems"]):
+        table.SetCellText(rowIndex, columnIndex + 1, measurementItem["value"])
+
+  def createAndConfigureTable(self):
+    table = slicer.vtkMRMLTableNode()
+    slicer.mrmlScene.AddNode(table)
+    table.SetAttribute("QuantitativeReporting", "Yes")
+    table.SetAttribute("readonly", "Yes")
+    table.SetUseColumnNameAsColumnHeader(True)
+    return table
+
+  def setupTableInformation(self, measurement, table):
+    col = table.AddColumn()
+    col.SetName("Segment")
+
+    infoItems = self.enumerateDuplicateNames(self.generateMeasurementInformation(measurement["measurementItems"]))
+
+    for info in infoItems:
+      col = table.AddColumn()
+      col.SetName(info["name"])
+      table.SetColumnLongName(info["name"], info["name"])
+      table.SetColumnUnitLabel(info["name"], info["unit"])
+      table.SetColumnDescription(info["name"], info["description"])
+
+  def generateMeasurementInformation(self, measurementItems):
+    infoItems = []
+    for measurementItem in measurementItems:
+
+      crntInfo = dict()
+
+      unit = measurementItem["units"]["CodeValue"]
+      crntInfo["unit"] = measurementItem["units"]["CodeMeaning"]
+
+      if "derivationModifier" in measurementItem.keys():
+        description = crntInfo["name"] = measurementItem["derivationModifier"]["CodeMeaning"]
+      else:
+        description = measurementItem["quantity"]["CodeMeaning"]
+
+      crntInfo["name"] = "%s [%s]" % (description, unit.replace("[", "").replace("]", ""))
+      crntInfo["description"] = description
+
+      infoItems.append(crntInfo)
+    return infoItems
+
+  def enumerateDuplicateNames(self, items):
+    names = [item["name"] for item in items]
+    counts = {k: v for k, v in Counter(names).items() if v > 1}
+    nameListCopy = names[:]
+
+    for i in reversed(range(len(names))):
+      item = names[i]
+      if item in counts and counts[item]:
+        nameListCopy[i] += " (%s)" % str(counts[item])
+        counts[item] -= 1
+
+    for idx, item in enumerate(nameListCopy):
+      items[idx]["name"] = item
+    return items
 
 
 class DICOMTID1500Plugin:
