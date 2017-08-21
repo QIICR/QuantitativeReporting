@@ -63,6 +63,13 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.segmentationObservers = []
     self.dicomSegmentationExporter = None
 
+  def enter(self):
+    self.segmentEditorWidget.editor.masterVolumeNodeChanged.connect(self.onImageVolumeSelected)
+
+  def exit(self):
+    self.measurementReportSelector.setCurrentNode(None)
+    self.segmentEditorWidget.editor.masterVolumeNodeChanged.disconnect(self.onImageVolumeSelected)
+
   def onReload(self):
     self.cleanupUIElements()
     self.removeAllUIElements()
@@ -259,7 +266,6 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
   def setupConnections(self, funcName="connect"):
 
     def setupSelectorConnections():
-      getattr(self.segmentEditorWidget.editor.masterVolumeNodeChanged, funcName)(self.onImageVolumeSelected)
       getattr(self.measurementReportSelector, funcName)('currentNodeChanged(vtkMRMLNode*)',
                                                         self.onMeasurementReportSelected)
 
