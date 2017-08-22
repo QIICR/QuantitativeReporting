@@ -64,11 +64,15 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.dicomSegmentationExporter = None
 
   def enter(self):
+    self.measurementReportSelector.setCurrentNode(None)
+    self.segmentEditorWidget.editor.setSegmentationNode(None)
+    self.segmentEditorWidget.editor.setMasterVolumeNode(None)
     self.segmentEditorWidget.editor.masterVolumeNodeChanged.connect(self.onImageVolumeSelected)
+    self.segmentEditorWidget.editor.segmentationNodeChanged.connect(self.onSegmentationSelected)
 
   def exit(self):
-    self.measurementReportSelector.setCurrentNode(None)
     self.segmentEditorWidget.editor.masterVolumeNodeChanged.disconnect(self.onImageVolumeSelected)
+    self.segmentEditorWidget.editor.segmentationNodeChanged.disconnect(self.onSegmentationSelected)
 
   def onReload(self):
     self.cleanupUIElements()
@@ -88,12 +92,16 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
         pass
 
   def refreshUIElementsAvailability(self):
-    self.segmentEditorWidget.editor.masterVolumeNodeSelectorVisible = \
-      self.measurementReportSelector.currentNode() is not None and \
-      not self.getReferencedVolumeFromSegmentationNode(self.segmentEditorWidget.segmentationNode)
-    if not self.tableNode:
-      self.enableReportButtons(False)
-      self.updateMeasurementsTable(triggered=True)
+
+    def refresh():
+      self.segmentEditorWidget.editor.masterVolumeNodeSelectorVisible = \
+        self.measurementReportSelector.currentNode() is not None and \
+        not self.getReferencedVolumeFromSegmentationNode(self.segmentEditorWidget.segmentationNode)
+      if not self.tableNode:
+        self.enableReportButtons(False)
+        self.updateMeasurementsTable(triggered=True)
+
+    qt.QTimer.singleShot(0, refresh)
 
   @postCall(refreshUIElementsAvailability)
   def setup(self):
@@ -369,6 +377,14 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.onCurrentSegmentIDChanged(self.segmentEditorWidget.editor.currentSegmentID())
 
   @postCall(refreshUIElementsAvailability)
+  def onSegmentationSelected(self, node):
+    if not node:
+      return
+    masterVolume = self.getReferencedVolumeFromSegmentationNode(node)
+    if masterVolume:
+      self.initializeWatchBox(masterVolume)
+
+  @postCall(refreshUIElementsAvailability)
   def onImageVolumeSelected(self, node):
     self.seriesNumber = None
     self.initializeWatchBox(node)
@@ -391,6 +407,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self._configureReadWriteAccess()
 
   def _configureReadWriteAccess(self):
+    if not self.tableNode:
+      return
     if self.tableNode.GetAttribute("readonly"):
       logging.debug("Selected measurements report is readonly")
       self.setMeasurementsTable(self.tableNode)
@@ -408,10 +426,18 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     if segmentationNodeID:
       segmentationNode = slicer.mrmlScene.GetNodeByID(segmentationNodeID)
     else:
-      segmentationNode = self.createNewSegmentationNode()
-      self.tableNode.SetAttribute('ReferencedSegmentationNodeID', segmentationNode.GetID())
-    self.segmentEditorWidget.editor.setSegmentationNode(segmentationNode)
-    segmentationNode.SetDisplayVisibility(True)
+      segmentationNode = self._createAndReferenceNewSegmentationNode()
+    self._configureSegmentationNode(segmentationNode)
+    return segmentationNode
+
+  def _configureSegmentationNode(self, node):
+    self.hideAllSegmentations()
+    self.segmentEditorWidget.editor.setSegmentationNode(node)
+    node.SetDisplayVisibility(True)
+
+  def _createAndReferenceNewSegmentationNode(self):
+    segmentationNode = self.createNewSegmentationNode()
+    self.tableNode.SetAttribute('ReferencedSegmentationNodeID', segmentationNode.GetID())
     return segmentationNode
 
   def updateImportArea(self, node):
@@ -446,11 +472,22 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     if not node:
       self.watchBox.sourceFile = None
       return
-    dicomFileName = slicer.dicomDatabase.fileForInstance(node.GetAttribute("DICOM.instanceUIDs").split(" ")[0])
-    if not dicomFileName or not os.path.exists(dicomFileName):
+    try:
+      dicomFileName = slicer.dicomDatabase.fileForInstance(node.GetAttribute("DICOM.instanceUIDs").split(" ")[0])
+      self.watchBox.sourceFile = dicomFileName
+    except AttributeError:
       self.watchBox.sourceFile = None
-      raise ValueError("Cannot retrieve DICOM information from selected master volume node.")
-    self.watchBox.sourceFile = dicomFileName
+      if slicer.util.confirmYesNoDisplay("The referenced master volume from the current segmentation is not of type "
+                                         "DICOM. QuantitativeReporting will create a new segmentation node for the "
+                                         "current measurement report. You will need to select a proper DICOM master "
+                                         "volume in order to create a segmentation. Do you want to proceed?",
+                                         detailedText="In some cases a non DICOM master volume was selected from the "
+                                                      "SegmentEditor module itself. QuantitativeReporting currently "
+                                                      "does not support non DICOM master volumes."):
+        self._configureSegmentationNode(self._createAndReferenceNewSegmentationNode())
+        self.segmentEditorWidget.editor.setMasterVolumeNode(None)
+      else:
+        self.measurementReportSelector.setCurrentNode(None)
 
   def createNewSegmentationNode(self):
     return slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
