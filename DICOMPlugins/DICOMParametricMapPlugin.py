@@ -120,8 +120,18 @@ class DICOMParametricMapPluginClass(DICOMPluginBase):
     # load the metadata JSON to retrieve volume semantics (quantity stored and units)
     with open(os.path.join(self.tempDir,"meta.json")) as metafile:
       meta = json.load(metafile)
-      pmNode.SetAttribute("DICOM.QuantityValueCode",str(meta["QuantityValueCode"]))
-      pmNode.SetAttribute("DICOM.MeasurementUnitsCode",str(meta["MeasurementUnitsCode"]))
+      qJson = meta["QuantityValueCode"]
+      uJson = meta["MeasurementUnitsCode"]
+
+      quantity = slicer.vtkCodedEntry()
+      quantity.SetValueSchemeMeaning(qJson["CodeValue"], qJson["CodingSchemeDesignator"], qJson["CodeMeaning"])
+
+      units = slicer.vtkCodedEntry()
+      units.SetValueSchemeMeaning(uJson["CodeValue"], uJson["CodingSchemeDesignator"], uJson["CodeMeaning"])
+
+      pmNode.SetVoxelValueQuantity(quantity)
+      pmNode.SetVoxelValueUnits(units)
+
       pmNode.SetAttribute("DICOM.instanceUIDs", uid)
 
     # create Subject hierarchy nodes for the loaded series
