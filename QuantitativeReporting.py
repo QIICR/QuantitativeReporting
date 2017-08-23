@@ -95,8 +95,12 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
     def refresh():
       self.segmentEditorWidget.editor.masterVolumeNodeSelectorVisible = \
-        self.measurementReportSelector.currentNode() is not None and \
+        self.measurementReportSelector.currentNode() and \
         not self.getReferencedVolumeFromSegmentationNode(self.segmentEditorWidget.segmentationNode)
+      masterVolume = self.segmentEditorWidget.masterVolumeNode
+      self.importCollapsibleButton.enabled = masterVolume is not None
+      if not self.importCollapsibleButton.collapsed:
+        self.importCollapsibleButton.collapsed = masterVolume is None
       if not self.tableNode:
         self.enableReportButtons(False)
         self.updateMeasurementsTable(triggered=True)
@@ -207,6 +211,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
   def setupImportArea(self):
     self.importCollapsibleButton = ctk.ctkCollapsibleButton()
     self.importCollapsibleButton.collapsed = True
+    self.importCollapsibleButton.enabled = False
     self.importCollapsibleButton.text = "Import segments (segmentation/labelmap)"
     self.importCollapsibleLayout= qt.QGridLayout(self.importCollapsibleButton)
 
