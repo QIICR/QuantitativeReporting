@@ -3,7 +3,6 @@ import os
 import json
 import vtk
 import logging
-import getpass
 
 from base.DICOMPluginBase import DICOMPluginBase
 
@@ -153,15 +152,6 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
       for segmentAttributes in data["segmentAttributes"]:
         # TODO: only handles the first item of lists
         for segment in segmentAttributes:
-          # load each of the segments' segmentations
-          # Initialize color and terminology from .info file
-          # See SEG2NRRD.cxx and EncodeSEG.cxx for how it's written.
-          # Format of the .info file (no leading spaces, labelNum, RGBColor, SegmentedPropertyCategory and
-          # SegmentedPropertyCategory are required):
-          # labelNum;RGB:R,G,B;SegmentedPropertyCategory:code,scheme,meaning;SegmentedPropertyType:code,scheme,meaning;SegmentedPropertyTypeModifier:code,scheme,meaning;AnatomicRegion:code,scheme,meaning;AnatomicRegionModifier:code,scheme,meaning
-          # R, G, B are 0-255 in file, but mapped to 0-1 for use in color node
-          # set defaults in case of missing fields, modifiers are optional
-
           try:
             rgb255 = segment["recommendedDisplayRGBValue"]
             rgb = map(lambda c: float(c) / 255., rgb255)
@@ -198,7 +188,8 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
                                           regionModCode, regionModCodingScheme, regionModCodeMeaning)
           # end of processing a line of terminology
 
-          # TODO: Create logic class that both CLI and this plugin uses so that we don't need to have temporary NRRD files and labelmap nodes
+          # TODO: Create logic class that both CLI and this plugin uses so that we don't need to have temporary NRRD
+          # files and labelmap nodes
           # if not hasattr(slicer.modules, 'segmentations'):
 
           # load the segmentation volume file and name it for the reference series and segment color
@@ -226,6 +217,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
     self.cleanup()
 
     import vtkSegmentationCorePython as vtkSegmentationCore
+    vtkSegConverter = vtkSegmentationCore.vtkSegmentationConverter
 
     segmentationNode = slicer.vtkMRMLSegmentationNode()
     segmentationNode.SetName(seriesName)
@@ -236,7 +228,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
     segmentationNode.SetAndObserveDisplayNodeID(segmentationDisplayNode.GetID())
 
     segmentation = vtkSegmentationCore.vtkSegmentation()
-    segmentation.SetMasterRepresentationName(vtkSegmentationCore.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName())
+    segmentation.SetMasterRepresentationName(vtkSegConverter.GetSegmentationBinaryLabelmapRepresentationName())
 
     segmentationNode.SetAndObserveSegmentation(segmentation)
     self.addSeriesInSubjectHierarchy(loadable, segmentationNode)
@@ -245,14 +237,16 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
       segment = vtkSegmentationCore.vtkSegment()
       segment.SetName(segmentLabelNode.GetName())
 
-      segmentColor = [float(segmentLabelNode.GetAttribute("ColorR")), float(segmentLabelNode.GetAttribute("ColorG")), float(segmentLabelNode.GetAttribute("ColorB"))]
+      segmentColor = [float(segmentLabelNode.GetAttribute("ColorR")), float(segmentLabelNode.GetAttribute("ColorG")),
+                      float(segmentLabelNode.GetAttribute("ColorB"))]
       segment.SetColor(segmentColor)
       
-      segment.SetTag(vtkSegmentationCore.vtkSegment.GetTerminologyEntryTagName(), segmentLabelNode.GetAttribute("Terminology"))
+      segment.SetTag(vtkSegmentationCore.vtkSegment.GetTerminologyEntryTagName(),
+                     segmentLabelNode.GetAttribute("Terminology"))
 
       #TODO: when the logic class is created, this will need to be changed
       orientedImage = slicer.vtkSlicerSegmentationsModuleLogic.CreateOrientedImageDataFromVolumeNode(segmentLabelNode)
-      segment.AddRepresentation(vtkSegmentationCore.vtkSegmentationConverter.GetSegmentationBinaryLabelmapRepresentationName(), orientedImage)
+      segment.AddRepresentation(vtkSegConverter.GetSegmentationBinaryLabelmapRepresentationName(), orientedImage)
       segmentation.AddSegment(segment)
 
       segmentDisplayNode = segmentLabelNode.GetDisplayNode()
@@ -260,68 +254,61 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
         slicer.mrmlScene.RemoveNode(segmentDisplayNode)
       slicer.mrmlScene.RemoveNode(segmentLabelNode)
 
-    segmentation.CreateRepresentation(vtkSegmentationCore.vtkSegmentationConverter.GetSegmentationClosedSurfaceRepresentationName(), True)
+    segmentation.CreateRepresentation(vtkSegConverter.GetSegmentationClosedSurfaceRepresentationName(), True)
 
     return True
 
   def examineForExport(self, subjectHierarchyItemID):
-    exportable = None
-
     shNode = slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(slicer.mrmlScene)
+
+    exportable = self._examineExportableForSegmentationNode(shNode, subjectHierarchyItemID)
+    return self._setupExportable(exportable, subjectHierarchyItemID)
+
+  def _examineExportableForSegmentationNode(self, shNode, subjectHierarchyItemID):
     dataNode = shNode.GetItemDataNode(subjectHierarchyItemID)
+    exportable = None
     if dataNode and dataNode.IsA('vtkMRMLSegmentationNode'):
       # Check to make sure all referenced UIDs exist in the database.
       instanceUIDs = shNode.GetItemAttribute(subjectHierarchyItemID, "DICOM.ReferencedInstanceUIDs").split()
-      if instanceUIDs == "":
-        return []
+      if instanceUIDs != "" and all(slicer.dicomDatabase.fileForInstance(uid) != "" for uid in instanceUIDs):
+        exportable = slicer.qSlicerDICOMExportable()
+        exportable.confidence = 1.0
+        exportable.setTag('Modality', 'SEG')
+    return exportable
 
-      for instanceUID in instanceUIDs:
-        inputDICOMImageFileName = slicer.dicomDatabase.fileForInstance(instanceUID)
-        if inputDICOMImageFileName == "":
-          return []
-
-      exportable = slicer.qSlicerDICOMExportable()
-      exportable.confidence = 1.0
-      exportable.setTag('Modality', 'SEG')
-
-    if exportable is not None:
-      exportable.name = self.loadType
-      exportable.tooltip = "Create DICOM files from segmentation"
-      exportable.subjectHierarchyItemID = subjectHierarchyItemID
-      exportable.pluginClass = self.__module__
-      # Define common required tags and default values
-      exportable.setTag('SeriesDescription', 'No series description')
-      exportable.setTag('SeriesNumber', '1')
-      return [exportable]
-
-    return []
+  def _setupExportable(self, exportable, subjectHierarchyItemID):
+    if not exportable:
+      return []
+    exportable.name = self.loadType
+    exportable.tooltip = "Create DICOM files from segmentation"
+    exportable.subjectHierarchyItemID = subjectHierarchyItemID
+    exportable.pluginClass = self.__module__
+    # Define common required tags and default values
+    exportable.setTag('SeriesDescription', 'No series description')
+    exportable.setTag('SeriesNumber', '1')
+    return [exportable]
 
   def export(self, exportables):
-    exportablesCollection = vtk.vtkCollection()
+    try:
+      slicer.modules.segmentations
+    except AttributeError as exc:
+      return exc.message
+
+    shNode = slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(slicer.mrmlScene)
+    if shNode is None:
+      error = "Invalid subject hierarchy"
+      logging.error(error)
+      return error
+
     for exportable in exportables:
-      vtkExportable = slicer.vtkSlicerDICOMExportable()
-      exportable.copyToVtkExportable(vtkExportable)
-      exportablesCollection.AddItem(vtkExportable)
-
-    return self.exportAsDICOMSEG(exportablesCollection)
-
-  def exportAsDICOMSEG(self, exportablesCollection):
-    """Export the given node to a segmentation object and load it in the DICOM database
-
-    This function was copied and modified from the EditUtil.py function of the same name in Slicer.
-    """
-
-    if hasattr(slicer.modules, 'segmentations'):
-      exportable = exportablesCollection.GetItemAsObject(0)
-      shNode = slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(slicer.mrmlScene)
-      subjectHierarchyItemID = exportable.GetSubjectHierarchyItemID()
+      subjectHierarchyItemID = exportable.subjectHierarchyItemID
       segmentationNode = shNode.GetItemDataNode(subjectHierarchyItemID)
 
       exporter = DICOMSegmentationExporter(segmentationNode)
 
       try:
         segFileName = "subject_hierarchy_export.SEG" + exporter.currentDateTime + ".dcm"
-        segFilePath = os.path.join(slicer.app.temporaryPath, segFileName)
+        segFilePath = os.path.join(exportable.directory, segFileName)
         try:
           exporter.export(segFilePath)
         except DICOMSegmentationExporter.EmptySegmentsFoundError as exc:
@@ -474,9 +461,15 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     return [segmentID for segmentID in segmentIDs if not self.isSegmentEmpty(segmentation.GetSegment(segmentID))]
 
   def isSegmentEmpty(self, segment):
-    bounds = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    segment.GetBounds(bounds)
-    return bounds[1] < 0 and bounds[3] < 0 and bounds[5] < 0
+    import vtkSegmentationCorePython as vtkSegmentationCore
+    vtkSegConverter = vtkSegmentationCore.vtkSegmentationConverter
+    r = segment.GetRepresentation(vtkSegConverter.GetSegmentationBinaryLabelmapRepresentationName())
+    imagescalars = r.GetPointData().GetArray("ImageScalars")
+
+    if imagescalars is None:
+      return True
+    else:
+      return imagescalars.GetValueRange() == (0,0)
 
   def createAndGetLabelMapsFromSegments(self, segmentIDs):
     segmentFiles = []
