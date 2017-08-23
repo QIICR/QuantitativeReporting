@@ -69,10 +69,14 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.segmentEditorWidget.editor.setMasterVolumeNode(None)
     self.segmentEditorWidget.editor.masterVolumeNodeChanged.connect(self.onImageVolumeSelected)
     self.segmentEditorWidget.editor.segmentationNodeChanged.connect(self.onSegmentationSelected)
+    # self.setupDICOMBrowser()
+    qt.QTimer.singleShot(0, lambda: self.updateSizes(self.tabWidget.currentIndex))
 
   def exit(self):
     self.segmentEditorWidget.editor.masterVolumeNodeChanged.disconnect(self.onImageVolumeSelected)
     self.segmentEditorWidget.editor.segmentationNodeChanged.disconnect(self.onSegmentationSelected)
+    # self.removeDICOMBrowser()
+    qt.QTimer.singleShot(0, lambda: self.tabWidget.setCurrentIndex(0))
 
   def onReload(self):
     self.cleanupUIElements()
@@ -95,8 +99,12 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
     def refresh():
       self.segmentEditorWidget.editor.masterVolumeNodeSelectorVisible = \
-        self.measurementReportSelector.currentNode() is not None and \
+        self.measurementReportSelector.currentNode() and \
         not self.getReferencedVolumeFromSegmentationNode(self.segmentEditorWidget.segmentationNode)
+      masterVolume = self.segmentEditorWidget.masterVolumeNode
+      self.importCollapsibleButton.enabled = masterVolume is not None
+      if not self.importCollapsibleButton.collapsed:
+        self.importCollapsibleButton.collapsed = masterVolume is None
       if not self.tableNode:
         self.enableReportButtons(False)
         self.updateMeasurementsTable(triggered=True)
@@ -134,11 +142,19 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.mainModuleWidget.setLayout(self.mainModuleWidgetLayout)
 
     self.tabWidget.setIconSize(qt.QSize(85, 30))
-
     self.tabWidget.addTab(self.mainModuleWidget, 'QR')
+
+  def setupDICOMBrowser(self):
     self.dicomBrowser = CustomDICOMDetailsWidget()
     self.dicomBrowser.addEventObserver(CustomDICOMDetailsWidget.FinishedLoadingEvent, self.onLoadingFinishedEvent)
     self.tabWidget.addTab(self.dicomBrowser, 'DICOM')
+
+  def removeDICOMBrowser(self):
+    if not self.dicomBrowser:
+      return
+    self.dicomBrowser.removeEventObserver(CustomDICOMDetailsWidget.FinishedLoadingEvent, self.onLoadingFinishedEvent)
+    self.tabWidget.removeTab(self.tabWidget.indexOf(self.dicomBrowser))
+    self.dicomBrowser = None
 
   def enableReportButtons(self, enabled):
     self.saveReportButton.enabled = enabled
@@ -207,6 +223,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
   def setupImportArea(self):
     self.importCollapsibleButton = ctk.ctkCollapsibleButton()
     self.importCollapsibleButton.collapsed = True
+    self.importCollapsibleButton.enabled = False
     self.importCollapsibleButton.text = "Import segments (segmentation/labelmap)"
     self.importCollapsibleLayout= qt.QGridLayout(self.importCollapsibleButton)
 
@@ -309,16 +326,16 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     elif currentIndex == 1:
       slicer.app.layoutManager().parent().parent().hide()
       self.dicomBrowser.open()
-    self.updateSizes(currentIndex)
+
+    qt.QTimer.singleShot(0, lambda: self.updateSizes(currentIndex))
 
   def updateSizes(self, index):
-    for tab in [self.tabWidget.widget(i) for i in range(self.tabWidget.count) if i!=index]:
-      tab.setSizePolicy(qt.QSizePolicy.Ignored, qt.QSizePolicy.Ignored)
-
-    self.tabWidget.widget(index).setSizePolicy(qt.QSizePolicy.Preferred, qt.QSizePolicy.Preferred)
-    self.tabWidget.widget(index).resize(self.tabWidget.widget(index).minimumSizeHint)
-    self.tabWidget.widget(index).adjustSize()
-    # self.parent.resize(self.parent.minimumSizeHint)
+    mainWindow = slicer.util.mainWindow()
+    dockWidget = slicer.util.findChildren(mainWindow, name='dockWidgetContents')[0]
+    tempPolicy = dockWidget.sizePolicy
+    if index==0:
+      dockWidget.setSizePolicy(qt.QSizePolicy.Maximum, qt.QSizePolicy.Preferred)
+    qt.QTimer.singleShot(0, lambda: dockWidget.setSizePolicy(tempPolicy))
 
   def onCurrentSegmentIDChanged(self, segmentID):
     if segmentID == '':
