@@ -100,7 +100,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     def refresh():
       self.segmentEditorWidget.editor.masterVolumeNodeSelectorVisible = \
         self.measurementReportSelector.currentNode() and \
-        not self.getReferencedVolumeFromSegmentationNode(self.segmentEditorWidget.segmentationNode)
+        not ModuleLogicMixin.getReferencedVolumeFromSegmentationNode(self.segmentEditorWidget.segmentationNode)
       masterVolume = self.segmentEditorWidget.masterVolumeNode
       self.importCollapsibleButton.enabled = masterVolume is not None
       if not self.importCollapsibleButton.collapsed:
@@ -397,7 +397,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
   def onSegmentationSelected(self, node):
     if not node:
       return
-    masterVolume = self.getReferencedVolumeFromSegmentationNode(node)
+    masterVolume = ModuleLogicMixin.getReferencedVolumeFromSegmentationNode(node)
     if masterVolume:
       self.initializeWatchBox(masterVolume)
 
@@ -461,18 +461,6 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.segmentImportWidget.otherSegmentationNodeSelector.setCurrentNode(None)
     self.segmentImportWidget.setCurrentSegmentationNode(node)
     self.labelMapImportWidget.setSegmentationNode(node)
-
-  def hideAllSegmentations(self):
-    # TODO: might be useful to move up in general helper/mixin class
-    segmentations = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode")
-    for segmentation in [segmentations.GetItemAsObject(idx) for idx in range(0, segmentations.GetNumberOfItems())]:
-      segmentation.SetDisplayVisibility(False)
-
-  def getReferencedVolumeFromSegmentationNode(self, segmentationNode):
-    # TODO: might be useful to move up in general helper/mixin class
-    if not segmentationNode:
-      return None
-    return segmentationNode.GetNodeReference(segmentationNode.GetReferenceImageGeometryReferenceRole())
 
   def _setupSegmentationObservers(self):
     segNode = self.segmentEditorWidget.segmentation
