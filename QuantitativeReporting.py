@@ -570,7 +570,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
   def saveReport(self, completed=False):
     try:
       self.dicomSegmentationExporter = DICOMSegmentationExporter(self.segmentEditorWidget.segmentationNode)
-      dcmSegmentationPath = "quantitative_reporting_export.SEG" + self.dicomSegmentationExporter.currentDateTime + ".dcm"
+      segFilename = "quantitative_reporting_export.SEG" + self.dicomSegmentationExporter.currentDateTime + ".dcm"
+      dcmSegmentationPath = os.path.join(self.dicomSegmentationExporter.tempDir, segFilename)
       self.createSEG(dcmSegmentationPath)
       self.createDICOMSR(dcmSegmentationPath, completed)
       self.addProducedDataToDICOMDatabase()
@@ -586,19 +587,19 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     if self.segmentEditorWidget.hiddenSegmentsAvailable():
       if not slicer.util.confirmYesNoDisplay("Hidden segments have been found. Do you want to export them as well?"):
         self.updateMeasurementsTable(visibleOnly=True)
-        visibileSegments = self.segmentEditorWidget.logic.getVisibleSegments(self.segmentEditorWidget.segmentationNode)
-        segmentIDs = [segment.GetName() for segment in visibileSegments]
+        visibleSegments = self.segmentEditorWidget.logic.getVisibleSegments(self.segmentEditorWidget.segmentationNode)
+        segmentIDs = [segment.GetName() for segment in visibleSegments]
     try:
       try:
-        self.dicomSegmentationExporter.export(dcmSegmentationPath, segmentIDs=segmentIDs)
+        self.dicomSegmentationExporter.export(os.path.dirname(dcmSegmentationPath),
+                                              os.path.basename(dcmSegmentationPath), segmentIDs=segmentIDs)
       except DICOMSegmentationExporter.EmptySegmentsFoundError:
         raise ValueError("Empty segments found. Please make sure that there are no empty segments.")
+      logging.debug("Saved DICOM Segmentation to {}".format(dcmSegmentationPath))
       slicer.dicomDatabase.insert(dcmSegmentationPath)
       logging.info("Added segmentation to DICOM database (%s)", dcmSegmentationPath)
     except (DICOMSegmentationExporter.NoNonEmptySegmentsFoundError, ValueError) as exc:
       raise ValueError(exc.message)
-
-    logging.debug("Saved DICOM Segmentation to {}".format(dcmSegmentationPath))
 
   def createDICOMSR(self, referencedSegmentation, completed):
     data = self.dicomSegmentationExporter.getSeriesAttributes()
