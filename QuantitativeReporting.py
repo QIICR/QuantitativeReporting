@@ -87,6 +87,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
   def onSceneClosed(self, caller, event):
     if hasattr(self, "watchBox"):
       self.watchBox.reset()
+    if hasattr(self, "testArea"):
+      self.retrieveTestDataButton.enabled = True
 
   def cleanupUIElements(self):
     self.removeSegmentationObserver()
@@ -566,9 +568,6 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self.tableNode.SetAttribute("readonly", "Yes")
 
   def saveReport(self, completed=False):
-    if self.segmentEditorWidget.hiddenSegmentsAvailable():
-      if not slicer.util.confirmYesNoDisplay("Hidden segments have been found. Do you want to export them as well?"):
-        self.updateMeasurementsTable(visibleOnly=True)
     try:
       self.dicomSegmentationExporter = DICOMSegmentationExporter(self.segmentEditorWidget.segmentationNode)
       dcmSegmentationPath = "quantitative_reporting_export.SEG" + self.dicomSegmentationExporter.currentDateTime + ".dcm"
@@ -583,9 +582,15 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     return True
 
   def createSEG(self, dcmSegmentationPath):
+    segmentIDs = None
+    if self.segmentEditorWidget.hiddenSegmentsAvailable():
+      if not slicer.util.confirmYesNoDisplay("Hidden segments have been found. Do you want to export them as well?"):
+        self.updateMeasurementsTable(visibleOnly=True)
+        visibileSegments = self.segmentEditorWidget.logic.getVisibleSegments(self.segmentEditorWidget.segmentationNode)
+        segmentIDs = [segment.GetName() for segment in visibileSegments]
     try:
       try:
-        self.dicomSegmentationExporter.export(dcmSegmentationPath)
+        self.dicomSegmentationExporter.export(dcmSegmentationPath, segmentIDs=segmentIDs)
       except DICOMSegmentationExporter.EmptySegmentsFoundError:
         raise ValueError("Empty segments found. Please make sure that there are no empty segments.")
       slicer.dicomDatabase.insert(dcmSegmentationPath)
