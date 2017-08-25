@@ -57,6 +57,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     ScriptedLoadableModuleWidget.__init__(self, parent)
     self.segmentationsLogic = slicer.modules.segmentations.logic()
     self.slicerTempDir = slicer.util.tempDirectory()
+    slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, self.onSceneClosed)
 
   def initializeMembers(self):
     self.tableNode = None
@@ -83,6 +84,12 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.removeAllUIElements()
     super(QuantitativeReportingWidget, self).onReload()
 
+  def onSceneClosed(self, caller, event):
+    if hasattr(self, "watchBox"):
+      self.watchBox.reset()
+    if hasattr(self, "testArea"):
+      self.retrieveTestDataButton.enabled = True
+
   def cleanupUIElements(self):
     self.removeSegmentationObserver()
     self.removeConnections()
@@ -102,9 +109,13 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
         self.measurementReportSelector.currentNode() and \
         not ModuleLogicMixin.getReferencedVolumeFromSegmentationNode(self.segmentEditorWidget.segmentationNode)
       masterVolume = self.segmentEditorWidget.masterVolumeNode
-      self.importCollapsibleButton.enabled = masterVolume is not None
-      if not self.importCollapsibleButton.collapsed:
-        self.importCollapsibleButton.collapsed = masterVolume is None
+      self.importSegmentationCollapsibleButton.enabled = masterVolume is not None
+      if not self.importSegmentationCollapsibleButton.collapsed:
+        self.importSegmentationCollapsibleButton.collapsed = masterVolume is None
+
+      self.importLabelMapCollapsibleButton.enabled = masterVolume is not None
+      if not self.importLabelMapCollapsibleButton.collapsed:
+        self.importLabelMapCollapsibleButton.collapsed = masterVolume is None
       if not self.tableNode:
         self.enableReportButtons(False)
         self.updateMeasurementsTable(triggered=True)
@@ -170,6 +181,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.mainModuleWidgetLayout.addWidget(self.watchBox)
 
   def setupTestArea(self):
+    if not self.developerMode:
+      return
 
     def loadTestData():
       mrHeadSeriesUID = "2.16.840.1.113662.4.4168496325.1025306170.548651188813145058"
@@ -221,27 +234,47 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.mainModuleWidgetLayout.addWidget(self.selectionAreaWidget)
 
   def setupImportArea(self):
-    self.importCollapsibleButton = ctk.ctkCollapsibleButton()
-    self.importCollapsibleButton.collapsed = True
-    self.importCollapsibleButton.enabled = False
-    self.importCollapsibleButton.text = "Import segments (segmentation/labelmap)"
-    self.importCollapsibleLayout= qt.QGridLayout(self.importCollapsibleButton)
+    self.setupImportSegmentation()
+    self.setupImportLabelmap()
 
-    self.importSegmentsGroupBox = qt.QGroupBox("Copy segments between segmentations")
-    self.importSegmentsGroupBox.setLayout(qt.QGridLayout())
+  def setupImportSegmentation(self):
+    self.importSegmentationCollapsibleButton = ctk.ctkCollapsibleButton()
+    self.importSegmentationCollapsibleButton.collapsed = True
+    self.importSegmentationCollapsibleButton.enabled = False
+    self.importSegmentationCollapsibleButton.text = "Import from segmentation"
+    self.importSegmentsCollapsibleLayout = qt.QGridLayout(self.importSegmentationCollapsibleButton)
+
     self.segmentImportWidget = CopySegmentBetweenSegmentationsWidget()
+    self.segmentImportWidget.addEventObserver(self.segmentImportWidget.FailedEvent, self.onImportFailed)
     self.segmentImportWidget.currentSegmentationNodeSelectorEnabled = False
-    self.importSegmentsGroupBox.layout().addWidget(self.segmentImportWidget)
-    self.importCollapsibleLayout.addWidget(self.importSegmentsGroupBox)
+    self.importSegmentsCollapsibleLayout.addWidget(self.segmentImportWidget)
+    self.mainModuleWidgetLayout.addWidget(self.importSegmentationCollapsibleButton)
 
-    self.importLabelMapGroupBox = qt.QGroupBox("Import from labelmap")
-    self.importLabelMapGroupBox.setLayout(qt.QGridLayout())
+  def setupImportLabelmap(self):
+    self.importLabelMapCollapsibleButton = ctk.ctkCollapsibleButton()
+    self.importLabelMapCollapsibleButton.collapsed = True
+    self.importLabelMapCollapsibleButton.enabled = False
+    self.importLabelMapCollapsibleButton.text = "Import from labelmap"
+    self.importLabelMapCollapsibleLayout = qt.QGridLayout(self.importLabelMapCollapsibleButton)
+
     self.labelMapImportWidget = ImportLabelMapIntoSegmentationWidget()
+    self.labelMapImportWidget.addEventObserver(self.labelMapImportWidget.FailedEvent, self.onImportFailed)
+    self.labelMapImportWidget.addEventObserver(self.labelMapImportWidget.SuccessEvent, self.onLabelMapImportSuccessful)
     self.labelMapImportWidget.segmentationNodeSelectorVisible = False
-    self.importLabelMapGroupBox.layout().addWidget(self.labelMapImportWidget)
-    self.importCollapsibleLayout.addWidget(self.importLabelMapGroupBox)
+    self.importLabelMapCollapsibleLayout.addWidget(self.labelMapImportWidget)
+    self.mainModuleWidgetLayout.addWidget(self.importLabelMapCollapsibleButton)
 
-    self.mainModuleWidgetLayout.addWidget(self.importCollapsibleButton)
+  def onImportFailed(self, caller, event):
+    slicer.util.errorDisplay("Import failed. Check console for details.")
+
+  def onLabelMapImportSuccessful(self, caller, event):
+    def hideAllLabels():
+      # TODO: move up in SlicerDevelopmentToolbox
+      for widget in self.getAllVisibleWidgets():
+        compositeNode = widget.mrmlSliceCompositeNode()
+        compositeNode.SetLabelVolumeID(None)
+
+    hideAllLabels()
 
   def setupViewSettingsArea(self):
     self.redSliceLayoutButton = RedSliceLayoutButton()
@@ -252,7 +285,6 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
     hbox = self.createHLayout([self.redSliceLayoutButton, self.fourUpSliceLayoutButton,
                                self.fourUpSliceTableViewLayoutButton, self.crosshairButton])
-    hbox.layout().addStretch(1)
     self.mainModuleWidgetLayout.addWidget(hbox)
 
   def setupSegmentationsArea(self):
@@ -264,8 +296,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
   def setupMeasurementsArea(self):
     self.measurementsGroupBox = qt.QGroupBox("Measurements")
-    self.measurementsGroupBoxLayout = qt.QVBoxLayout()
-    self.measurementsGroupBox.setLayout(self.measurementsGroupBoxLayout)
+    self.measurementsGroupBox.setLayout(qt.QGridLayout())
     self.tableView = slicer.qMRMLTableView()
     self.tableView.setMinimumHeight(150)
     self.tableView.setMaximumHeight(150)
@@ -273,19 +304,22 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.tableView.horizontalHeader().setResizeMode(qt.QHeaderView.Stretch)
     self.fourUpTableView = None
     self.segmentStatisticsConfigButton = self.createButton("Segment Statistics Parameters")
-    self.measurementsGroupBoxLayout.addWidget(self.segmentStatisticsConfigButton)
-    self.measurementsGroupBoxLayout.addWidget(self.tableView)
-    self.mainModuleWidgetLayout.addWidget(self.measurementsGroupBox)
 
-  def setupActionButtons(self):
     self.calculateMeasurementsButton = self.createButton("Calculate Measurements", enabled=False)
     self.calculateAutomaticallyCheckbox = qt.QCheckBox("Auto Update")
     self.calculateAutomaticallyCheckbox.checked = True
+
+    self.measurementsGroupBox.layout().addWidget(self.tableView, 0, 0, 1, 2)
+    self.measurementsGroupBox.layout().addWidget(self.segmentStatisticsConfigButton, 1, 0, 1, 2)
+    self.measurementsGroupBox.layout().addWidget(self.calculateMeasurementsButton, 2, 0)
+    self.measurementsGroupBox.layout().addWidget(self.calculateAutomaticallyCheckbox, 2, 1)
+
+    self.mainModuleWidgetLayout.addWidget(self.measurementsGroupBox)
+
+  def setupActionButtons(self):
     self.saveReportButton = self.createButton("Save Report")
     self.completeReportButton = self.createButton("Complete Report")
     self.enableReportButtons(False)
-    self.mainModuleWidgetLayout.addWidget(self.createHLayout([self.calculateMeasurementsButton,
-                                                              self.calculateAutomaticallyCheckbox]))
     self.mainModuleWidgetLayout.addWidget(self.createHLayout([self.saveReportButton, self.completeReportButton]))
 
   def setupConnections(self, funcName="connect"):
@@ -416,6 +450,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     if node is None:
       self.segmentEditorWidget.editor.setSegmentationNode(None)
       self.updateImportArea(None)
+      self.watchBox.reset()
       return
 
     segmentationNode = self._getOrCreateSegmentationNodeAndConfigure()
@@ -432,9 +467,11 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self.segmentEditorWidget.enabled = False
       self.enableReportButtons(False)
       self.calculateAutomaticallyCheckbox.enabled = False
+      self.segmentStatisticsConfigButton.enabled = False
     else:
       self.segmentEditorWidget.enabled = True
       self.calculateAutomaticallyCheckbox.enabled = True
+      self.segmentStatisticsConfigButton.enabled = True
       self.onSegmentationNodeChanged()
 
   def _getOrCreateSegmentationNodeAndConfigure(self):
@@ -542,12 +579,10 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self.tableNode.SetAttribute("readonly", "Yes")
 
   def saveReport(self, completed=False):
-    if self.segmentEditorWidget.hiddenSegmentsAvailable():
-      if not slicer.util.confirmYesNoDisplay("Hidden segments have been found. Do you want to export them as well?"):
-        self.updateMeasurementsTable(visibleOnly=True)
     try:
       self.dicomSegmentationExporter = DICOMSegmentationExporter(self.segmentEditorWidget.segmentationNode)
-      dcmSegmentationPath = "quantitative_reporting_export.SEG" + self.dicomSegmentationExporter.currentDateTime + ".dcm"
+      segFilename = "quantitative_reporting_export.SEG" + self.dicomSegmentationExporter.currentDateTime + ".dcm"
+      dcmSegmentationPath = os.path.join(self.dicomSegmentationExporter.tempDir, segFilename)
       self.createSEG(dcmSegmentationPath)
       self.createDICOMSR(dcmSegmentationPath, completed)
       self.addProducedDataToDICOMDatabase()
@@ -559,17 +594,23 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     return True
 
   def createSEG(self, dcmSegmentationPath):
+    segmentIDs = None
+    if self.segmentEditorWidget.hiddenSegmentsAvailable():
+      if not slicer.util.confirmYesNoDisplay("Hidden segments have been found. Do you want to export them as well?"):
+        self.updateMeasurementsTable(visibleOnly=True)
+        visibleSegments = self.segmentEditorWidget.logic.getVisibleSegments(self.segmentEditorWidget.segmentationNode)
+        segmentIDs = [segment.GetName() for segment in visibleSegments]
     try:
       try:
-        self.dicomSegmentationExporter.export(dcmSegmentationPath)
+        self.dicomSegmentationExporter.export(os.path.dirname(dcmSegmentationPath),
+                                              os.path.basename(dcmSegmentationPath), segmentIDs=segmentIDs)
       except DICOMSegmentationExporter.EmptySegmentsFoundError:
         raise ValueError("Empty segments found. Please make sure that there are no empty segments.")
+      logging.debug("Saved DICOM Segmentation to {}".format(dcmSegmentationPath))
       slicer.dicomDatabase.insert(dcmSegmentationPath)
       logging.info("Added segmentation to DICOM database (%s)", dcmSegmentationPath)
     except (DICOMSegmentationExporter.NoNonEmptySegmentsFoundError, ValueError) as exc:
       raise ValueError(exc.message)
-
-    logging.debug("Saved DICOM Segmentation to {}".format(dcmSegmentationPath))
 
   def createDICOMSR(self, referencedSegmentation, completed):
     data = self.dicomSegmentationExporter.getSeriesAttributes()

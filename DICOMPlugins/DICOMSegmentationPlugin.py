@@ -310,10 +310,10 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
         segFileName = "subject_hierarchy_export.SEG" + exporter.currentDateTime + ".dcm"
         segFilePath = os.path.join(exportable.directory, segFileName)
         try:
-          exporter.export(segFilePath)
+          exporter.export(exportable.directory, segFileName)
         except DICOMSegmentationExporter.EmptySegmentsFoundError as exc:
           if slicer.util.confirmYesNoDisplay(exc.message):
-            exporter.export(segFilePath, skipEmpty=True)
+            exporter.export(exportable.directory, segFileName, skipEmpty=True)
           else:
             raise ValueError("Export canceled")
         slicer.dicomDatabase.insert(segFilePath)
@@ -389,6 +389,9 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     self.segmentationNode = segmentationNode
     self.contentCreatorName = contentCreatorName if contentCreatorName else "Slicer"
 
+    self.tempDir = os.path.join(slicer.util.tempDirectory(), self.currentDateTime)
+    os.mkdir(self.tempDir)
+
   def cleanup(self):
     try:
       import shutil
@@ -397,7 +400,7 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     except AttributeError:
       pass
 
-  def export(self, segFilePath, segmentIDs=None, skipEmpty=False):
+  def export(self, outputDirectory, segFileName, segmentIDs=None, skipEmpty=False):
     data = self.getSeriesAttributes()
     data["SeriesDescription"] = "Segmentation"
     data.update(self._getAdditionalSeriesAttributes())
@@ -422,16 +425,13 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     logging.debug("DICOM SEG Metadata output:")
     logging.debug(data)
 
-    self.tempDir = os.path.join(slicer.util.tempDirectory(), self.currentDateTime)
-    os.mkdir(self.tempDir)
-
-
     metaFilePath = self.saveJSON(data, os.path.join(self.tempDir, "seg_meta.json"))
 
     segmentFiles = self.createAndGetLabelMapsFromSegments(segmentIDs)
     inputDICOMImageFileNames = self.getDICOMFileList(self.getReferencedVolumeFromSegmentationNode(self.segmentationNode),
                                                      absolutePaths=True)
 
+    segFilePath = os.path.join(outputDirectory, segFileName)
     params = {
       "dicomImageFiles": ', '.join(inputDICOMImageFileNames).replace(', ', ","),
       "segImageFiles": ', '.join(segmentFiles).replace(', ', ","),
