@@ -458,9 +458,11 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self.segmentEditorWidget.enabled = False
       self.enableReportButtons(False)
       self.calculateAutomaticallyCheckbox.enabled = False
+      self.segmentStatisticsConfigButton.enabled = False
     else:
       self.segmentEditorWidget.enabled = True
       self.calculateAutomaticallyCheckbox.enabled = True
+      self.segmentStatisticsConfigButton.enabled = True
       self.onSegmentationNodeChanged()
 
   def _getOrCreateSegmentationNodeAndConfigure(self):
