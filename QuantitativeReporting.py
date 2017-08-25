@@ -268,7 +268,13 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     slicer.util.errorDisplay("Import failed. Check console for details.")
 
   def onLabelMapImportSuccessful(self, caller, event):
-    self.hideAllLabels()
+    def hideAllLabels():
+      # TODO: move up in SlicerDevelopmentToolbox
+      for widget in self.getAllVisibleWidgets():
+        compositeNode = widget.mrmlSliceCompositeNode()
+        compositeNode.SetLabelVolumeID(None)
+
+    hideAllLabels()
 
   def setupViewSettingsArea(self):
     self.redSliceLayoutButton = RedSliceLayoutButton()
