@@ -102,9 +102,13 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
         self.measurementReportSelector.currentNode() and \
         not ModuleLogicMixin.getReferencedVolumeFromSegmentationNode(self.segmentEditorWidget.segmentationNode)
       masterVolume = self.segmentEditorWidget.masterVolumeNode
-      self.importCollapsibleButton.enabled = masterVolume is not None
-      if not self.importCollapsibleButton.collapsed:
-        self.importCollapsibleButton.collapsed = masterVolume is None
+      self.importSegmentationCollapsibleButton.enabled = masterVolume is not None
+      if not self.importSegmentationCollapsibleButton.collapsed:
+        self.importSegmentationCollapsibleButton.collapsed = masterVolume is None
+
+      self.importLabelMapCollapsibleButton.enabled = masterVolume is not None
+      if not self.importLabelMapCollapsibleButton.collapsed:
+        self.importLabelMapCollapsibleButton.collapsed = masterVolume is None
       if not self.tableNode:
         self.enableReportButtons(False)
         self.updateMeasurementsTable(triggered=True)
@@ -221,27 +225,33 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.mainModuleWidgetLayout.addWidget(self.selectionAreaWidget)
 
   def setupImportArea(self):
-    self.importCollapsibleButton = ctk.ctkCollapsibleButton()
-    self.importCollapsibleButton.collapsed = True
-    self.importCollapsibleButton.enabled = False
-    self.importCollapsibleButton.text = "Import segments (segmentation/labelmap)"
-    self.importCollapsibleLayout= qt.QGridLayout(self.importCollapsibleButton)
+    self.setupImportSegmentation()
+    self.setupImportLabelmap()
 
-    self.importSegmentsGroupBox = qt.QGroupBox("Copy segments between segmentations")
-    self.importSegmentsGroupBox.setLayout(qt.QGridLayout())
+  def setupImportSegmentation(self):
+    self.importSegmentationCollapsibleButton = ctk.ctkCollapsibleButton()
+    self.importSegmentationCollapsibleButton.collapsed = True
+    self.importSegmentationCollapsibleButton.enabled = False
+    self.importSegmentationCollapsibleButton.text = "Import from segmentation"
+    self.importSegmentsCollapsibleLayout = qt.QGridLayout(self.importSegmentationCollapsibleButton)
+
     self.segmentImportWidget = CopySegmentBetweenSegmentationsWidget()
     self.segmentImportWidget.currentSegmentationNodeSelectorEnabled = False
-    self.importSegmentsGroupBox.layout().addWidget(self.segmentImportWidget)
-    self.importCollapsibleLayout.addWidget(self.importSegmentsGroupBox)
+    self.importSegmentsCollapsibleLayout.addWidget(self.segmentImportWidget)
+    self.mainModuleWidgetLayout.addWidget(self.importSegmentationCollapsibleButton)
 
-    self.importLabelMapGroupBox = qt.QGroupBox("Import from labelmap")
-    self.importLabelMapGroupBox.setLayout(qt.QGridLayout())
+  def setupImportLabelmap(self):
+    self.importLabelMapCollapsibleButton = ctk.ctkCollapsibleButton()
+    self.importLabelMapCollapsibleButton.collapsed = True
+    self.importLabelMapCollapsibleButton.enabled = False
+    self.importLabelMapCollapsibleButton.text = "Import from labelmap"
+    self.importLabelMapCollapsibleLayout = qt.QGridLayout(self.importLabelMapCollapsibleButton)
+
     self.labelMapImportWidget = ImportLabelMapIntoSegmentationWidget()
+    self.labelMapImportWidget.addEventObserver(self.labelMapImportWidget.FailedEvent, self.onImportFailed)
     self.labelMapImportWidget.segmentationNodeSelectorVisible = False
-    self.importLabelMapGroupBox.layout().addWidget(self.labelMapImportWidget)
-    self.importCollapsibleLayout.addWidget(self.importLabelMapGroupBox)
-
-    self.mainModuleWidgetLayout.addWidget(self.importCollapsibleButton)
+    self.importLabelMapCollapsibleLayout.addWidget(self.labelMapImportWidget)
+    self.mainModuleWidgetLayout.addWidget(self.importLabelMapCollapsibleButton)
 
   def setupViewSettingsArea(self):
     self.redSliceLayoutButton = RedSliceLayoutButton()
