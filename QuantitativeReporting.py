@@ -181,6 +181,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.mainModuleWidgetLayout.addWidget(self.watchBox)
 
   def setupTestArea(self):
+    if not self.developerMode:
+      return
 
     def loadTestData():
       mrHeadSeriesUID = "2.16.840.1.113662.4.4168496325.1025306170.548651188813145058"
@@ -277,7 +279,6 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
     hbox = self.createHLayout([self.redSliceLayoutButton, self.fourUpSliceLayoutButton,
                                self.fourUpSliceTableViewLayoutButton, self.crosshairButton])
-    hbox.layout().addStretch(1)
     self.mainModuleWidgetLayout.addWidget(hbox)
 
   def setupSegmentationsArea(self):
