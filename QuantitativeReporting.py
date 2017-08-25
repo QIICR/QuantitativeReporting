@@ -57,6 +57,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     ScriptedLoadableModuleWidget.__init__(self, parent)
     self.segmentationsLogic = slicer.modules.segmentations.logic()
     self.slicerTempDir = slicer.util.tempDirectory()
+    slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, self.onSceneClosed)
 
   def initializeMembers(self):
     self.tableNode = None
@@ -82,6 +83,10 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.cleanupUIElements()
     self.removeAllUIElements()
     super(QuantitativeReportingWidget, self).onReload()
+
+  def onSceneClosed(self, caller, event):
+    if hasattr(self, "watchBox"):
+      self.watchBox.reset()
 
   def cleanupUIElements(self):
     self.removeSegmentationObserver()
@@ -434,6 +439,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     if node is None:
       self.segmentEditorWidget.editor.setSegmentationNode(None)
       self.updateImportArea(None)
+      self.watchBox.reset()
       return
 
     segmentationNode = self._getOrCreateSegmentationNodeAndConfigure()
