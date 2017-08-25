@@ -290,8 +290,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
   def setupMeasurementsArea(self):
     self.measurementsGroupBox = qt.QGroupBox("Measurements")
-    self.measurementsGroupBoxLayout = qt.QVBoxLayout()
-    self.measurementsGroupBox.setLayout(self.measurementsGroupBoxLayout)
+    self.measurementsGroupBox.setLayout(qt.QGridLayout())
     self.tableView = slicer.qMRMLTableView()
     self.tableView.setMinimumHeight(150)
     self.tableView.setMaximumHeight(150)
@@ -299,19 +298,22 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.tableView.horizontalHeader().setResizeMode(qt.QHeaderView.Stretch)
     self.fourUpTableView = None
     self.segmentStatisticsConfigButton = self.createButton("Segment Statistics Parameters")
-    self.measurementsGroupBoxLayout.addWidget(self.segmentStatisticsConfigButton)
-    self.measurementsGroupBoxLayout.addWidget(self.tableView)
-    self.mainModuleWidgetLayout.addWidget(self.measurementsGroupBox)
 
-  def setupActionButtons(self):
     self.calculateMeasurementsButton = self.createButton("Calculate Measurements", enabled=False)
     self.calculateAutomaticallyCheckbox = qt.QCheckBox("Auto Update")
     self.calculateAutomaticallyCheckbox.checked = True
+
+    self.measurementsGroupBox.layout().addWidget(self.tableView, 0, 0, 1, 2)
+    self.measurementsGroupBox.layout().addWidget(self.segmentStatisticsConfigButton, 1, 0, 1, 2)
+    self.measurementsGroupBox.layout().addWidget(self.calculateMeasurementsButton, 2, 0)
+    self.measurementsGroupBox.layout().addWidget(self.calculateAutomaticallyCheckbox, 2, 1)
+
+    self.mainModuleWidgetLayout.addWidget(self.measurementsGroupBox)
+
+  def setupActionButtons(self):
     self.saveReportButton = self.createButton("Save Report")
     self.completeReportButton = self.createButton("Complete Report")
     self.enableReportButtons(False)
-    self.mainModuleWidgetLayout.addWidget(self.createHLayout([self.calculateMeasurementsButton,
-                                                              self.calculateAutomaticallyCheckbox]))
     self.mainModuleWidgetLayout.addWidget(self.createHLayout([self.saveReportButton, self.completeReportButton]))
 
   def setupConnections(self, funcName="connect"):
