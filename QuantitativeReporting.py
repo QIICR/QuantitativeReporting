@@ -236,6 +236,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.importSegmentsCollapsibleLayout = qt.QGridLayout(self.importSegmentationCollapsibleButton)
 
     self.segmentImportWidget = CopySegmentBetweenSegmentationsWidget()
+    self.segmentImportWidget.addEventObserver(self.segmentImportWidget.FailedEvent, self.onImportFailed)
     self.segmentImportWidget.currentSegmentationNodeSelectorEnabled = False
     self.importSegmentsCollapsibleLayout.addWidget(self.segmentImportWidget)
     self.mainModuleWidgetLayout.addWidget(self.importSegmentationCollapsibleButton)
@@ -249,9 +250,16 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
     self.labelMapImportWidget = ImportLabelMapIntoSegmentationWidget()
     self.labelMapImportWidget.addEventObserver(self.labelMapImportWidget.FailedEvent, self.onImportFailed)
+    self.labelMapImportWidget.addEventObserver(self.labelMapImportWidget.SuccessEvent, self.onLabelMapImportSuccessful)
     self.labelMapImportWidget.segmentationNodeSelectorVisible = False
     self.importLabelMapCollapsibleLayout.addWidget(self.labelMapImportWidget)
     self.mainModuleWidgetLayout.addWidget(self.importLabelMapCollapsibleButton)
+
+  def onImportFailed(self, caller, event):
+    slicer.util.errorDisplay("Import failed. Check console for details.")
+
+  def onLabelMapImportSuccessful(self, caller, event):
+    self.hideAllLabels()
 
   def setupViewSettingsArea(self):
     self.redSliceLayoutButton = RedSliceLayoutButton()
