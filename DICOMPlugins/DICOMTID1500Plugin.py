@@ -182,8 +182,8 @@ class DICOMTID1500PluginClass(DICOMPluginBase):
 
     table = self.metadata2vtkTableNode(outputFile)
     if table:
-      segmentationNodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode")
-      segmentationNodeID = segmentationNodes.GetItemAsObject(segmentationNodes.GetNumberOfItems()-1).GetID()
+      segmentationNodes = slicer.util.getNodesByClass('vtkMRMLSegmentationNode')
+      segmentationNodeID = segmentationNodes[-1].GetID()
       table.SetAttribute("ReferencedSegmentationNodeID", segmentationNodeID)
     self.cleanup()
     return table is not None
