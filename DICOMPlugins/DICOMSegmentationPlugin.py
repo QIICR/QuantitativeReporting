@@ -137,7 +137,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
     seriesName = self.referencedSeriesName(loadable)
     segmentLabelNodes = []
     metaFileName = os.path.join(self.tempDir,"meta.json")
-    
+
     # Load terminology in the metafile into context
     terminologiesLogic = slicer.modules.terminologies.logic()
     terminologiesLogic.LoadTerminologyFromSegmentDescriptorFile(loadable.name, metaFileName)
@@ -201,7 +201,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
           if not success:
             raise ValueError("{} could not be loaded into Slicer!".format(labelFileName))
           segmentLabelNodes.append(labelNode)
-          
+
           # Set terminology properties as attributes to the label node (which is a temporary node)
           #TODO: This is a quick solution, maybe there is a better one
           labelNode.SetAttribute("Terminology", segmentTerminologyTag)
@@ -240,7 +240,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
       segmentColor = [float(segmentLabelNode.GetAttribute("ColorR")), float(segmentLabelNode.GetAttribute("ColorG")),
                       float(segmentLabelNode.GetAttribute("ColorB"))]
       segment.SetColor(segmentColor)
-      
+
       segment.SetTag(vtkSegmentationCore.vtkSegment.GetTerminologyEntryTagName(),
                      segmentLabelNode.GetAttribute("Terminology"))
 
@@ -432,8 +432,18 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
                                                      absolutePaths=True)
 
     segFilePath = os.path.join(outputDirectory, segFileName)
+
+    # copy files to a temp location, since otherwise the command line can easily exceed
+    #  the maximum on Windows (~8k characters)
+    import tempfile, shutil
+    cliTempDir = os.path.join(tempfile.mkdtemp())
+    for inputFilePath in inputDICOMImageFileNames:
+      destFile = os.path.join(cliTempDir,os.path.split(inputFilePath)[1])
+      shutil.copyfile(inputFilePath, destFile)
+
     params = {
-      "dicomImageFiles": ', '.join(inputDICOMImageFileNames).replace(', ', ","),
+      #"dicomImageFiles": ', '.join(inputDICOMImageFileNames).replace(', ', ","),
+      "dicomDirectory": cliTempDir,
       "segImageFiles": ', '.join(segmentFiles).replace(', ', ","),
       "metaDataFileName": metaFilePath,
       "outputSEGFileName": segFilePath
@@ -449,6 +459,8 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
 
     if cliNode.GetStatusString() != 'Completed':
       raise RuntimeError("itkimage2segimage CLI did not complete cleanly")
+
+    shutil.rmtree(cliTempDir)
 
     if not os.path.exists(segFilePath):
       raise RuntimeError("DICOM Segmentation was not created. Check Error Log for further information.")
