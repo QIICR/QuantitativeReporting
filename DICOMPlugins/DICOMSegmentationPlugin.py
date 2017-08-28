@@ -457,10 +457,10 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
       slicer.util.delayDisplay("Running SEG Encoding... %d" % waitCount, 1000)
       waitCount += 1
 
+    shutil.rmtree(cliTempDir)
+
     if cliNode.GetStatusString() != 'Completed':
       raise RuntimeError("itkimage2segimage CLI did not complete cleanly")
-
-    shutil.rmtree(cliTempDir)
 
     if not os.path.exists(segFilePath):
       raise RuntimeError("DICOM Segmentation was not created. Check Error Log for further information.")
