@@ -973,7 +973,7 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
       data["segmentationSOPInstanceUID"] = segmentationSOPInstanceUID
       segment = self.segmentationNode.GetSegmentation().GetSegment(segmentID)
 
-      terminologyEntry = self.getDeserializedTerminologyEntry(segment)
+      terminologyEntry = DICOMSegmentationExporter.getDeserializedTerminologyEntry(segment)
 
       data["Finding"] = self.createJSONFromTerminologyContext(terminologyEntry)["SegmentedPropertyTypeCodeSequence"]
       anatomicContext = self.createJSONFromAnatomicContext(terminologyEntry)
@@ -1004,14 +1004,6 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
       key, value = each.split(":")
       codeSequence[key] = value
     return codeSequence
-
-  def getDeserializedTerminologyEntry(self, segment):
-    terminologyWidget = slicer.qSlicerTerminologyNavigatorWidget()
-    terminologyEntry = slicer.vtkSlicerTerminologyEntry()
-    tag = vtk.mutable("")
-    segment.GetTag(segment.GetTerminologyEntryTagName(), tag)
-    terminologyWidget.deserializeTerminologyEntry(tag, terminologyEntry)
-    return terminologyEntry
 
 
 class CustomDICOMDetailsWidget(DICOMDetailsWidget, ParameterNodeObservationMixin):
