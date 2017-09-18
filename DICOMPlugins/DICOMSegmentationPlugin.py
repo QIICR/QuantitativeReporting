@@ -177,15 +177,14 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
           regionModCode, regionModCodingScheme, regionModCodeMeaning = \
             self.getValuesFromCodeSequence(segment, "AnatomicRegionModifierSequence")
 
-          dummyTerminologyWidget = slicer.qSlicerTerminologyNavigatorWidget() # Still cannot call static methods from python
-          segmentTerminologyTag = dummyTerminologyWidget.serializeTerminologyEntry(
-                                          loadable.name,
-                                          categoryCode, categoryCodingScheme, categoryCodeMeaning,
-                                          typeCode, typeCodingScheme, typeCodeMeaning,
-                                          typeModCode, typeModCodingScheme, typeModCodeMeaning,
-                                          loadable.name,
-                                          regionCode, regionCodingScheme, regionCodeMeaning,
-                                          regionModCode, regionModCodingScheme, regionModCodeMeaning)
+          segmentTerminologyTag = terminologiesLogic.SerializeTerminologyEntry(
+                                    loadable.name,
+                                    categoryCode, categoryCodingScheme, categoryCodeMeaning,
+                                    typeCode, typeCodingScheme, typeCodeMeaning,
+                                    typeModCode, typeModCodingScheme, typeModCodeMeaning,
+                                    loadable.name,
+                                    regionCode, regionCodingScheme, regionCodeMeaning,
+                                    regionModCode, regionModCodingScheme, regionModCodeMeaning)
           # end of processing a line of terminology
 
           # TODO: Create logic class that both CLI and this plugin uses so that we don't need to have temporary NRRD
@@ -333,6 +332,15 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
 
   class NoNonEmptySegmentsFoundError(ValueError):
       pass
+
+  @staticmethod
+  def getDeserializedTerminologyEntry(vtkSegment):
+    terminologyEntry = slicer.vtkSlicerTerminologyEntry()
+    tag = vtk.mutable("")
+    vtkSegment.GetTag(vtkSegment.GetTerminologyEntryTagName(), tag)
+    terminologyLogic = slicer.modules.terminologies.logic()
+    terminologyLogic.DeserializeTerminologyEntry(tag, terminologyEntry)
+    return terminologyEntry
 
   @staticmethod
   def saveJSON(data, destination):
@@ -562,14 +570,6 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
       propType = terminologyEntry.GetTypeObject()
       if any(v is None for v in [category, propType]):
         raise ValueError("Segment {} has missing attributes. Make sure to set terminology.".format(segment.GetName()))
-
-  def getDeserializedTerminologyEntry(self, vtkSegment):
-    terminologyWidget = slicer.qSlicerTerminologyNavigatorWidget()
-    terminologyEntry = slicer.vtkSlicerTerminologyEntry()
-    tag = vtk.mutable("")
-    vtkSegment.GetTag(vtkSegment.GetTerminologyEntryTagName(), tag)
-    terminologyWidget.deserializeTerminologyEntry(tag, terminologyEntry)
-    return terminologyEntry
 
   def createJSONFromTerminologyContext(self, terminologyEntry):
     segmentData = dict()

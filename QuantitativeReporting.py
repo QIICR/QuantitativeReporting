@@ -760,6 +760,7 @@ class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidget
     super(QuantitativeReportingSegmentEditorWidget, self).setup()
     if self.developerMode:
       self.reloadCollapsibleButton.hide()
+    self.editor.switchToSegmentationsButtonVisible = False
     self.editor.segmentationNodeSelectorVisible = False
     self.editor.setEffectButtonStyle(qt.Qt.ToolButtonIconOnly)
     self.clearSegmentationEditorSelectors()
@@ -973,7 +974,7 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
       data["segmentationSOPInstanceUID"] = segmentationSOPInstanceUID
       segment = self.segmentationNode.GetSegmentation().GetSegment(segmentID)
 
-      terminologyEntry = self.getDeserializedTerminologyEntry(segment)
+      terminologyEntry = DICOMSegmentationExporter.getDeserializedTerminologyEntry(segment)
 
       data["Finding"] = self.createJSONFromTerminologyContext(terminologyEntry)["SegmentedPropertyTypeCodeSequence"]
       anatomicContext = self.createJSONFromAnatomicContext(terminologyEntry)
@@ -1004,14 +1005,6 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
       key, value = each.split(":")
       codeSequence[key] = value
     return codeSequence
-
-  def getDeserializedTerminologyEntry(self, segment):
-    terminologyWidget = slicer.qSlicerTerminologyNavigatorWidget()
-    terminologyEntry = slicer.vtkSlicerTerminologyEntry()
-    tag = vtk.mutable("")
-    segment.GetTag(segment.GetTerminologyEntryTagName(), tag)
-    terminologyWidget.deserializeTerminologyEntry(tag, terminologyEntry)
-    return terminologyEntry
 
 
 class CustomDICOMDetailsWidget(DICOMDetailsWidget, ParameterNodeObservationMixin):
