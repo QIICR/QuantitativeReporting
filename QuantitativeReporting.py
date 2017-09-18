@@ -760,6 +760,7 @@ class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidget
     super(QuantitativeReportingSegmentEditorWidget, self).setup()
     if self.developerMode:
       self.reloadCollapsibleButton.hide()
+    self.editor.switchToSegmentationsButtonVisible = False
     self.editor.segmentationNodeSelectorVisible = False
     self.editor.setEffectButtonStyle(qt.Qt.ToolButtonIconOnly)
     self.clearSegmentationEditorSelectors()
