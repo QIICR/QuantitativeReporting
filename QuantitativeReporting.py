@@ -1,29 +1,30 @@
 import getpass
 import json
 import logging
-import slicer
-import qt
+import os
 import ctk
 import vtk
-import os
+import qt
 
+import slicer
 from slicer.ScriptedLoadableModule import *
 import vtkSegmentationCorePython as vtkSegmentationCore
 
-from SlicerDevelopmentToolboxUtils.mixins import ModuleWidgetMixin, ModuleLogicMixin, ParameterNodeObservationMixin
-from SlicerDevelopmentToolboxUtils.decorators import onExceptionReturnNone, postCall
-from SlicerDevelopmentToolboxUtils.helpers import WatchBoxAttribute
-from SlicerDevelopmentToolboxUtils.widgets import DICOMBasedInformationWatchBox, ImportLabelMapIntoSegmentationWidget
-from SlicerDevelopmentToolboxUtils.widgets import CopySegmentBetweenSegmentationsWidget
-from SlicerDevelopmentToolboxUtils.constants import DICOMTAGS
-from SlicerDevelopmentToolboxUtils.buttons import RedSliceLayoutButton, FourUpLayoutButton, FourUpTableViewLayoutButton
-from SlicerDevelopmentToolboxUtils.buttons import CrosshairButton
-
+from DICOMLib.DICOMWidgets import DICOMDetailsWidget
 from SegmentEditor import SegmentEditorWidget
 from SegmentStatistics import SegmentStatisticsLogic, SegmentStatisticsParameterEditorDialog
-
-from DICOMLib.DICOMWidgets import DICOMDetailsWidget
 from DICOMSegmentationPlugin import DICOMSegmentationExporter
+
+from SlicerDevelopmentToolboxUtils.buttons import CrosshairButton
+from SlicerDevelopmentToolboxUtils.buttons import RedSliceLayoutButton, FourUpLayoutButton, FourUpTableViewLayoutButton
+from SlicerDevelopmentToolboxUtils.constants import DICOMTAGS
+from SlicerDevelopmentToolboxUtils.decorators import onExceptionReturnNone, postCall
+from SlicerDevelopmentToolboxUtils.helpers import WatchBoxAttribute
+from SlicerDevelopmentToolboxUtils.mixins import ModuleWidgetMixin, ModuleLogicMixin, ParameterNodeObservationMixin
+from SlicerDevelopmentToolboxUtils.widgets import CopySegmentBetweenSegmentationsWidget
+from SlicerDevelopmentToolboxUtils.widgets import DICOMBasedInformationWatchBox, ImportLabelMapIntoSegmentationWidget
+
+from Testing.QuantitativeReportingTests import TestDataLogic
 
 
 class QuantitativeReporting(ScriptedLoadableModule):
@@ -181,30 +182,27 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.mainModuleWidgetLayout.addWidget(self.watchBox)
 
   def setupTestArea(self):
-    if not self.developerMode:
-      return
-
-    def loadTestData():
-      mrHeadSeriesUID = "2.16.840.1.113662.4.4168496325.1025306170.548651188813145058"
-      if not len(slicer.dicomDatabase.filesForSeries(mrHeadSeriesUID)):
-        sampleData = TestDataLogic.downloadSampleData()
-        unzipped = TestDataLogic.unzipSampleData(sampleData)
-        TestDataLogic.importIntoDICOMDatabase(unzipped)
-      self.loadSeries(mrHeadSeriesUID)
-      masterNode = slicer.util.getNode('2: SAG*')
-      tableNode = slicer.vtkMRMLTableNode()
-      tableNode.SetAttribute("QuantitativeReporting", "Yes")
-      slicer.mrmlScene.AddNode(tableNode)
-      self.measurementReportSelector.setCurrentNode(tableNode)
-      self.segmentEditorWidget.editor.setMasterVolumeNode(masterNode)
-      self.retrieveTestDataButton.enabled = False
-
     self.testArea = qt.QGroupBox("Test Area")
     self.testAreaLayout = qt.QFormLayout(self.testArea)
     self.retrieveTestDataButton = self.createButton("Retrieve and load test data")
     self.testAreaLayout.addWidget(self.retrieveTestDataButton)
-    self.retrieveTestDataButton.clicked.connect(loadTestData)
-    self.mainModuleWidgetLayout.addWidget(self.testArea)
+
+    if self.developerMode:
+      self.mainModuleWidgetLayout.addWidget(self.testArea)
+
+  def loadTestData(self, collection="MRHead",
+                   uid="2.16.840.1.113662.4.4168496325.1025306170.548651188813145058"):
+    if not len(slicer.dicomDatabase.filesForSeries(uid)):
+      sampleData = TestDataLogic.downloadAndUnzipSampleData(collection)
+      TestDataLogic.importIntoDICOMDatabase(sampleData['volume'])
+    self.loadSeries(uid)
+    masterNode = slicer.util.getNodesByClass('vtkMRMLScalarVolumeNode')[-1]
+    tableNode = slicer.vtkMRMLTableNode()
+    tableNode.SetAttribute("QuantitativeReporting", "Yes")
+    slicer.mrmlScene.AddNode(tableNode)
+    self.measurementReportSelector.setCurrentNode(tableNode)
+    self.segmentEditorWidget.editor.setMasterVolumeNode(masterNode)
+    self.retrieveTestDataButton.enabled = False
 
   def loadSeriesByFileName(self, filename):
     seriesUID = slicer.dicomDatabase.seriesForFile(filename)
@@ -333,6 +331,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       getattr(self.completeReportButton.clicked, funcName)(self.onCompleteReportButtonClicked)
       getattr(self.calculateMeasurementsButton.clicked, funcName)(lambda: self.updateMeasurementsTable(triggered=True))
       getattr(self.segmentStatisticsConfigButton.clicked, funcName)(self.onEditParameters)
+      getattr(self.retrieveTestDataButton.clicked, funcName)(self.loadTestData)
 
     def setupOtherConnections():
       getattr(self.layoutManager.layoutChanged, funcName)(self.onLayoutChanged)
@@ -565,18 +564,22 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       slicer.app.applicationLogic().PropagateTableSelection()
 
   def onSaveReportButtonClicked(self):
-    success = self.saveReport()
+    success, err = self.saveReport()
     self.saveReportButton.enabled = not success
     if success:
       slicer.util.infoDisplay("Report successfully saved into SlicerDICOMDatabase")
+    if err:
+      slicer.util.warningDisplay(err)
 
   def onCompleteReportButtonClicked(self):
-    success = self.saveReport(completed=True)
+    success, err = self.saveReport(completed=True)
     self.saveReportButton.enabled = not success
     self.completeReportButton.enabled = not success
     if success:
       slicer.util.infoDisplay("Report successfully completed and saved into SlicerDICOMDatabase")
       self.tableNode.SetAttribute("readonly", "Yes")
+    else:
+      slicer.util.warningDisplay(err)
 
   def saveReport(self, completed=False):
     try:
@@ -587,11 +590,10 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self.createDICOMSR(dcmSegmentationPath, completed)
       self.addProducedDataToDICOMDatabase()
     except (RuntimeError, ValueError, AttributeError) as exc:
-      slicer.util.warningDisplay(exc.message)
-      return False
+      return False, exc.message
     finally:
       self.cleanupTemporaryData()
-    return True
+    return True, None
 
   def createSEG(self, dcmSegmentationPath):
     segmentIDs = None
@@ -670,57 +672,6 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     with open(os.path.join(destination), 'w') as outfile:
       json.dump(data, outfile, indent=2)
     return destination
-
-
-class QuantitativeReportingTest(ScriptedLoadableModuleTest):
-  """
-  This is the test case for your scripted module.
-  Uses ScriptedLoadableModuleTest base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
-  """
-
-  def setUp(self):
-    """ Do whatever is needed to reset the state - typically a scene clear will be enough.
-    """
-    slicer.mrmlScene.Clear(0)
-
-  def runTest(self):
-    """Run as few or as many tests as needed here.
-    """
-    self.setUp()
-    self.test_Reporting1()
-
-  def test_Reporting1(self):
-    """ Ideally you should have several levels of tests.  At the lowest level
-    tests should exercise the functionality of the logic with different inputs
-    (both valid and invalid).  At higher levels your tests should emulate the
-    way the user would interact with your code and confirm that it still works
-    the way you intended.
-    One of the most important features of the tests is that it should alert other
-    developers when their changes will have an impact on the behavior of your
-    module.  For example, if a developer removes a feature that you depend on,
-    your test should break so they know that the feature is needed.
-    """
-
-    self.delayDisplay("Starting the test")
-    #
-    # first, get some data
-    #
-    import urllib
-    downloads = (
-        ('http://slicer.kitware.com/midas3/download?items=5767', 'FA.nrrd', slicer.util.loadVolume),
-        )
-
-    for url,name,loader in downloads:
-      filePath = slicer.app.temporaryPath + '/' + name
-      if not os.path.exists(filePath) or os.stat(filePath).st_size == 0:
-        logging.info('Requesting download %s from %s...\n' % (name, url))
-        urllib.urlretrieve(url, filePath)
-      if loader:
-        logging.info('Loading %s...' % (name,))
-        loader(filePath)
-    self.delayDisplay('Finished with download and loading')
-    self.delayDisplay('Test passed!')
 
 
 class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
@@ -1020,35 +971,6 @@ class CustomDICOMDetailsWidget(DICOMDetailsWidget, ParameterNodeObservationMixin
     DICOMDetailsWidget.onLoadingFinished(self)
     if not self.browserPersistent:
       self.invokeEvent(self.FinishedLoadingEvent)
-
-
-class TestDataLogic(ScriptedLoadableModuleLogic):
-  @staticmethod
-  def importIntoDICOMDatabase(dicomFilesDirectory):
-    indexer = ctk.ctkDICOMIndexer()
-    indexer.addDirectory(slicer.dicomDatabase, dicomFilesDirectory, None)
-    indexer.waitForImportFinished()
-
-  @staticmethod
-  def unzipSampleData(filePath):
-    dicomFilesDirectory = slicer.app.temporaryPath + '/dicomFiles'
-    qt.QDir().mkpath(dicomFilesDirectory)
-    slicer.app.applicationLogic().Unzip(filePath, dicomFilesDirectory)
-    return dicomFilesDirectory
-
-  @staticmethod
-  def downloadSampleData():
-    import urllib
-    downloads = (
-      ('http://slicer.kitware.com/midas3/download/item/220834/PieperMRHead.zip', 'PieperMRHead.zip'),
-    )
-    slicer.util.delayDisplay("Downloading", 1000)
-    for url, name in downloads:
-      filePath = slicer.app.temporaryPath + '/' + name
-      if not os.path.exists(filePath) or os.stat(filePath).st_size == 0:
-        slicer.util.delayDisplay('Requesting download %s from %s...\n' % (name, url), 1000)
-        urllib.urlretrieve(url, filePath)
-    return filePath
 
 
 class QuantitativeReportingSlicelet(qt.QWidget, ModuleWidgetMixin):
