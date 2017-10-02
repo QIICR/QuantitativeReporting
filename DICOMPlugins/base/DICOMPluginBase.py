@@ -1,4 +1,5 @@
 import slicer
+import dicom
 import logging
 from datetime import datetime
 from DICOMLib import DICOMPlugin
@@ -39,17 +40,24 @@ class DICOMPluginBase(DICOMPlugin):
   def addReferences(self, loadable):
     """Puts a list of the referenced UID into the loadable for use
     in the node if this is loaded."""
-    import dicom
     dcm = dicom.read_file(loadable.files[0])
+    loadable.referencedInstanceUIDs = []
+    self._addReferencedSeries(loadable, dcm)
+    self._addReferencedImages(loadable, dcm)
+    loadable.referencedInstanceUIDs = list(set(loadable.referencedInstanceUIDs))
 
+  def _addReferencedSeries(self, loadable, dcm):
     if hasattr(dcm, "ReferencedSeriesSequence"):
-      # look up all of the instances in the series, since segmentation frames
-      #  may be non-contiguous
       if hasattr(dcm.ReferencedSeriesSequence[0], "SeriesInstanceUID"):
-        loadable.referencedInstanceUIDs = []
         for f in slicer.dicomDatabase.filesForSeries(dcm.ReferencedSeriesSequence[0].SeriesInstanceUID):
           refDCM = dicom.read_file(f)
-          # this is a hack that should probably fixed in Slicer core - not all
-          #  of those instances are truly referenced!
           loadable.referencedInstanceUIDs.append(refDCM.SOPInstanceUID)
-          loadable.referencedSeriesUID = dcm.ReferencedSeriesSequence[0].SeriesInstanceUID
+        loadable.referencedSeriesUID = dcm.ReferencedSeriesSequence[0].SeriesInstanceUID
+
+  def _addReferencedImages(self, loadable, dcm):
+    if hasattr(dcm, "ReferencedImageSequence"):
+      for item in dcm.ReferencedImageSequence:
+        if hasattr(item, "ReferencedSOPInstanceUID"):
+          loadable.referencedInstanceUIDs.append(item.ReferencedSOPInstanceUID)
+          # TODO: what to do with the SeriesInstanceUID?
+          # refDCM = dicom.read_file(slicer.dicomDatabase.fileForInstance(item.ReferencedSOPInstanceUID))
