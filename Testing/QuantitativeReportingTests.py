@@ -4,6 +4,7 @@ import ctk
 import vtk
 import slicer
 import logging
+import inspect
 
 from slicer.ScriptedLoadableModule import ScriptedLoadableModuleTest, ScriptedLoadableModuleWidget, \
   ScriptedLoadableModuleLogic
@@ -47,43 +48,28 @@ class QuantitativeReportingTestsWidget(ScriptedLoadableModuleWidget):
   def setup(self):
     ScriptedLoadableModuleWidget.setup(self)
 
-    testsCollapsibleButton = ctk.ctkCollapsibleButton()
-    testsCollapsibleButton.setLayout(qt.QFormLayout())
-    testsCollapsibleButton.text = "Quantitative Reporting Tests"
-    self.layout.addWidget(testsCollapsibleButton)
+    self.testsCollapsibleButton = ctk.ctkCollapsibleButton()
+    self.testsCollapsibleButton.setLayout(qt.QFormLayout())
+    self.testsCollapsibleButton.text = "Quantitative Reporting Tests"
+    self.layout.addWidget(self.testsCollapsibleButton)
+    self.generateButtons()
 
-    self.runReportCreationTest = qt.QPushButton("Run Report Creation Test")
-    self.runReportCreationTest.toolTip = "Creation of a DICOM TID1500 structured report."
-    testsCollapsibleButton.layout().addWidget(self.runReportCreationTest)
+  def generateButtons(self):
 
-    self.runReportReadingTest = qt.QPushButton("Run Report Read Test")
-    self.runReportReadingTest.toolTip = "Reading of a DICOM TID1500 structured report."
-    testsCollapsibleButton.layout().addWidget(self.runReportReadingTest)
+    def onButtonPressed(button):
+      print "pressed button %s" % button.name
+      tester = QuantitativeReportingTest()
+      tester.setUp()
+      getattr(tester, button.name)()
 
-    self.setupConnections()
+    buttons = []
+    for testName in [f for f in QuantitativeReportingTest.__dict__.keys() if f.startswith('test_')]:
+      b = qt.QPushButton(testName)
+      b.name = testName
+      self.testsCollapsibleButton.layout().addWidget(b)
+      buttons.append(b)
 
-  def setupConnections(self):
-    self.runReportCreationTest.connect('clicked(bool)', self.onReportCreationButtonClicked)
-    self.runReportReadingTest.connect('clicked(bool)', self.onReportReadingButtonClicked)
-
-    self.layout.addStretch(1)
-
-  def onReportCreationButtonClicked(self):
-    tester = QuantitativeReportingTest()
-    tester.setUp()
-    tester.test_create_report()
-
-  def onReportReadingButtonClicked(self):
-    tester = QuantitativeReportingTest()
-    tester.setUp()
-    tester.test_read_report()
-
-
-      # def onReloadAndTest(self,moduleName="AtlasTests"):
-  #   self.onReload()
-  #   evalString = 'globals()["%s"].%sTest()' % (moduleName, moduleName)
-  #   tester = eval(evalString)
-  #   tester.runTest()
+    map(lambda b: b.clicked.connect(lambda clicked: onButtonPressed(b)), buttons)
 
 
 class QuantitativeReportingTest(ScriptedLoadableModuleTest):
@@ -102,6 +88,8 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
     slicer.mrmlScene.Clear(0)
 
   def loadTestData(self):
+    self.delayDisplay("Loading testdata")
+
     liverCTSeriesUID = "1.2.392.200103.20080913.113635.1.2009.6.22.21.43.10.23430.1"
     collection = "CTLiver"
 
@@ -120,8 +108,7 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
 
   def test_create_report(self):
 
-    self.delayDisplay("Starting test for creating a report")
-
+    self.delayDisplay('Starting %s' % inspect.stack()[0][3])
 
     self.layoutManager.selectModule("QuantitativeReporting")
     qrWidget = slicer.modules.QuantitativeReportingWidget
@@ -167,12 +154,41 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
     self.delayDisplay('Test passed!')
 
   def test_import_labelmap(self):
+
+    self.delayDisplay('Starting %s' % inspect.stack()[0][3])
+
+    self.layoutManager.selectModule("QuantitativeReporting")
+
+    qrWidget = slicer.modules.QuantitativeReportingWidget
+    self.loadTestData()
+
+    sampleData = TestDataLogic.downloadAndUnzipSampleData("CTLiver")
+    segmentationsDir = sampleData['seg_nrrd']
+
+    labels = []
+    for f in [os.path.join(segmentationsDir, f) for f in os.listdir(segmentationsDir) if f.endswith(".nrrd")]:
+      _, label = slicer.util.loadVolume(f, {'labelmap': True}, returnNode=True)
+      if label:
+        labels.append(label)
+
+    labelImportWidget = qrWidget.labelMapImportWidget
+    for label in labels:
+      labelImportWidget.labelMapSelector.setCurrentNode(label)
+      labelImportWidget.importButton.click()
+
+    segmentation = qrWidget.segmentEditorWidget.segmentationNode.GetSegmentation()
+    self.assertEquals(segmentation.GetNumberOfSegments(), len(labels))
+
     self.delayDisplay('Test passed!')
 
   def test_import_segmentation(self):
+    self.delayDisplay('Starting %s' % inspect.stack()[0][3])
+
     self.delayDisplay('Test passed!')
 
   def test_read_report(self):
+    self.delayDisplay('Starting %s' % inspect.stack()[0][3])
+
     self.delayDisplay('Test passed!')
 
 
@@ -202,12 +218,12 @@ class TestDataLogic(ScriptedLoadableModuleLogic):
 
   @staticmethod
   def unzipSampleData(filePath, collection, kind):
-    dicomFilesDirectory = TestDataLogic.getUnzippedDirectoryPath(collection, kind)
-    qt.QDir().mkpath(dicomFilesDirectory)
-    success = slicer.app.applicationLogic().Unzip(filePath, dicomFilesDirectory)
+    destinationDirectory = TestDataLogic.getUnzippedDirectoryPath(collection, kind)
+    qt.QDir().mkpath(destinationDirectory)
+    success = slicer.app.applicationLogic().Unzip(filePath, destinationDirectory)
     if not success:
       logging.error("Archive %s was NOT unzipped successfully." %  filePath)
-    return dicomFilesDirectory
+    return destinationDirectory
 
   @staticmethod
   def getUnzippedDirectoryPath(collection, kind):
@@ -228,7 +244,7 @@ class TestDataLogic(ScriptedLoadableModuleLogic):
       if not os.path.exists(filePath) or os.stat(filePath).st_size == 0:
         slicer.util.delayDisplay('Requesting download %s from %s...\n' % (filename, url), 1000)
         urllib.urlretrieve(url, filePath)
-      if not os.path.exists(expectedOutput):
+      if not os.path.exists(expectedOutput) or not len(os.listdir(expectedOutput)):
         logging.debug('Unzipping data into %s' % expectedOutput)
         downloaded[kind] = TestDataLogic.unzipSampleData(filePath, collection, kind)
       else:

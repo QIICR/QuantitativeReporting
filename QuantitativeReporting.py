@@ -331,7 +331,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       getattr(self.completeReportButton.clicked, funcName)(self.onCompleteReportButtonClicked)
       getattr(self.calculateMeasurementsButton.clicked, funcName)(lambda: self.updateMeasurementsTable(triggered=True))
       getattr(self.segmentStatisticsConfigButton.clicked, funcName)(self.onEditParameters)
-      getattr(self.retrieveTestDataButton.clicked, funcName)(self.loadTestData)
+      getattr(self.retrieveTestDataButton.clicked, funcName)(lambda clicked: self.loadTestData())
 
     def setupOtherConnections():
       getattr(self.layoutManager.layoutChanged, funcName)(self.onLayoutChanged)
