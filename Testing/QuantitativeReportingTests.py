@@ -172,14 +172,27 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
         labels.append(label)
 
     labelImportWidget = qrWidget.labelMapImportWidget
+
+    timer = qt.QTimer()
+    timer.setInterval(2000)
+    timer.timeout.connect(self._checkFocusAndClickButton)
+    timer.start()
+
     for label in labels:
       labelImportWidget.labelMapSelector.setCurrentNode(label)
       labelImportWidget.importButton.click()
+
+    timer.stop()
 
     segmentation = qrWidget.segmentEditorWidget.segmentationNode.GetSegmentation()
     self.assertEquals(segmentation.GetNumberOfSegments(), len(labels))
 
     self.delayDisplay('Test passed!')
+
+  def _checkFocusAndClickButton(self):
+    focus = slicer.app.focusWidget()
+    if type(focus) is qt.QPushButton:
+      focus.click()
 
   def test_import_segmentation(self):
     self.delayDisplay('Starting %s' % inspect.stack()[0][3])
