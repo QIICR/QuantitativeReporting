@@ -32,6 +32,44 @@ from Testing.QuantitativeReportingTests import TestDataLogic
 class ScreenShotHelper(ModuleWidgetMixin):
 
   @staticmethod
+  def addRuler(widget, color=None):
+    color = color if color else [0.25, 0.25, 0.75]
+
+    controller = widget.sliceController()
+    sliceView = widget.sliceView()
+
+    controller.setRulerType(2)
+
+    collection = vtk.vtkCollection()
+    sliceView.getDisplayableManagers(collection)
+    manager = None
+    for i in range(collection.GetNumberOfItems()):
+      if type(collection.GetItemAsObject(i)) is slicer.vtkMRMLRulerDisplayableManager:
+        manager = collection.GetItemAsObject(i)
+        break
+
+    renderers = manager.GetRenderer().GetRenderWindow().GetRenderers()
+    axisActor = None
+    textActor = None
+    for i in range(renderers.GetNumberOfItems()):
+      actors2D = renderers.GetItemAsObject(i).GetActors2D()
+      for j in range(actors2D.GetNumberOfItems()):
+        if type(actors2D.GetItemAsObject(j)) is vtk.vtkTextActor:
+          textActor = actors2D.GetItemAsObject(j)
+        elif type(actors2D.GetItemAsObject(j)) is vtk.vtkAxisActor2D:
+          axisActor = actors2D.GetItemAsObject(j)
+      if axisActor and textActor:
+        axisActor.GetProperty().SetColor(color)
+        textActor.GetProperty().SetColor(color)
+        sliceView.update()
+        break
+
+  @staticmethod
+  def hideRuler(widget):
+    controller = widget.sliceController()
+    controller.setRulerType(0)
+
+  @staticmethod
   def jumpToSegmentCenterAndCreateScreenshot(segmentationNode, segment, widgets):
     imageData = vtkSegmentationCore.vtkOrientedImageData()
     segmentID = segmentationNode.GetSegmentation().GetSegmentIdBySegment(segment)
@@ -64,8 +102,11 @@ class ScreenShotHelper(ModuleWidgetMixin):
         segmentationNode.GetDisplayNode().SetAllSegmentsVisibility(False)
         ScreenShotHelper.setDisplayNodeProperties(segmentationNode, segment,
                                                   properties={'fill': True, 'outline': True, 'visible': True})
+
+        ScreenShotHelper.addRuler(widget)
         annotationNode = ScreenShotHelper.takeScreenShot("{}_Screenshot_Axial".format(segment.GetName()), "",
                                              slicer.qMRMLScreenShotDialog.Red)  # term into description maybe?
+        ScreenShotHelper.hideRuler(widget)
         segmentationNode.GetDisplayNode().SetAllSegmentsVisibility(True)
         ScreenShotHelper.setDisplayNodeProperties(segmentationNode, segment, dNodeProperties)
         ModuleWidgetMixin.setFOV(sliceLogic, savedFOV)
