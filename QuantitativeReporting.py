@@ -6,6 +6,8 @@ import ctk
 import vtk
 import qt
 
+import webbrowser
+
 import slicer
 from slicer.ScriptedLoadableModule import *
 import vtkSegmentationCorePython as vtkSegmentationCore
@@ -25,6 +27,217 @@ from SlicerDevelopmentToolboxUtils.widgets import CopySegmentBetweenSegmentation
 from SlicerDevelopmentToolboxUtils.widgets import DICOMBasedInformationWatchBox, ImportLabelMapIntoSegmentationWidget
 
 from Testing.QuantitativeReportingTests import TestDataLogic
+
+
+class ScreenShotHelper(ModuleWidgetMixin):
+
+  @staticmethod
+  def jumpToSegmentCenterAndCreateScreenshot(segmentationNode, segment, widgets):
+    imageData = vtkSegmentationCore.vtkOrientedImageData()
+    segmentID = segmentationNode.GetSegmentation().GetSegmentIdBySegment(segment)
+    segmentationsLogic = slicer.modules.segmentations.logic()
+    segmentationsLogic.GetSegmentBinaryLabelmapRepresentation(segmentationNode, segmentID, imageData)
+    extent = imageData.GetExtent()
+    if extent[1] != -1 and extent[3] != -1 and extent[5] != -1:
+      tempLabel = slicer.vtkMRMLLabelMapVolumeNode()
+      slicer.mrmlScene.AddNode(tempLabel)
+      tempLabel.SetName(segment.GetName() + "CentroidHelper")
+      segmentationsLogic.CreateLabelmapVolumeFromOrientedImageData(imageData, tempLabel)
+      QuantitativeReportingSegmentEditorLogic.applyThreshold(tempLabel, 1)
+
+      for widget in widgets:
+        controller = widget.sliceController()
+        sliceLogic = widget.sliceLogic()
+        sliceNode = sliceLogic.GetSliceNode()
+        compositeNode = widget.mrmlSliceCompositeNode()
+        savedVolumeID = compositeNode.GetBackgroundVolumeID()
+        savedFOV = sliceNode.GetFieldOfView()
+        compositeNode.SetBackgroundVolumeID(tempLabel.GetID())
+        sliceLogic.FitSliceToAll()
+        compositeNode.SetBackgroundVolumeID(savedVolumeID)
+        controller.setRulerType(1)
+
+        FOV = sliceNode.GetFieldOfView()
+        ModuleWidgetMixin.setFOV(sliceLogic, [FOV[0] * 1.5, FOV[1] * 1.5, FOV[2]])
+
+        dNodeProperties = ScreenShotHelper.saveSegmentDisplayProperties(segmentationNode, segment)
+        segmentationNode.GetDisplayNode().SetAllSegmentsVisibility(False)
+        ScreenShotHelper.setDisplayNodeProperties(segmentationNode, segment,
+                                                  properties={'fill': True, 'outline': True, 'visible': True})
+        annotationNode = ScreenShotHelper.takeScreenShot("{}_Screenshot_Axial".format(segment.GetName()), "",
+                                             slicer.qMRMLScreenShotDialog.Red)  # term into description maybe?
+        segmentationNode.GetDisplayNode().SetAllSegmentsVisibility(True)
+        ScreenShotHelper.setDisplayNodeProperties(segmentationNode, segment, dNodeProperties)
+        ModuleWidgetMixin.setFOV(sliceLogic, savedFOV)
+        slicer.mrmlScene.RemoveNode(tempLabel)
+        controller.setRulerType(0)
+        return annotationNode
+
+  @staticmethod
+  def saveSegmentDisplayProperties(segmentationNode, segment):
+    dNode = segmentationNode.GetDisplayNode()
+    sName = segment.GetName()
+    properties = {
+      'fill': dNode.GetSegmentVisibility2DFill(sName),
+      'outline': dNode.GetSegmentVisibility2DOutline(sName),
+      'visible': dNode.GetSegmentVisibility(sName)
+    }
+    return properties
+
+  @staticmethod
+  def setDisplayNodeProperties(segmentationNode, segment, properties):
+    dNode = segmentationNode.GetDisplayNode()
+    sName = segment.GetName()
+    dNode.SetSegmentVisibility2DFill(sName, properties['fill'])
+    dNode.SetSegmentVisibility2DOutline(sName, properties['outline'])
+    dNode.SetSegmentVisibility(sName, properties['visible'])
+
+  @staticmethod
+  def takeScreenShot(name, description, screenShotType=-1):
+    lm = slicer.app.layoutManager()
+    if screenShotType == slicer.qMRMLScreenShotDialog.FullLayout:
+      widget = lm.viewport()
+    elif screenShotType == slicer.qMRMLScreenShotDialog.ThreeD:
+      widget = lm.threeDWidget(0).threeDView()
+    elif screenShotType == slicer.qMRMLScreenShotDialog.Red:
+      widget = lm.sliceWidget("Red")
+    elif screenShotType == slicer.qMRMLScreenShotDialog.Yellow:
+      widget = lm.sliceWidget("Yellow")
+    elif screenShotType == slicer.qMRMLScreenShotDialog.Green:
+      widget = lm.sliceWidget("Green")
+    else:
+      widget = slicer.util.mainWindow()
+      screenShotType = slicer.qMRMLScreenShotDialog.FullLayout
+
+    # grab and convert to vtk image data
+    qImage = ctk.ctkWidgetsUtils.grabWidget(widget)
+    imageData = vtk.vtkImageData()
+    slicer.qMRMLUtils().qImageToVtkImageData(qImage, imageData)
+
+    annotationLogic = slicer.modules.annotations.logic()
+    annotationLogic.CreateSnapShot(name, description, screenShotType, 1.0, imageData)
+    return slicer.util.getNodesByClass('vtkMRMLAnnotationSnapshotNode')[-1]
+
+
+class HTMLReportCreator(ScreenShotHelper):
+
+  style = '''
+    body {
+      font-family: Helvetica, Arial;
+    }
+    
+    h2 {
+      color: #2e6c80;
+    }
+  '''
+
+  infoRow = '''
+      <tr>
+        <td class='heading'><b>{0}</b></td>
+        <td>{1}</td>
+      </tr>
+    '''
+
+  patientInfo = '''
+    <table cellPadding=3 cellSpacing=0>
+      {}{}{}
+    </table>
+  '''
+
+  template = '''
+      <html>
+        <head>
+        <meta name=\"Author\" content=\"...\">
+        <title> QIICR Report </title>
+        <style type=\"text/css\">{0}</style>
+        <body>
+          <h1>QIICR Report</h1>
+          {1}
+          {2}
+        </body> 
+       </html>
+    '''
+
+  def __init__(self, segmentationNode):
+    self.segmentationNode = segmentationNode
+    self.createSliceWidgetClassMembers("Red")
+    # statistics
+
+    # save html and load in default webbrowser
+
+  def generateReport(self):
+
+    def currentDateTime():
+      from datetime import datetime
+      return  datetime.now().strftime('%Y-%m-%d_%H%M%S')
+
+    html = self.template.format(self.style, self.getPatientInformation(), self.getData())
+
+    outputPath = os.path.join(slicer.app.temporaryPath, "QIICR", "QR")
+    if not os.path.exists(outputPath):
+      ModuleLogicMixin.createDirectory(outputPath)
+    outputHTML = os.path.join(outputPath, currentDateTime()+"_testReport.html")
+    print outputHTML
+    f = open(outputHTML, 'w')
+    f.write(html)
+    f.close()
+    webbrowser.open("file:///private"+outputHTML)
+
+  def getPatientInformation(self):
+    masterVolume = ModuleLogicMixin.getReferencedVolumeFromSegmentationNode(self.segmentationNode)
+    return self.patientInfo.format(
+      self.infoRow.format("Patient Name:", ModuleLogicMixin.getDICOMValue(masterVolume,
+                                                                          DICOMTAGS.PATIENT_NAME)),
+      self.infoRow.format("Date of Birth:", ModuleLogicMixin.getDICOMValue(masterVolume,
+                                                                           DICOMTAGS.PATIENT_BIRTH_DATE)),
+      self.infoRow.format("Reader:", getpass.getuser))
+
+  def getData(self):
+    annotationLogic = slicer.modules.annotations.logic()
+    qrLogic = QuantitativeReportingSegmentEditorLogic
+
+    data = ""
+
+    # statistics
+
+    # go through all segments and find the one with the largest dimensions
+
+
+    def find_2nd(string, substring):
+      return string.find(substring, string.find(substring) + 1)
+
+    for segment in qrLogic.getAllSegments(self.segmentationNode):
+      annotationNode = self.jumpToSegmentCenterAndCreateScreenshot(self.segmentationNode, segment, [self.redWidget])
+      html = annotationLogic.GetHTMLRepresentation(annotationNode, 0)
+
+      data += '''
+        <h2>{0}</h2>
+        <table border=0 width='100%' cellPadding=3 cellSpacing=0>
+          <tr>
+            <td valign='top'>{1}</td>
+            <td >{2}</td>
+          </tr>
+        </table>
+        '''.format(segment.GetName(), self.getTerminologyInformation(segment),
+                   html[find_2nd(html, "<img src="):html.find(">", find_2nd(html, "<img src=")) + 1])
+    return data
+
+  def getTerminologyInformation(self, segment):
+    terminologyEntry = DICOMSegmentationExporter.getDeserializedTerminologyEntry(segment)
+    catModifier = terminologyEntry.GetTypeModifierObject ().GetCodeMeaning()
+    anatomicRegion = terminologyEntry.GetAnatomicRegionObject().GetCodeMeaning()
+    anatomicRegionModifier = terminologyEntry.GetAnatomicRegionModifierObject ().GetCodeMeaning()
+    html = '''
+      <h3>Terminology</h3>
+      <table border=1 width='100%' cellPadding=3 cellSpacing=0>
+        {}{}{}{}{}
+      </table> 
+    '''.format(self.infoRow.format("Category:", terminologyEntry.GetCategoryObject().GetCodeMeaning()),
+               self.infoRow.format("Category Type:", terminologyEntry.GetTypeObject().GetCodeMeaning()),
+               self.infoRow.format("Category Type Modifier:", catModifier) if catModifier else "",
+               self.infoRow.format("Anatomic Region:", anatomicRegion) if anatomicRegion else "",
+               self.infoRow.format("Anatomic Region Modifier:", anatomicRegionModifier) if anatomicRegionModifier else "")
+    return html
 
 
 class QuantitativeReporting(ScriptedLoadableModule):
@@ -56,7 +269,6 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
   def __init__(self, parent=None):
     ScriptedLoadableModuleWidget.__init__(self, parent)
-    self.segmentationsLogic = slicer.modules.segmentations.logic()
     self.slicerTempDir = slicer.util.tempDirectory()
     slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, self.onSceneClosed)
 
@@ -171,6 +383,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
   def enableReportButtons(self, enabled):
     self.saveReportButton.enabled = enabled
     self.completeReportButton.enabled = enabled
+    self.exportToHTMLButton.enabled = enabled
+
 
   def setupWatchBox(self):
     self.watchBoxInformation = [
@@ -317,8 +531,10 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
   def setupActionButtons(self):
     self.saveReportButton = self.createButton("Save Report")
     self.completeReportButton = self.createButton("Complete Report")
+    self.exportToHTMLButton = self.createButton("Export to HTML")
     self.enableReportButtons(False)
-    self.mainModuleWidgetLayout.addWidget(self.createHLayout([self.saveReportButton, self.completeReportButton]))
+    self.mainModuleWidgetLayout.addWidget(self.createHLayout([self.saveReportButton, self.completeReportButton,
+                                                              self.exportToHTMLButton]))
 
   def setupConnections(self, funcName="connect"):
 
@@ -331,6 +547,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       getattr(self.completeReportButton.clicked, funcName)(self.onCompleteReportButtonClicked)
       getattr(self.calculateMeasurementsButton.clicked, funcName)(lambda: self.updateMeasurementsTable(triggered=True))
       getattr(self.segmentStatisticsConfigButton.clicked, funcName)(self.onEditParameters)
+      getattr(self.exportToHTMLButton.clicked, funcName)(self.onExportToHTMLButtonClicked)
       getattr(self.retrieveTestDataButton.clicked, funcName)(lambda clicked: self.loadTestData())
 
     def setupOtherConnections():
@@ -351,6 +568,10 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     if pNode:
       SegmentStatisticsParameterEditorDialog.editParameters(pNode,calculatorName)
       self.updateMeasurementsTable(triggered=True)
+
+  def onExportToHTMLButtonClicked(self):
+    creator = HTMLReportCreator(self.segmentEditorWidget.segmentationNode)
+    creator.generateReport()
 
   def onTabWidgetClicked(self, currentIndex):
     if currentIndex == 0:
@@ -441,6 +662,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
   @postCall(refreshUIElementsAvailability)
   def onMeasurementReportSelected(self, node):
+    # TODO check here if it's longitudinal data
     self.removeSegmentationObserver()
     self.segmentEditorWidget.editor.setMasterVolumeNode(None)
     self.calculateAutomaticallyCheckbox.checked = True
@@ -764,10 +986,10 @@ class QuantitativeReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
     ScriptedLoadableModuleLogic.__init__(self, parent)
     self.parent = parent
     self.volumesLogic = slicer.modules.volumes.logic()
-    self.segmentationsLogic = slicer.modules.segmentations.logic()
     self.segmentStatisticsLogic = CustomSegmentStatisticsLogic()
 
-  def getSegmentIDs(self, segmentationNode, visibleOnly):
+  @staticmethod
+  def getSegmentIDs(segmentationNode, visibleOnly):
     if not segmentationNode:
       return []
     segmentIDs = vtk.vtkStringArray()
@@ -776,35 +998,43 @@ class QuantitativeReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
     command(segmentIDs)
     return [segmentIDs.GetValue(idx) for idx in range(segmentIDs.GetNumberOfValues())]
 
-  def getAllSegments(self, segmentationNode):
+  @staticmethod
+  def getAllSegments(segmentationNode):
     segmentation = segmentationNode.GetSegmentation()
-    return [segmentation.GetSegment(segmentID) for segmentID in self.getSegmentIDs(segmentationNode, False)]
+    return [segmentation.GetSegment(segmentID)
+            for segmentID in QuantitativeReportingSegmentEditorLogic.getSegmentIDs(segmentationNode, False)]
 
-  def getVisibleSegments(self, segmentationNode):
+  @staticmethod
+  def getVisibleSegments(segmentationNode):
     segmentation = segmentationNode.GetSegmentation()
-    return [segmentation.GetSegment(segmentID) for segmentID in self.getSegmentIDs(segmentationNode, True)]
+    return [segmentation.GetSegment(segmentID)
+            for segmentID in QuantitativeReportingSegmentEditorLogic.getSegmentIDs(segmentationNode, True)]
 
-  def getSegmentIndexByID(self, segmentationNode, segmentID):
-    segmentIDs = self.getSegmentIDs(segmentationNode, False)
+  @staticmethod
+  def getSegmentIndexByID(segmentationNode, segmentID):
+    segmentIDs = QuantitativeReportingSegmentEditorLogic.getSegmentIDs(segmentationNode, False)
     return segmentIDs.index(segmentID)
 
-  def getSegmentCentroid(self, segmentationNode, segment):
+  @staticmethod
+  def getSegmentCentroid(segmentationNode, segment):
     imageData = vtkSegmentationCore.vtkOrientedImageData()
     segmentID = segmentationNode.GetSegmentation().GetSegmentIdBySegment(segment)
-    self.segmentationsLogic.GetSegmentBinaryLabelmapRepresentation(segmentationNode, segmentID, imageData)
+    segmentationsLogic = slicer.modules.segmentations.logic()
+    segmentationsLogic.GetSegmentBinaryLabelmapRepresentation(segmentationNode, segmentID, imageData)
     extent = imageData.GetExtent()
     if extent[1] != -1 and extent[3] != -1 and extent[5] != -1:
       tempLabel = slicer.vtkMRMLLabelMapVolumeNode()
       slicer.mrmlScene.AddNode(tempLabel)
       tempLabel.SetName(segment.GetName() + "CentroidHelper")
-      self.segmentationsLogic.CreateLabelmapVolumeFromOrientedImageData(imageData, tempLabel)
-      self.applyThreshold(tempLabel, 1)
+      segmentationsLogic.CreateLabelmapVolumeFromOrientedImageData(imageData, tempLabel)
+      QuantitativeReportingSegmentEditorLogic.applyThreshold(tempLabel, 1)
       centroid = ModuleLogicMixin.getCentroidForLabel(tempLabel, 1)
       slicer.mrmlScene.RemoveNode(tempLabel)
       return centroid
     return None
 
-  def applyThreshold(self, labelNode, outValue):
+  @staticmethod
+  def applyThreshold(labelNode, outValue):
     imageData = labelNode.GetImageData()
     backgroundValue = 0
     thresh = vtk.vtkImageThreshold()
@@ -847,7 +1077,6 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
   def __init__(self):
     SegmentStatisticsLogic.__init__(self)
     self.terminologyLogic = slicer.modules.terminologies.logic()
-    self.segmentationsLogic = slicer.modules.segmentations.logic()
 
   def exportToTable(self, table=None, nonEmptyKeysOnly=True):
     if not table:
