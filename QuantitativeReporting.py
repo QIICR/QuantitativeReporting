@@ -70,6 +70,32 @@ class ScreenShotHelper(ModuleWidgetMixin):
     controller.setRulerType(0)
 
   @staticmethod
+  def findLargest2DRegion(segmentationNode):
+    qrLogic = QuantitativeReportingSegmentEditorLogic
+    segmentationsLogic = slicer.modules.segmentations.logic()
+
+    largestLM = None
+    largestSize = 0
+    for segment in qrLogic.getAllSegments(segmentationNode):
+      imageData = vtkSegmentationCore.vtkOrientedImageData()
+      segmentID = segmentationNode.GetSegmentation().GetSegmentIdBySegment(segment)
+      segmentationsLogic.GetSegmentBinaryLabelmapRepresentation(segmentationNode, segmentID, imageData)
+      extent = imageData.GetExtent()
+
+      if extent[1] != -1 and extent[3] != -1 and extent[5] != -1:
+        tempLabel = slicer.vtkMRMLLabelMapVolumeNode()
+        tempLabel.SetName(segment.GetName() + "CentroidHelper")
+        segmentationsLogic.CreateLabelmapVolumeFromOrientedImageData(imageData, tempLabel)
+
+        dims = tempLabel.GetImageData().GetDimensions()
+        size = dims[0]*dims[1]
+        if size > largestSize:
+          largestSize = size
+          largestLM = tempLabel
+
+    return largestLM
+
+  @staticmethod
   def jumpToSegmentCenterAndCreateScreenshot(segmentationNode, segment, widgets):
     imageData = vtkSegmentationCore.vtkOrientedImageData()
     segmentID = segmentationNode.GetSegmentation().GetSegmentIdBySegment(segment)
@@ -82,36 +108,24 @@ class ScreenShotHelper(ModuleWidgetMixin):
       tempLabel.SetName(segment.GetName() + "CentroidHelper")
       segmentationsLogic.CreateLabelmapVolumeFromOrientedImageData(imageData, tempLabel)
       QuantitativeReportingSegmentEditorLogic.applyThreshold(tempLabel, 1)
+      centroid = ModuleLogicMixin.getCentroidForLabel(tempLabel, 1)
 
       for widget in widgets:
-        controller = widget.sliceController()
         sliceLogic = widget.sliceLogic()
         sliceNode = sliceLogic.GetSliceNode()
-        compositeNode = widget.mrmlSliceCompositeNode()
-        savedVolumeID = compositeNode.GetBackgroundVolumeID()
-        savedFOV = sliceNode.GetFieldOfView()
-        compositeNode.SetBackgroundVolumeID(tempLabel.GetID())
-        sliceLogic.FitSliceToAll()
-        compositeNode.SetBackgroundVolumeID(savedVolumeID)
-        controller.setRulerType(1)
-
-        FOV = sliceNode.GetFieldOfView()
-        ModuleWidgetMixin.setFOV(sliceLogic, [FOV[0] * 1.5, FOV[1] * 1.5, FOV[2]])
+        sliceNode.JumpSliceByCentering(centroid[0], centroid[1], centroid[2])
 
         dNodeProperties = ScreenShotHelper.saveSegmentDisplayProperties(segmentationNode, segment)
         segmentationNode.GetDisplayNode().SetAllSegmentsVisibility(False)
         ScreenShotHelper.setDisplayNodeProperties(segmentationNode, segment,
                                                   properties={'fill': True, 'outline': True, 'visible': True})
 
-        ScreenShotHelper.addRuler(widget)
         annotationNode = ScreenShotHelper.takeScreenShot("{}_Screenshot_Axial".format(segment.GetName()), "",
                                              slicer.qMRMLScreenShotDialog.Red)  # term into description maybe?
-        ScreenShotHelper.hideRuler(widget)
         segmentationNode.GetDisplayNode().SetAllSegmentsVisibility(True)
         ScreenShotHelper.setDisplayNodeProperties(segmentationNode, segment, dNodeProperties)
-        ModuleWidgetMixin.setFOV(sliceLogic, savedFOV)
+
         slicer.mrmlScene.RemoveNode(tempLabel)
-        controller.setRulerType(0)
         return annotationNode
 
   @staticmethod
@@ -247,6 +261,27 @@ class HTMLReportCreator(ScreenShotHelper):
     def find_2nd(string, substring):
       return string.find(substring, string.find(substring) + 1)
 
+    ScreenShotHelper.addRuler(self.redWidget)
+
+    largestLabel = self.findLargest2DRegion(self.segmentationNode)
+    slicer.mrmlScene.AddNode(largestLabel)
+    widget = self.redWidget
+    sliceLogic = widget.sliceLogic()
+    sliceNode = sliceLogic.GetSliceNode()
+    compositeNode = widget.mrmlSliceCompositeNode()
+    savedVolumeID = compositeNode.GetBackgroundVolumeID()
+    savedFOV = sliceNode.GetFieldOfView()
+    compositeNode.SetBackgroundVolumeID(largestLabel.GetID())
+    sliceLogic.FitSliceToAll()
+    compositeNode.SetBackgroundVolumeID(savedVolumeID)
+
+    FOV = sliceNode.GetFieldOfView()
+    ModuleWidgetMixin.setFOV(sliceLogic, [FOV[0] * 1.5, FOV[1] * 1.5, FOV[2]])
+
+    slicer.mrmlScene.RemoveNode(largestLabel)
+
+    # print "FOV for segment %s: %s" % (segment.GetName(), sliceNode.GetFieldOfView())
+
     for segment in qrLogic.getAllSegments(self.segmentationNode):
       annotationNode = self.jumpToSegmentCenterAndCreateScreenshot(self.segmentationNode, segment, [self.redWidget])
       html = annotationLogic.GetHTMLRepresentation(annotationNode, 0)
@@ -261,6 +296,8 @@ class HTMLReportCreator(ScreenShotHelper):
         </table>
         '''.format(segment.GetName(), self.getTerminologyInformation(segment),
                    html[find_2nd(html, "<img src="):html.find(">", find_2nd(html, "<img src=")) + 1])
+    ScreenShotHelper.hideRuler(self.redWidget)
+    ModuleWidgetMixin.setFOV(sliceLogic, savedFOV)
     return data
 
   def getTerminologyInformation(self, segment):
