@@ -205,6 +205,12 @@ class HTMLReportCreator(ScreenShotHelper):
     h2 {
       color: #2e6c80;
     }
+    @media print {
+      @page { size: auto;  margin: 7mm; }
+      .print-friendly {
+          page-break-inside: avoid;
+      }
+    }
   '''
 
   infoRow = '''
@@ -215,7 +221,7 @@ class HTMLReportCreator(ScreenShotHelper):
     '''
 
   patientInfo = '''
-    <table cellPadding=3 cellSpacing=0>
+    <table cellPadding=3 cellSpacing=0 class="print-friendly">
       {}{}{}
     </table>
   '''
@@ -307,19 +313,23 @@ class HTMLReportCreator(ScreenShotHelper):
       greenSS = greenSS.replace("width='400'", "width=100%")
 
       data += '''
-        <h2>{0}</h2>
-        <table border=1 width='100%' cellPadding=3 cellSpacing=0>
-          <tr>
-            <td class='heading'><b>Terminology</b></td>
-            <td class='heading'><b>Axial</b></td>
-            <td class='heading'><b>Coronal</b></td>
-          </tr>
-          <tr>
-            <td valign='top'>{1}</td>
-            <td>{2}</td>
-            <td>{3}</td>
-          </tr>
-        </table>
+        <div class="print-friendly">
+          <h2>{0}</h2>
+          <table border=1 width='100%' cellPadding=3 cellSpacing=0 >
+            <thead>
+              <tr>
+                <th><b>Terminology</b></th>
+                <th><b>Axial</b></th>
+                <th><b>Coronal</b></th>
+              </tr>
+            </thead>
+            <tr>
+              <td valign='top'>{1}</td>
+              <td>{2}</td>
+              <td>{3}</td>
+            </tr>
+          </table>
+        </div>
         '''.format(segment.GetName(), self.getTerminologyInformation(segment), redSS, greenSS)
     for w in [self.redWidget, self.greenWidget]:
       ScreenShotHelper.hideRuler(w)
