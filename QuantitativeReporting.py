@@ -96,7 +96,7 @@ class ScreenShotHelper(ModuleWidgetMixin):
     return largestLM
 
   @staticmethod
-  def jumpToSegmentCenterAndCreateScreenshot(segmentationNode, segment, widgets):
+  def jumpToSegmentAndCreateScreenShot(segmentationNode, segment, widgets, center=False, crosshair=False):
     imageData = vtkSegmentationCore.vtkOrientedImageData()
     segmentID = segmentationNode.GetSegmentation().GetSegmentIdBySegment(segment)
     segmentationsLogic = slicer.modules.segmentations.logic()
@@ -109,24 +109,45 @@ class ScreenShotHelper(ModuleWidgetMixin):
       segmentationsLogic.CreateLabelmapVolumeFromOrientedImageData(imageData, tempLabel)
       QuantitativeReportingSegmentEditorLogic.applyThreshold(tempLabel, 1)
       centroid = ModuleLogicMixin.getCentroidForLabel(tempLabel, 1)
+      slicer.mrmlScene.RemoveNode(tempLabel)
+
+      annotationNodes = []
+
+      crosshairButton = None
+      if crosshair:
+        crosshairButton = CrosshairButton()
+        crosshairButton.setSliceIntersectionEnabled(True)
+        crosshairButton.checked = True
 
       for widget in widgets:
         sliceLogic = widget.sliceLogic()
         sliceNode = sliceLogic.GetSliceNode()
-        sliceNode.JumpSliceByCentering(centroid[0], centroid[1], centroid[2])
+
+        if not center:
+          sliceNode.JumpSliceByOffsetting(centroid[0], centroid[1], centroid[2])
+        else:
+          markupsLogic = slicer.modules.markups.logic()
+          markupsLogic.JumpSlicesToLocation(centroid[0], centroid[1], centroid[2], True)
 
         dNodeProperties = ScreenShotHelper.saveSegmentDisplayProperties(segmentationNode, segment)
         segmentationNode.GetDisplayNode().SetAllSegmentsVisibility(False)
         ScreenShotHelper.setDisplayNodeProperties(segmentationNode, segment,
                                                   properties={'fill': True, 'outline': True, 'visible': True})
 
-        annotationNode = ScreenShotHelper.takeScreenShot("{}_Screenshot_Axial".format(segment.GetName()), "",
-                                             slicer.qMRMLScreenShotDialog.Red)  # term into description maybe?
+        if crosshairButton:
+          crosshairButton.crosshairNode.SetCrosshairRAS(centroid)
+
+        annotationNode = ScreenShotHelper.takeScreenShot("{}_Screenshot_{}_{}".format(segment.GetName(),
+                                                                                      sliceNode.GetName(),
+                                                                                      sliceNode.GetOrientation()),
+                                                         "", widget)
         segmentationNode.GetDisplayNode().SetAllSegmentsVisibility(True)
         ScreenShotHelper.setDisplayNodeProperties(segmentationNode, segment, dNodeProperties)
+        annotationNodes.append(annotationNode)
+        if crosshairButton:
+          crosshairButton.checked = False
 
-        slicer.mrmlScene.RemoveNode(tempLabel)
-        return annotationNode
+      return annotationNodes[0] if len(annotationNodes) == 1 else annotationNodes
 
   @staticmethod
   def saveSegmentDisplayProperties(segmentationNode, segment):
@@ -148,23 +169,23 @@ class ScreenShotHelper(ModuleWidgetMixin):
     dNode.SetSegmentVisibility(sName, properties['visible'])
 
   @staticmethod
-  def takeScreenShot(name, description, screenShotType=-1):
+  def takeScreenShot(name, description, widget=None, screenShotType=-1):
     lm = slicer.app.layoutManager()
-    if screenShotType == slicer.qMRMLScreenShotDialog.FullLayout:
-      widget = lm.viewport()
-    elif screenShotType == slicer.qMRMLScreenShotDialog.ThreeD:
-      widget = lm.threeDWidget(0).threeDView()
-    elif screenShotType == slicer.qMRMLScreenShotDialog.Red:
-      widget = lm.sliceWidget("Red")
-    elif screenShotType == slicer.qMRMLScreenShotDialog.Yellow:
-      widget = lm.sliceWidget("Yellow")
-    elif screenShotType == slicer.qMRMLScreenShotDialog.Green:
-      widget = lm.sliceWidget("Green")
-    else:
-      widget = slicer.util.mainWindow()
-      screenShotType = slicer.qMRMLScreenShotDialog.FullLayout
+    if not widget:
+      if screenShotType == slicer.qMRMLScreenShotDialog.FullLayout:
+        widget = lm.viewport()
+      elif screenShotType == slicer.qMRMLScreenShotDialog.ThreeD:
+        widget = lm.threeDWidget(0).threeDView()
+      elif screenShotType == slicer.qMRMLScreenShotDialog.Red:
+        widget = lm.sliceWidget("Red")
+      elif screenShotType == slicer.qMRMLScreenShotDialog.Yellow:
+        widget = lm.sliceWidget("Yellow")
+      elif screenShotType == slicer.qMRMLScreenShotDialog.Green:
+        widget = lm.sliceWidget("Green")
+      else:
+        widget = slicer.util.mainWindow()
+        screenShotType = slicer.qMRMLScreenShotDialog.FullLayout
 
-    # grab and convert to vtk image data
     qImage = ctk.ctkWidgetsUtils.grabWidget(widget)
     imageData = vtk.vtkImageData()
     slicer.qMRMLUtils().qImageToVtkImageData(qImage, imageData)
@@ -216,9 +237,8 @@ class HTMLReportCreator(ScreenShotHelper):
   def __init__(self, segmentationNode):
     self.segmentationNode = segmentationNode
     self.createSliceWidgetClassMembers("Red")
+    self.createSliceWidgetClassMembers("Green")
     # statistics
-
-    # save html and load in default webbrowser
 
   def generateReport(self):
 
@@ -255,17 +275,61 @@ class HTMLReportCreator(ScreenShotHelper):
 
     # statistics
 
-    # go through all segments and find the one with the largest dimensions
-
-
     def find_2nd(string, substring):
       return string.find(substring, string.find(substring) + 1)
 
-    ScreenShotHelper.addRuler(self.redWidget)
-
-    largestLabel = self.findLargest2DRegion(self.segmentationNode)
-    slicer.mrmlScene.AddNode(largestLabel)
     widget = self.redWidget
+
+    for w in [self.redWidget, self.greenWidget]:
+      ScreenShotHelper.addRuler(w)
+
+    self.setFOV2Largest2DRegion(widget)
+
+    self.greenWidget.sliceLogic().FitSliceToAll()
+    fov = self.greenSliceNode.GetFieldOfView()
+    masterVolume = ModuleLogicMixin.getReferencedVolumeFromSegmentationNode(self.segmentationNode)
+    xNumSlices = masterVolume.GetImageData().GetDimensions() [0]
+    xSpacing = masterVolume.GetSpacing()[0]
+    size = xNumSlices * xSpacing
+    self.greenSliceNode.SetFieldOfView(size, fov[1] * size/fov[0], fov[2])
+
+    for segment in qrLogic.getAllSegments(self.segmentationNode):
+      redAnnotationNode = self.jumpToSegmentAndCreateScreenShot(self.segmentationNode, segment,
+                                                                [widget], center=True)
+      redSS = annotationLogic.GetHTMLRepresentation(redAnnotationNode, 0)
+      redSS = redSS[find_2nd(redSS, "<img src="):redSS.find(">", find_2nd(redSS, "<img src=")) + 1]
+      redSS = redSS.replace("width='400'", "width=100%")
+
+      greenAnnotationNode = self.jumpToSegmentAndCreateScreenShot(self.segmentationNode, segment,
+                                                                  [self.greenWidget], center=False, crosshair=True)
+      greenSS = annotationLogic.GetHTMLRepresentation(greenAnnotationNode, 0)
+      greenSS = greenSS[find_2nd(greenSS, "<img src="):greenSS.find(">", find_2nd(greenSS, "<img src=")) + 1]
+      greenSS = greenSS.replace("width='400'", "width=100%")
+
+      data += '''
+        <h2>{0}</h2>
+        <table border=1 width='100%' cellPadding=3 cellSpacing=0>
+          <tr>
+            <td class='heading'><b>Terminology</b></td>
+            <td class='heading'><b>Axial</b></td>
+            <td class='heading'><b>Coronal</b></td>
+          </tr>
+          <tr>
+            <td valign='top'>{1}</td>
+            <td>{2}</td>
+            <td>{3}</td>
+          </tr>
+        </table>
+        '''.format(segment.GetName(), self.getTerminologyInformation(segment), redSS, greenSS)
+    for w in [self.redWidget, self.greenWidget]:
+      ScreenShotHelper.hideRuler(w)
+    # ModuleWidgetMixin.setFOV(sliceLogic, savedFOV)
+    return data
+
+  def setFOV2Largest2DRegion(self, widget, largestLabel=None, factor=1.5):
+    if not largestLabel:
+      largestLabel = self.findLargest2DRegion(self.segmentationNode)
+    slicer.mrmlScene.AddNode(largestLabel)
     sliceLogic = widget.sliceLogic()
     sliceNode = sliceLogic.GetSliceNode()
     compositeNode = widget.mrmlSliceCompositeNode()
@@ -274,31 +338,10 @@ class HTMLReportCreator(ScreenShotHelper):
     compositeNode.SetBackgroundVolumeID(largestLabel.GetID())
     sliceLogic.FitSliceToAll()
     compositeNode.SetBackgroundVolumeID(savedVolumeID)
-
     FOV = sliceNode.GetFieldOfView()
-    ModuleWidgetMixin.setFOV(sliceLogic, [FOV[0] * 1.5, FOV[1] * 1.5, FOV[2]])
-
+    ModuleWidgetMixin.setFOV(sliceLogic, [FOV[0] * factor, FOV[1] * factor, FOV[2]])
     slicer.mrmlScene.RemoveNode(largestLabel)
-
-    # print "FOV for segment %s: %s" % (segment.GetName(), sliceNode.GetFieldOfView())
-
-    for segment in qrLogic.getAllSegments(self.segmentationNode):
-      annotationNode = self.jumpToSegmentCenterAndCreateScreenshot(self.segmentationNode, segment, [self.redWidget])
-      html = annotationLogic.GetHTMLRepresentation(annotationNode, 0)
-
-      data += '''
-        <h2>{0}</h2>
-        <table border=0 width='100%' cellPadding=3 cellSpacing=0>
-          <tr>
-            <td valign='top'>{1}</td>
-            <td >{2}</td>
-          </tr>
-        </table>
-        '''.format(segment.GetName(), self.getTerminologyInformation(segment),
-                   html[find_2nd(html, "<img src="):html.find(">", find_2nd(html, "<img src=")) + 1])
-    ScreenShotHelper.hideRuler(self.redWidget)
-    ModuleWidgetMixin.setFOV(sliceLogic, savedFOV)
-    return data
+    return largestLabel
 
   def getTerminologyInformation(self, segment):
     terminologyEntry = DICOMSegmentationExporter.getDeserializedTerminologyEntry(segment)
@@ -306,8 +349,7 @@ class HTMLReportCreator(ScreenShotHelper):
     anatomicRegion = terminologyEntry.GetAnatomicRegionObject().GetCodeMeaning()
     anatomicRegionModifier = terminologyEntry.GetAnatomicRegionModifierObject ().GetCodeMeaning()
     html = '''
-      <h3>Terminology</h3>
-      <table border=1 width='100%' cellPadding=3 cellSpacing=0>
+      <table border=0 width='100%' cellPadding=3 cellSpacing=0>
         {}{}{}{}{}
       </table> 
     '''.format(self.infoRow.format("Category:", terminologyEntry.GetCategoryObject().GetCodeMeaning()),
@@ -462,7 +504,6 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.saveReportButton.enabled = enabled
     self.completeReportButton.enabled = enabled
     self.exportToHTMLButton.enabled = enabled
-
 
   def setupWatchBox(self):
     self.watchBoxInformation = [
@@ -772,6 +813,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self.calculateAutomaticallyCheckbox.enabled = True
       self.segmentStatisticsConfigButton.enabled = True
       self.onSegmentationNodeChanged()
+    self.exportToHTMLButton.enabled = True
 
   def _getOrCreateSegmentationNodeAndConfigure(self):
     segmentationNodeID = self.tableNode.GetAttribute('ReferencedSegmentationNodeID')
