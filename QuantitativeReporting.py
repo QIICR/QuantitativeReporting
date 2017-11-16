@@ -220,9 +220,11 @@ class HTMLReportCreator(ScreenShotHelper):
       </tr>
     '''
 
-  patientInfo = '''
-    <table cellPadding=3 cellSpacing=0 class="print-friendly">
-      {}{}{}
+  patientInfoTemplate = '''
+    <table border=0 cellPadding=3 cellSpacing=0 width='100%' class="print-friendly">
+      <tr><td><b>Patient Name:</b></td><td>{0}</td></tr>
+      <tr><td><b>Patient ID:</b></td><td>{1}</td></tr>
+      <tr><td><b>Date of Birth:</b></td><td>{2}</td></tr>
     </table>
   '''
 
@@ -235,7 +237,6 @@ class HTMLReportCreator(ScreenShotHelper):
         <body>
           <h1>QIICR Report</h1>
           {1}
-          {2}
         </body> 
        </html>
     '''
@@ -245,6 +246,7 @@ class HTMLReportCreator(ScreenShotHelper):
     self.statistics = statisticsTable
     self.createSliceWidgetClassMembers("Red")
     self.createSliceWidgetClassMembers("Green")
+    self.patientInfo = None
 
   def generateReport(self):
 
@@ -252,7 +254,7 @@ class HTMLReportCreator(ScreenShotHelper):
       from datetime import datetime
       return  datetime.now().strftime('%Y-%m-%d_%H%M%S')
 
-    html = self.template.format(self.style, self.getPatientInformation(), self.getData())
+    html = self.template.format(self.style, self.getData())
 
     outputPath = os.path.join(slicer.app.temporaryPath, "QIICR", "QR")
     if not os.path.exists(outputPath):
@@ -265,13 +267,15 @@ class HTMLReportCreator(ScreenShotHelper):
     webbrowser.open("file:///private"+outputHTML)
 
   def getPatientInformation(self):
-    masterVolume = ModuleLogicMixin.getReferencedVolumeFromSegmentationNode(self.segmentationNode)
-    return self.patientInfo.format(
-      self.infoRow.format("Patient Name:", ModuleLogicMixin.getDICOMValue(masterVolume,
-                                                                          DICOMTAGS.PATIENT_NAME)),
-      self.infoRow.format("Date of Birth:", ModuleLogicMixin.getDICOMValue(masterVolume,
-                                                                           DICOMTAGS.PATIENT_BIRTH_DATE)),
-      self.infoRow.format("Reader:", getpass.getuser))
+    if not self.patientInfo:
+      masterVolume = ModuleLogicMixin.getReferencedVolumeFromSegmentationNode(self.segmentationNode)
+      self.patientInfo =  self.patientInfoTemplate.format(ModuleLogicMixin.getDICOMValue(masterVolume,
+                                                                                         DICOMTAGS.PATIENT_NAME),
+                                                          ModuleLogicMixin.getDICOMValue(masterVolume,
+                                                                                         DICOMTAGS.PATIENT_ID),
+                                                           ModuleLogicMixin.getDICOMValue(masterVolume,
+                                                                                          DICOMTAGS.PATIENT_BIRTH_DATE))
+    return self.patientInfo
 
   def getData(self):
     annotationLogic = slicer.modules.annotations.logic()
@@ -319,48 +323,45 @@ class HTMLReportCreator(ScreenShotHelper):
             <thead>
               <tr>
                 <th><b>Terminology</b></th>
+                <th><b>Patient Info</b></th>
               </tr>
             </thead>
             <tr>
-              <td valign='top'>{1}</td>
+              <td valign='top' width='50%'>{1}</td>
+              <td valign='top' width='50%'>{2}</td>
             </tr>
-          </table><br>
-          <table border=0 width='100%' cellPadding=3 cellSpacing=0>
+          </table>
+          <br>
+          <table border=1 width='100%' cellPadding=3 cellSpacing=0>
+            <thead border=1>
+              <tr>
+                <th colspan="2"><b>Screenshots</b></th>
+              </tr>
+              <tr>
+                <th><b>Axial</b></th>
+                <th><b>Coronal</b></th>
+              </tr>
+            </thead>
+            <tr>
+              <td>{3}</td>
+              <td>{4}</td>
+            </tr>
+          </table>  
+          <br>
+          <table border=1 width='100%' cellPadding=3 cellSpacing=0>
             <thead border=1>
               <tr>
                 <th><b>Measurements</b></th>
-                <th><b>Screenshots</b></th>
               </tr>
             </thead>
             <tr>
-              <td valign='top' width='50%'>{4}</td>
-              <td valign='top' width='50%'>
-                <table border=1 width='100%' cellPadding=3 cellSpacing=0>
-                  <thead>
-                    <tr>
-                      <th><b>Axial</b></th>
-                    </tr>
-                  </thead>
-                  <tr>
-                    <td>{2}</td>
-                  </tr>
-                </table>
-                </br>
-                <table border=1 width='100%' cellPadding=3 cellSpacing=0>
-                  <thead>
-                    <tr>
-                      <th><b>Coronal</b></th>
-                    </tr>
-                  </thead>
-                  <tr>
-                    <td>{3}</td>
-                  </tr>
-                </table>
-              </td>
+              <td valign='top' width='100%'>{5}</td>
             </tr>
           </table>
         </div>
-        '''.format(tableHelper.getNthSegmentName(idx), self.getTerminologyInformation(segment), redSS, greenSS,
+        '''.format(tableHelper.getNthSegmentName(idx),
+                   self.getTerminologyInformation(segment), self.getPatientInformation(),
+                   redSS, greenSS,
                    tableHelper.getHeaderAndNthRow(idx))
 
     for w in [self.redWidget, self.greenWidget]:
