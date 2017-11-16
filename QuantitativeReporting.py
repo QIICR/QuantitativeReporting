@@ -240,11 +240,11 @@ class HTMLReportCreator(ScreenShotHelper):
        </html>
     '''
 
-  def __init__(self, segmentationNode):
+  def __init__(self, segmentationNode, statisticsTable):
     self.segmentationNode = segmentationNode
+    self.statistics = statisticsTable
     self.createSliceWidgetClassMembers("Red")
     self.createSliceWidgetClassMembers("Green")
-    # statistics
 
   def generateReport(self):
 
@@ -299,7 +299,9 @@ class HTMLReportCreator(ScreenShotHelper):
     size = xNumSlices * xSpacing
     self.greenSliceNode.SetFieldOfView(size, fov[1] * size/fov[0], fov[2])
 
-    for segment in qrLogic.getAllSegments(self.segmentationNode):
+    tableHelper = vtkMRMLTableNodeHTMLHelper(self.statistics)
+
+    for idx, segment in enumerate(qrLogic.getAllSegments(self.segmentationNode)):
       redAnnotationNode = self.jumpToSegmentAndCreateScreenShot(self.segmentationNode, segment,
                                                                 [widget], center=True)
       redSS = annotationLogic.GetHTMLRepresentation(redAnnotationNode, 0)
@@ -315,7 +317,7 @@ class HTMLReportCreator(ScreenShotHelper):
       data += '''
         <div class="print-friendly">
           <h2>{0}</h2>
-          <table border=1 width='100%' cellPadding=3 cellSpacing=0 >
+          <table border=1 width='100%' cellPadding=3 cellSpacing=0>
             <thead>
               <tr>
                 <th><b>Terminology</b></th>
@@ -328,9 +330,12 @@ class HTMLReportCreator(ScreenShotHelper):
               <td>{2}</td>
               <td>{3}</td>
             </tr>
-          </table>
+          </table><br>
+          {4}
         </div>
-        '''.format(segment.GetName(), self.getTerminologyInformation(segment), redSS, greenSS)
+        '''.format(tableHelper.getNthSegmentName(idx), self.getTerminologyInformation(segment), redSS, greenSS,
+                   tableHelper.getHeaderAndNthRow(idx))
+
     for w in [self.redWidget, self.greenWidget]:
       ScreenShotHelper.hideRuler(w)
     # ModuleWidgetMixin.setFOV(sliceLogic, savedFOV)
@@ -368,6 +373,32 @@ class HTMLReportCreator(ScreenShotHelper):
                self.infoRow.format("Anatomic Region:", anatomicRegion) if anatomicRegion else "",
                self.infoRow.format("Anatomic Region Modifier:", anatomicRegionModifier) if anatomicRegionModifier else "")
     return html
+
+
+class vtkMRMLTableNodeHTMLHelper(ModuleLogicMixin):
+
+  tableTemplate = '''
+    <table border=1 cellPadding=3 cellSpacing=0>
+      {0}
+    </table>
+  '''
+
+  def __init__(self, tableNode):
+    self.table = tableNode
+
+  def getNthSegmentName(self, row):
+    return self.table.GetCellText(row, 0)
+
+  def getHeaderAndNthRow(self, row):
+    html = ""
+    for col in range(self.table.GetNumberOfColumns()):
+      html += '''
+        <tr>
+          <td><b>{0}</b></td>
+          <td>{1}</td>
+        </tr>
+      '''.format(self.table.GetColumnName(col), self.table.GetCellText(row, col))
+    return self.tableTemplate.format(html)
 
 
 class QuantitativeReporting(ScriptedLoadableModule):
@@ -699,7 +730,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self.updateMeasurementsTable(triggered=True)
 
   def onExportToHTMLButtonClicked(self):
-    creator = HTMLReportCreator(self.segmentEditorWidget.segmentationNode)
+    creator = HTMLReportCreator(self.segmentEditorWidget.segmentationNode, self.tableNode)
     creator.generateReport()
 
   def onTabWidgetClicked(self, currentIndex):
