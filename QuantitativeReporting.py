@@ -279,8 +279,6 @@ class HTMLReportCreator(ScreenShotHelper):
 
     data = ""
 
-    # statistics
-
     def find_2nd(string, substring):
       return string.find(substring, string.find(substring) + 1)
 
@@ -321,17 +319,46 @@ class HTMLReportCreator(ScreenShotHelper):
             <thead>
               <tr>
                 <th><b>Terminology</b></th>
-                <th><b>Axial</b></th>
-                <th><b>Coronal</b></th>
               </tr>
             </thead>
             <tr>
               <td valign='top'>{1}</td>
-              <td>{2}</td>
-              <td>{3}</td>
             </tr>
           </table><br>
-          {4}
+          <table border=0 width='100%' cellPadding=3 cellSpacing=0>
+            <thead border=1>
+              <tr>
+                <th><b>Measurements</b></th>
+                <th><b>Screenshots</b></th>
+              </tr>
+            </thead>
+            <tr>
+              <td valign='top' width='50%'>{4}</td>
+              <td valign='top' width='50%'>
+                <table border=1 width='100%' cellPadding=3 cellSpacing=0>
+                  <thead>
+                    <tr>
+                      <th><b>Axial</b></th>
+                    </tr>
+                  </thead>
+                  <tr>
+                    <td>{2}</td>
+                  </tr>
+                </table>
+                </br>
+                <table border=1 width='100%' cellPadding=3 cellSpacing=0>
+                  <thead>
+                    <tr>
+                      <th><b>Coronal</b></th>
+                    </tr>
+                  </thead>
+                  <tr>
+                    <td>{3}</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
         </div>
         '''.format(tableHelper.getNthSegmentName(idx), self.getTerminologyInformation(segment), redSS, greenSS,
                    tableHelper.getHeaderAndNthRow(idx))
@@ -378,7 +405,7 @@ class HTMLReportCreator(ScreenShotHelper):
 class vtkMRMLTableNodeHTMLHelper(ModuleLogicMixin):
 
   tableTemplate = '''
-    <table border=1 cellPadding=3 cellSpacing=0>
+    <table border=1 width='100%' cellPadding=3 cellSpacing=0>
       {0}
     </table>
   '''
@@ -389,9 +416,11 @@ class vtkMRMLTableNodeHTMLHelper(ModuleLogicMixin):
   def getNthSegmentName(self, row):
     return self.table.GetCellText(row, 0)
 
-  def getHeaderAndNthRow(self, row):
+  def getHeaderAndNthRow(self, row, skipSegmentName=True):
     html = ""
     for col in range(self.table.GetNumberOfColumns()):
+      if skipSegmentName and col == 0:
+        continue
       html += '''
         <tr>
           <td><b>{0}</b></td>
