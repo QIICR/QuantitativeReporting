@@ -9,8 +9,7 @@ import vtkSegmentationCorePython as vtkSegmentationCore
 
 from QRUtils.testdata import TestDataLogic
 
-from slicer.ScriptedLoadableModule import ScriptedLoadableModuleTest, ScriptedLoadableModuleWidget, \
-  ScriptedLoadableModuleLogic
+from slicer.ScriptedLoadableModule import ScriptedLoadableModuleTest, ScriptedLoadableModuleWidget
 
 __all__ = ['QuantitativeReportingTest']
 
@@ -97,7 +96,7 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
     collection = "CTLiver"
 
     qrWidget = slicer.modules.QuantitativeReportingWidget
-    qrWidget.loadTestData(collection, liverCTSeriesUID)
+    qrWidget.loadTestData(collection, imageDataType="volume", uid=liverCTSeriesUID)
 
   def runTest(self):
     """Run as few or as many tests as needed here.
@@ -106,8 +105,74 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
     self.test_create_report()
     self.test_import_labelmap()
     self.test_import_segmentation()
-
     self.test_read_report()
+
+  def test_read_report(self):
+    self.delayDisplay('Starting %s' % inspect.stack()[0][3])
+
+    collection = "CTLiver"
+
+    data = {
+      "volume": {
+        "uid": "1.2.392.200103.20080913.113635.1.2009.6.22.21.43.10.23430.1"
+      },
+      "seg_dcm": {
+        "uid": "1.2.276.0.7230010.3.1.3.0.66592.1510950900.468023"
+      },
+      "sr": {
+        "uid": "1.2.276.0.7230010.3.1.3.0.68337.1510953324.625906"
+      }
+    }
+
+    def loadTestData():
+
+      for imageType, fileData in data.iteritems():
+        if not len(slicer.dicomDatabase.filesForSeries(fileData['uid'])):
+          sampleData = TestDataLogic.downloadAndUnzipSampleData(collection)
+          TestDataLogic.importIntoDICOMDatabase(sampleData[imageType])
+
+    def checkFocusAndClickButton():
+      focus = slicer.app.focusWidget()
+      focus.parent().parent().yesButton.click()
+
+    loadTestData()
+
+    dicomWidget = slicer.modules.dicom.widgetRepresentation().self()
+    checkbox = dicomWidget.detailsPopup.pluginSelector.checkBoxByPlugin["DICOMLongitudinalTID1500Plugin"]
+    crntState = checkbox.checked
+    checkbox.checked = False
+
+    timer = qt.QTimer()
+    timer.setInterval(3000)
+    timer.setSingleShot(True)
+    timer.timeout.connect(checkFocusAndClickButton)
+    timer.start()
+
+    qrWidget = slicer.modules.QuantitativeReportingWidget
+    qrWidget.loadSeries(data['sr']['uid'])
+
+    checkbox.checked = crntState
+
+    tableNodes = slicer.util.getNodesByClass("vtkMRMLTableNode")
+
+    self.assertTrue(len(tableNodes),
+                    "Loading SR into mrmlScene failed. No vtkMRMLTableNodes were found within the scene.")
+
+    self.layoutManager.selectModule("QuantitativeReporting")
+
+    self.delayDisplay('Selecting measurements report')
+
+    qrWidget.measurementReportSelector.setCurrentNode(tableNodes[0])
+
+    self.delayDisplay('Checking number of segments')
+    self.assertTrue(len(qrWidget.segmentEditorWidget.segments) == 3,
+                    "Number of segments does not match expected count of 3")
+
+    self.delayDisplay('Checking referenced master volume', 2000)
+    self.assertIsNotNone(qrWidget.segmentEditorWidget.masterVolumeNode,
+                         "Master volume for the selected measurement report is None!")
+
+    self.delayDisplay('Test passed!')
 
   def test_create_report(self):
 
@@ -196,11 +261,6 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
       focus.click()
 
   def test_import_segmentation(self):
-    self.delayDisplay('Starting %s' % inspect.stack()[0][3])
-
-    self.delayDisplay('Test passed!')
-
-  def test_read_report(self):
     self.delayDisplay('Starting %s' % inspect.stack()[0][3])
 
     self.delayDisplay('Test passed!')

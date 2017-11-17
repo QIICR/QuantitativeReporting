@@ -17,7 +17,7 @@ class TestDataLogic(ScriptedLoadableModuleLogic):
     'CTLiver': {
       'volume': ('https://github.com/QIICR/QuantitativeReporting/releases/download/test-data/CTLiver.zip', 'CTLiver.zip'),
       'sr': ('https://github.com/QIICR/QuantitativeReporting/releases/download/test-data/SR.zip', 'SR.zip'),
-      'seg_dcm': ('https://github.com/QIICR/QuantitativeReporting/releases/download/test-data/Liver_Segmentation_DCM.zip',
+      'seg_dcm': ('https://github.com/QIICR/QuantitativeReporting/releases/download/test-data/Segmentations_DCM.zip',
                   'Liver_Segmentation_DCM.zip'),
       'seg_nrrd': ('https://github.com/QIICR/QuantitativeReporting/releases/download/test-data/Segmentations_NRRD.zip',
                    'Segmentations_NRRD.zip')

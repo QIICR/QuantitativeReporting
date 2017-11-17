@@ -191,10 +191,11 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self.mainModuleWidgetLayout.addWidget(self.testArea)
 
   def loadTestData(self, collection="MRHead",
+                   imageDataType='volume',
                    uid="2.16.840.1.113662.4.4168496325.1025306170.548651188813145058"):
     if not len(slicer.dicomDatabase.filesForSeries(uid)):
       sampleData = TestDataLogic.downloadAndUnzipSampleData(collection)
-      TestDataLogic.importIntoDICOMDatabase(sampleData['volume'])
+      TestDataLogic.importIntoDICOMDatabase(sampleData[imageDataType])
     self.loadSeries(uid)
     masterNode = slicer.util.getNodesByClass('vtkMRMLScalarVolumeNode')[-1]
     tableNode = slicer.vtkMRMLTableNode()
