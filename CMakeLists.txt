@@ -9,7 +9,7 @@ set(EXTENSION_DESCRIPTION "Support of quantitative image reporting with DICOM")
 set(EXTENSION_ICONURL "https://www.slicer.org/w/images/3/30/QuantitativeReportingLogo.png")
 set(EXTENSION_SCREENSHOTURLS "https://www.slicer.org/w/images/f/fe/QuantitativeReporting-screenshot.jpg")
 set(EXTENSION_STATUS "Work in progress")
-set(EXTENSION_DEPENDS "SlicerDevelopmentToolbox DCMQI PETDICOMExtension")
+set(EXTENSION_DEPENDS SlicerDevelopmentToolbox DCMQI PETDICOMExtension)
 
 #-----------------------------------------------------------------------------
 
@@ -28,4 +28,6 @@ if(BUILD_TESTING)
 endif()
 
 #-----------------------------------------------------------------------------
+
+include(${Slicer_EXTENSION_GENERATE_CONFIG})
 include(${Slicer_EXTENSION_CPACK})
