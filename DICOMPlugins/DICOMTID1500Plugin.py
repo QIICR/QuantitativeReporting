@@ -1,6 +1,8 @@
 import json
 import logging
 import os
+import vtk
+import datetime
 from collections import Counter
 import dicom
 
@@ -48,22 +50,16 @@ class DICOMTID1500PluginClass(DICOMPluginBase):
 
       seriesDescription = self.getDICOMValue(dataset, "SeriesDescription", "Unknown")
 
-      try:
-        isDicomTID1500 = self.getDICOMValue(dataset, "Modality") == 'SR' and \
-                         (self.getDICOMValue(dataset, "SOPClassUID") == self.UID_EnhancedSRStorage or
-                         self.getDICOMValue(dataset, "SOPClassUID") == self.UID_ComprehensiveSRStorage) and \
-                         self.getDICOMValue(dataset, "ContentTemplateSequence")[0].TemplateIdentifier == '1500'
-      except (AttributeError, IndexError):
-        isDicomTID1500 = False
+      isDicomTID1500 = self.isDICOMTID1500(dataset)
 
       if isDicomTID1500:
-        loadable = self.createLoadableAndAddReferences(dataset)
+        loadable = self.createLoadableAndAddReferences([dataset])
         loadable.files = [cFile]
         loadable.name = seriesDescription + ' - as a DICOM SR TID1500 object'
         loadable.tooltip = loadable.name
         loadable.selected = True
         loadable.confidence = 0.95
-        loadable.uid = uid
+        loadable.uids = [uid]
         refName = self.referencedSeriesName(loadable)
         if refName != "":
           loadable.name = refName + " " + seriesDescription + " - SR TID1500"
@@ -73,6 +69,16 @@ class DICOMTID1500PluginClass(DICOMPluginBase):
         logging.debug('DICOM SR TID1500 modality found')
     return loadables
 
+  def isDICOMTID1500(self, dataset):
+    try:
+      isDicomTID1500 = self.getDICOMValue(dataset, "Modality") == 'SR' and \
+                       (self.getDICOMValue(dataset, "SOPClassUID") == self.UID_EnhancedSRStorage or
+                        self.getDICOMValue(dataset, "SOPClassUID") == self.UID_ComprehensiveSRStorage) and \
+                       self.getDICOMValue(dataset, "ContentTemplateSequence")[0].TemplateIdentifier == '1500'
+    except (AttributeError, IndexError):
+      isDicomTID1500 = False
+    return isDicomTID1500
+
   def referencedSeriesName(self, loadable):
     """Returns the default series name for the given loadable"""
     referencedName = "Unnamed Reference"
@@ -80,43 +86,45 @@ class DICOMTID1500PluginClass(DICOMPluginBase):
       referencedName = self.defaultSeriesNodeName(loadable.referencedSOPInstanceUID)
     return referencedName
 
-  def createLoadableAndAddReferences(self, dataset):
+  def createLoadableAndAddReferences(self, datasets):
     loadable = DICOMLoadable()
     loadable.selected = True
     loadable.confidence = 0.95
 
-    if hasattr(dataset, "CurrentRequestedProcedureEvidenceSequence"):
-      loadable.referencedSegInstanceUIDs = []
-      # store lists of UIDs separately to avoid re-parsing later
-      loadable.ReferencedSegmentationInstanceUIDs = []
-      loadable.ReferencedRWVMSeriesInstanceUIDs = []
-      loadable.ReferencedOtherInstanceUIDs = []
-
-      for refSeriesSequence in dataset.CurrentRequestedProcedureEvidenceSequence:
-        for referencedSeriesSequence in refSeriesSequence.ReferencedSeriesSequence:
-          for refSOPSequence in referencedSeriesSequence.ReferencedSOPSequence:
-            if refSOPSequence.ReferencedSOPClassUID == self.UID_SegmentationStorage:
-              logging.debug("Found referenced segmentation")
-              loadable.ReferencedSegmentationInstanceUIDs.append(referencedSeriesSequence.SeriesInstanceUID)
-
-            elif refSOPSequence.ReferencedSOPClassUID == self.UID_RealWorldValueMappingStorage: # handle SUV mapping
-              logging.debug("Found referenced RWVM")
-              loadable.ReferencedRWVMSeriesInstanceUIDs.append(referencedSeriesSequence.SeriesInstanceUID)
-            else:
-              # TODO: those are not used at all
-              logging.debug( "Found other reference")
-              loadable.ReferencedOtherInstanceUIDs.append(refSOPSequence.ReferencedSOPInstanceUID)
-
+    loadable.referencedSegInstanceUIDs = []
+    # store lists of UIDs separately to avoid re-parsing later
+    loadable.ReferencedSegmentationInstanceUIDs = {}
+    loadable.ReferencedRWVMSeriesInstanceUIDs = []
+    loadable.ReferencedOtherInstanceUIDs = []
     loadable.referencedInstanceUIDs = []
-    for segSeriesInstanceUID in loadable.ReferencedSegmentationInstanceUIDs:
-      segLoadables = self.segPlugin.examine([slicer.dicomDatabase.filesForSeries(segSeriesInstanceUID)])
-      for segLoadable in segLoadables:
-        loadable.referencedInstanceUIDs += segLoadable.referencedInstanceUIDs
+
+    for dataset in datasets:
+      uid = self.getDICOMValue(dataset, "SOPInstanceUID")
+      loadable.ReferencedSegmentationInstanceUIDs[uid] = []
+      if hasattr(dataset, "CurrentRequestedProcedureEvidenceSequence"):
+        for refSeriesSequence in dataset.CurrentRequestedProcedureEvidenceSequence:
+          for referencedSeriesSequence in refSeriesSequence.ReferencedSeriesSequence:
+            for refSOPSequence in referencedSeriesSequence.ReferencedSOPSequence:
+              if refSOPSequence.ReferencedSOPClassUID == self.UID_SegmentationStorage:
+                logging.debug("Found referenced segmentation")
+                loadable.ReferencedSegmentationInstanceUIDs[uid].append(referencedSeriesSequence.SeriesInstanceUID)
+
+              elif refSOPSequence.ReferencedSOPClassUID == self.UID_RealWorldValueMappingStorage: # handle SUV mapping
+                logging.debug("Found referenced RWVM")
+                loadable.ReferencedRWVMSeriesInstanceUIDs.append(referencedSeriesSequence.SeriesInstanceUID)
+              else:
+                # TODO: those are not used at all
+                logging.debug( "Found other reference")
+                loadable.ReferencedOtherInstanceUIDs.append(refSOPSequence.ReferencedSOPInstanceUID)
+
+      for segSeriesInstanceUID in loadable.ReferencedSegmentationInstanceUIDs[uid]:
+        segLoadables = self.segPlugin.examine([slicer.dicomDatabase.filesForSeries(segSeriesInstanceUID)])
+        for segLoadable in segLoadables:
+          loadable.referencedInstanceUIDs += segLoadable.referencedInstanceUIDs
 
     loadable.referencedInstanceUIDs = list(set(loadable.referencedInstanceUIDs))
 
-
-    if len(loadable.ReferencedSegmentationInstanceUIDs)>1:
+    if len(loadable.ReferencedSegmentationInstanceUIDs[uid])>1:
       logging.warning("SR references more than one SEG. This has not been tested!")
     for segUID in loadable.ReferencedSegmentationInstanceUIDs:
       loadable.referencedSegInstanceUIDs.append(segUID)
@@ -126,67 +134,111 @@ class DICOMTID1500PluginClass(DICOMPluginBase):
     # not adding RWVM instances to referencedSeriesInstanceUIDs
     return loadable
 
+  def sortReportsByDateTime(self, uids):
+    return sorted(uids, key=lambda uid: self.getDateTime(uid))
+
+  def getDateTime(self, uid):
+    filename = slicer.dicomDatabase.fileForInstance(uid)
+    dataset = dicom.read_file(filename)
+    seriesDate = dataset.SeriesDate
+    seriesTime = dataset.SeriesTime
+    return datetime.datetime.strptime(seriesDate+seriesTime, '%Y%m%d%H%M%S')
+
   def load(self, loadable):
     logging.debug('DICOM SR TID1500 load()')
-
-    for segSeriesInstanceUID in loadable.referencedSegInstanceUIDs:
-      segLoadables = self.segPlugin.examine([slicer.dicomDatabase.filesForSeries(segSeriesInstanceUID)])
-      for segLoadable in segLoadables:
-        if hasattr(segLoadable, "referencedSegInstanceUIDs"):
-          segLoadable.referencedSegInstanceUIDs = list(set(segLoadable.referencedSegInstanceUIDs)-
-                                                       set(loadable.referencedInstanceUIDs))
-        self.segPlugin.load(segLoadable)
-        if hasattr(segLoadable, "referencedSeriesUID") and len(loadable.ReferencedRWVMSeriesInstanceUIDs)>0:
-          self.determineAndApplyRWVMToReferencedSeries(loadable, segLoadable)
 
     # if there is a RWVM object referenced from SEG, assume it contains the
     # scaling that needs to be applied to the referenced series. Assign
     # referencedSeriesUID from the image series, but load using the RWVM plugin
 
-    try:
-      uid = loadable.uid
-      logging.debug('in load(): uid = ', uid)
-    except AttributeError:
-      return False
+    logging.debug("before sorting: %s" % loadable.uids)
+    sortedUIDs = self.sortReportsByDateTime(loadable.uids)
+    logging.debug("after sorting: %s" % sortedUIDs)
 
-    self.tempDir = os.path.join(slicer.app.temporaryPath, "QIICR", "SR", self.currentDateTime, loadable.uid)
-    try:
-      os.makedirs(self.tempDir)
-    except OSError:
-      pass
+    tables = []
 
-    outputFile = os.path.join(self.tempDir, loadable.uid+".json")
+    for idx, uid in enumerate(sortedUIDs):
 
-    srFileName = slicer.dicomDatabase.fileForInstance(uid)
-    if srFileName is None:
-      logging.debug('Failed to get the filename from the DICOM database for ', uid)
-      return False
+      for segSeriesInstanceUID in loadable.ReferencedSegmentationInstanceUIDs[uid]:
+        segLoadables = self.segPlugin.examine([slicer.dicomDatabase.filesForSeries(segSeriesInstanceUID)])
+        for segLoadable in segLoadables:
+          if hasattr(segLoadable, "referencedSegInstanceUIDs"):
+            segLoadable.referencedSegInstanceUIDs = list(set(segLoadable.referencedSegInstanceUIDs) -
+                                                         set(loadable.referencedInstanceUIDs))
+          self.segPlugin.load(segLoadable)
+          if hasattr(segLoadable, "referencedSeriesUID") and len(loadable.ReferencedRWVMSeriesInstanceUIDs) > 0:
+            self.determineAndApplyRWVMToReferencedSeries(loadable, segLoadable)
 
-    param = {
-      "inputSRFileName": srFileName,
-      "metaDataFileName": outputFile,
-      }
+      self.tempDir = os.path.join(slicer.app.temporaryPath, "QIICR", "SR", self.currentDateTime, uid)
+      try:
+        os.makedirs(self.tempDir)
+      except OSError:
+        pass
 
-    try:
-      tid1500reader = slicer.modules.tid1500reader
-    except AttributeError as exc:
-      logging.debug('Unable to find CLI module tid1500reader, unable to load SR TID1500 object: %s ' % exc.message)
+      outputFile = os.path.join(self.tempDir, uid+".json")
+
+      srFileName = slicer.dicomDatabase.fileForInstance(uid)
+      if srFileName is None:
+        logging.debug('Failed to get the filename from the DICOM database for ', uid)
+        return False
+
+      param = {
+        "inputSRFileName": srFileName,
+        "metaDataFileName": outputFile,
+        }
+
+      try:
+        tid1500reader = slicer.modules.tid1500reader
+      except AttributeError as exc:
+        logging.debug('Unable to find CLI module tid1500reader, unable to load SR TID1500 object: %s ' % exc.message)
+        self.cleanup()
+        return False
+
+      cliNode = slicer.cli.run(tid1500reader, None, param, wait_for_completion=True)
+      if cliNode.GetStatusString() != 'Completed':
+        logging.debug('tid1500reader did not complete successfully, unable to load DICOM SR TID1500')
+        self.cleanup()
+        return False
+
+      table = self.metadata2vtkTableNode(outputFile)
+      if table:
+        # TODO: think about the following...
+        segmentationNode = slicer.util.getNodesByClass('vtkMRMLSegmentationNode')[-1]
+        segmentationNodeID = segmentationNode.GetID()
+        table.SetAttribute("ReferencedSegmentationNodeID", segmentationNodeID)
+
+        # TODO: think about a better solution for finding related reports
+        if idx-1 > -1:
+          table.SetAttribute("PriorReportUID", sortedUIDs[idx-1])
+          tables[idx-1].SetAttribute("FollowUpReportUID", uid)
+        table.SetAttribute("SOPInstanceUID", uid)
+        self.assignTrackingUniqueIdentifier(outputFile, segmentationNode)
+
+      tables.append(table)
       self.cleanup()
-      return False
 
-    cliNode = slicer.cli.run(tid1500reader, None, param, wait_for_completion=True)
-    if cliNode.GetStatusString() != 'Completed':
-      logging.debug('tid1500reader did not complete successfully, unable to load DICOM SR TID1500')
-      self.cleanup()
-      return False
+    return len(tables) > 0
 
-    table = self.metadata2vtkTableNode(outputFile)
-    if table:
-      segmentationNodes = slicer.util.getNodesByClass('vtkMRMLSegmentationNode')
-      segmentationNodeID = segmentationNodes[-1].GetID()
-      table.SetAttribute("ReferencedSegmentationNodeID", segmentationNodeID)
-    self.cleanup()
-    return table is not None
+  def getSegmentIDs(self, segmentationNode):
+    segmentIDs = vtk.vtkStringArray()
+    segmentation = segmentationNode.GetSegmentation()
+    segmentation.GetSegmentIDs(segmentIDs)
+    return [segmentIDs.GetValue(idx) for idx in range(segmentIDs.GetNumberOfValues())]
+
+  def assignTrackingUniqueIdentifier(self, metafile, segmentationNode):
+
+    with open(metafile) as datafile:
+      data = json.load(datafile)
+
+      segmentation = segmentationNode.GetSegmentation()
+      segments = [segmentation.GetSegment(segmentID) for segmentID in self.getSegmentIDs(segmentationNode)]
+
+      for idx, measurement in enumerate(data["Measurements"]):
+        tagName = "TrackingUniqueIdentifier"
+        trackingUID = measurement[tagName]
+        segment = segments[idx]
+        segment.SetTag(tagName, trackingUID)
+        logging.debug("Setting tag '{}' to {} for segment with name {}".format(tagName, trackingUID, segment.GetName()))
 
   def determineAndApplyRWVMToReferencedSeries(self, loadable, segLoadable):
     rwvmUID = loadable.ReferencedRWVMSeriesInstanceUIDs[0]
@@ -291,6 +343,71 @@ class DICOMTID1500PluginClass(DICOMPluginBase):
     return items
 
 
+class DICOMLongitudinalTID1500PluginClass(DICOMTID1500PluginClass):
+
+  def __init__(self):
+    super(DICOMLongitudinalTID1500PluginClass, self).__init__()
+    self.loadType = "Longitudinal DICOM Structured Report TID1500"
+
+  def examineFiles(self, files):
+    loadables = []
+
+    for cFile in files:
+      dataset = dicom.read_file(cFile)
+
+      uid = self.getDICOMValue(dataset, "SOPInstanceUID")
+      if uid == "":
+        return []
+
+      if self.isDICOMTID1500(dataset):
+        otherSRDatasets, otherSRFiles = self.getRelatedSRs(dataset)
+
+        if len(otherSRFiles):
+          allDatasets = otherSRDatasets + [dataset]
+          loadable = self.createLoadableAndAddReferences(allDatasets)
+          loadable.files = [cFile]+otherSRFiles
+          seriesDescription = self.getDICOMValue(dataset, "SeriesDescription", "Unknown")
+          loadable.name = seriesDescription + ' - as a Longitudinal DICOM SR TID1500 object'
+          loadable.tooltip = loadable.name
+          loadable.selected = True
+          loadable.confidence = 0.96
+          loadable.uids = [self.getDICOMValue(d, "SOPInstanceUID") for d in allDatasets]
+          refName = self.referencedSeriesName(loadable)
+          if refName != "":
+            loadable.name = refName + " " + seriesDescription + " - SR TID1500"
+
+          loadables.append(loadable)
+
+          logging.debug('DICOM SR Longitudinal TID1500 modality found')
+
+    return loadables
+
+  def getRelatedSRs(self, dataset):
+    otherSRFiles = []
+    otherSRDatasets = []
+    studyInstanceUID = self.getDICOMValue(dataset, "StudyInstanceUID")
+    patient = slicer.dicomDatabase.patientForStudy(studyInstanceUID)
+    studies = [s for s in slicer.dicomDatabase.studiesForPatient(patient) if studyInstanceUID not in s]
+    for study in studies:
+      series = slicer.dicomDatabase.seriesForStudy(study)
+      foundSRs = []
+      for s in series:
+        srFile = self.fileForSeries(s)
+        tempDCM = dicom.read_file(srFile)
+        if self.isDICOMTID1500(tempDCM):
+          foundSRs.append(srFile)
+          otherSRDatasets.append(tempDCM)
+
+      if len(foundSRs) > 1:
+        logging.warn("Found more than one SR per study!! This is not supported right now")
+      otherSRFiles += foundSRs
+    return otherSRDatasets, otherSRFiles
+
+  def fileForSeries(self, series):
+    instance = slicer.dicomDatabase.instancesForSeries(series)
+    return slicer.dicomDatabase.fileForInstance(instance[0])
+
+
 class DICOMTID1500Plugin:
   """
   This class is the 'hook' for slicer to detect and recognize the plugin
@@ -319,3 +436,4 @@ class DICOMTID1500Plugin:
     except AttributeError:
       slicer.modules.dicomPlugins = {}
     slicer.modules.dicomPlugins['DICOMTID1500Plugin'] = DICOMTID1500PluginClass
+    slicer.modules.dicomPlugins['DICOMLongitudinalTID1500Plugin'] = DICOMLongitudinalTID1500PluginClass

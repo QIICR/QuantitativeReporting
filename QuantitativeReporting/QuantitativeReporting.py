@@ -3,28 +3,28 @@ import json
 import logging
 import os
 import ctk
-import vtk
 import qt
-
 import slicer
 from slicer.ScriptedLoadableModule import *
-import vtkSegmentationCorePython as vtkSegmentationCore
 
-from DICOMLib.DICOMWidgets import DICOMDetailsWidget
-from SegmentEditor import SegmentEditorWidget
-from SegmentStatistics import SegmentStatisticsLogic, SegmentStatisticsParameterEditorDialog
+import vtkSegmentationCorePython as vtkSegmentationCore
 from DICOMSegmentationPlugin import DICOMSegmentationExporter
+from SegmentStatistics import SegmentStatisticsParameterEditorDialog
 
 from SlicerDevelopmentToolboxUtils.buttons import CrosshairButton
 from SlicerDevelopmentToolboxUtils.buttons import RedSliceLayoutButton, FourUpLayoutButton, FourUpTableViewLayoutButton
 from SlicerDevelopmentToolboxUtils.constants import DICOMTAGS
-from SlicerDevelopmentToolboxUtils.decorators import onExceptionReturnNone, postCall
+from SlicerDevelopmentToolboxUtils.decorators import postCall
 from SlicerDevelopmentToolboxUtils.helpers import WatchBoxAttribute
-from SlicerDevelopmentToolboxUtils.mixins import ModuleWidgetMixin, ModuleLogicMixin, ParameterNodeObservationMixin
+from SlicerDevelopmentToolboxUtils.mixins import ModuleWidgetMixin, ModuleLogicMixin
 from SlicerDevelopmentToolboxUtils.widgets import CopySegmentBetweenSegmentationsWidget
 from SlicerDevelopmentToolboxUtils.widgets import DICOMBasedInformationWatchBox, ImportLabelMapIntoSegmentationWidget
 
-from Testing.QuantitativeReportingTests import TestDataLogic
+from QRUtils.htmlReport import HTMLReportCreator
+from QRUtils.testdata import TestDataLogic
+
+from QRCustomizations.CustomSegmentEditor import CustomSegmentEditorWidget
+from QRCustomizations.CustomDICOMDetailsWidget import CustomDICOMDetailsWidget
 
 
 class QuantitativeReporting(ScriptedLoadableModule):
@@ -56,7 +56,6 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
   def __init__(self, parent=None):
     ScriptedLoadableModuleWidget.__init__(self, parent)
-    self.segmentationsLogic = slicer.modules.segmentations.logic()
     self.slicerTempDir = slicer.util.tempDirectory()
     slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, self.onSceneClosed)
 
@@ -171,6 +170,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
   def enableReportButtons(self, enabled):
     self.saveReportButton.enabled = enabled
     self.completeReportButton.enabled = enabled
+    self.exportToHTMLButton.enabled = enabled
 
   def setupWatchBox(self):
     self.watchBoxInformation = [
@@ -191,10 +191,11 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self.mainModuleWidgetLayout.addWidget(self.testArea)
 
   def loadTestData(self, collection="MRHead",
+                   imageDataType='volume',
                    uid="2.16.840.1.113662.4.4168496325.1025306170.548651188813145058"):
     if not len(slicer.dicomDatabase.filesForSeries(uid)):
       sampleData = TestDataLogic.downloadAndUnzipSampleData(collection)
-      TestDataLogic.importIntoDICOMDatabase(sampleData['volume'])
+      TestDataLogic.importIntoDICOMDatabase(sampleData[imageDataType])
     self.loadSeries(uid)
     masterNode = slicer.util.getNodesByClass('vtkMRMLScalarVolumeNode')[-1]
     tableNode = slicer.vtkMRMLTableNode()
@@ -289,7 +290,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.segmentationGroupBox = qt.QGroupBox("Segmentations")
     self.segmentationGroupBoxLayout = qt.QFormLayout()
     self.segmentationGroupBox.setLayout(self.segmentationGroupBoxLayout)
-    self.segmentEditorWidget = QuantitativeReportingSegmentEditorWidget(parent=self.segmentationGroupBox)
+    self.segmentEditorWidget = CustomSegmentEditorWidget(parent=self.segmentationGroupBox)
     self.segmentEditorWidget.setup()
 
   def setupMeasurementsArea(self):
@@ -317,8 +318,10 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
   def setupActionButtons(self):
     self.saveReportButton = self.createButton("Save Report")
     self.completeReportButton = self.createButton("Complete Report")
+    self.exportToHTMLButton = self.createButton("Export to HTML")
     self.enableReportButtons(False)
-    self.mainModuleWidgetLayout.addWidget(self.createHLayout([self.saveReportButton, self.completeReportButton]))
+    self.mainModuleWidgetLayout.addWidget(self.createHLayout([self.saveReportButton, self.completeReportButton,
+                                                              self.exportToHTMLButton]))
 
   def setupConnections(self, funcName="connect"):
 
@@ -331,6 +334,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       getattr(self.completeReportButton.clicked, funcName)(self.onCompleteReportButtonClicked)
       getattr(self.calculateMeasurementsButton.clicked, funcName)(lambda: self.updateMeasurementsTable(triggered=True))
       getattr(self.segmentStatisticsConfigButton.clicked, funcName)(self.onEditParameters)
+      getattr(self.exportToHTMLButton.clicked, funcName)(self.onExportToHTMLButtonClicked)
       getattr(self.retrieveTestDataButton.clicked, funcName)(lambda clicked: self.loadTestData())
 
     def setupOtherConnections():
@@ -351,6 +355,10 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     if pNode:
       SegmentStatisticsParameterEditorDialog.editParameters(pNode,calculatorName)
       self.updateMeasurementsTable(triggered=True)
+
+  def onExportToHTMLButtonClicked(self):
+    creator = HTMLReportCreator(self.segmentEditorWidget.segmentationNode, self.tableNode)
+    creator.generateReport()
 
   def onTabWidgetClicked(self, currentIndex):
     if currentIndex == 0:
@@ -441,6 +449,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
   @postCall(refreshUIElementsAvailability)
   def onMeasurementReportSelected(self, node):
+    # TODO check here if it's longitudinal data
     self.removeSegmentationObserver()
     self.segmentEditorWidget.editor.setMasterVolumeNode(None)
     self.calculateAutomaticallyCheckbox.checked = True
@@ -472,6 +481,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self.calculateAutomaticallyCheckbox.enabled = True
       self.segmentStatisticsConfigButton.enabled = True
       self.onSegmentationNodeChanged()
+    self.exportToHTMLButton.enabled = True
 
   def _getOrCreateSegmentationNodeAndConfigure(self):
     segmentationNodeID = self.tableNode.GetAttribute('ReferencedSegmentationNodeID')
@@ -672,305 +682,6 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     with open(os.path.join(destination), 'w') as outfile:
       json.dump(data, outfile, indent=2)
     return destination
-
-
-class QuantitativeReportingSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
-
-  @property
-  def segmentationNode(self):
-    return self.editor.segmentationNode()
-
-  @property
-  def masterVolumeNode(self):
-    return self.editor.masterVolumeNode()
-
-  @property
-  @onExceptionReturnNone
-  def segmentation(self):
-    return self.segmentationNode.GetSegmentation()
-
-  @property
-  def segments(self):
-    if not self.segmentationNode:
-      return []
-    return self.logic.getAllSegments(self.segmentationNode)
-
-  @property
-  def enabled(self):
-    return self.editor.enabled
-
-  @enabled.setter
-  def enabled(self, enabled):
-    self.editor.setReadOnly(not enabled)
-
-  def __init__(self, parent):
-    SegmentEditorWidget.__init__(self, parent)
-    self.logic = QuantitativeReportingSegmentEditorLogic()
-
-  def setup(self):
-    super(QuantitativeReportingSegmentEditorWidget, self).setup()
-    if self.developerMode:
-      self.reloadCollapsibleButton.hide()
-    self.editor.switchToSegmentationsButtonVisible = False
-    self.editor.segmentationNodeSelectorVisible = False
-    self.editor.setEffectButtonStyle(qt.Qt.ToolButtonIconOnly)
-    self.clearSegmentationEditorSelectors()
-
-  def onSegmentSelected(self, selectedRow):
-    try:
-      segment = self.segments[selectedRow]
-      self.jumpToSegmentCenter(segment)
-    except IndexError:
-      pass
-
-  def jumpToSegmentCenter(self, segment):
-    centroid = self.logic.getSegmentCentroid(self.segmentationNode, segment)
-    if centroid:
-      markupsLogic = slicer.modules.markups.logic()
-      markupsLogic.JumpSlicesToLocation(centroid[0], centroid[1], centroid[2], False)
-
-  def clearSegmentationEditorSelectors(self):
-    self.editor.setSegmentationNode(None)
-    self.editor.setMasterVolumeNode(None)
-
-  def enter(self):
-    # overridden because SegmentEditorWidget automatically creates a new Segmentation upon instantiation
-    self.turnOffLightboxes()
-    self.installShortcutKeys()
-
-    # Set parameter set node if absent
-    self.selectParameterNode()
-    self.editor.updateWidgetFromMRML()
-
-  def calculateSegmentStatistics(self, tableNode, visibleOnly):
-    if not self.segmentationNode or not self.masterVolumeNode:
-      return None
-    return self.logic.calculateSegmentStatistics(self.segmentationNode, self.masterVolumeNode, visibleOnly, tableNode)
-
-  def hiddenSegmentsAvailable(self):
-    return len(self.logic.getAllSegments(self.segmentationNode)) \
-           != len(self.logic.getVisibleSegments(self.segmentationNode))
-
-  def getSegmentIndexByID(self, segmentID):
-    return self.logic.getSegmentIndexByID(self.segmentationNode, segmentID)
-
-  def getSegmentIDByIndex(self, index):
-    return self.logic.getSegmentIDs(self.segmentationNode, False)[index]
-
-
-class QuantitativeReportingSegmentEditorLogic(ScriptedLoadableModuleLogic):
-
-  def __init__(self, parent=None):
-    ScriptedLoadableModuleLogic.__init__(self, parent)
-    self.parent = parent
-    self.volumesLogic = slicer.modules.volumes.logic()
-    self.segmentationsLogic = slicer.modules.segmentations.logic()
-    self.segmentStatisticsLogic = CustomSegmentStatisticsLogic()
-
-  def getSegmentIDs(self, segmentationNode, visibleOnly):
-    if not segmentationNode:
-      return []
-    segmentIDs = vtk.vtkStringArray()
-    segmentation = segmentationNode.GetSegmentation()
-    command = segmentationNode.GetDisplayNode().GetVisibleSegmentIDs if visibleOnly else segmentation.GetSegmentIDs
-    command(segmentIDs)
-    return [segmentIDs.GetValue(idx) for idx in range(segmentIDs.GetNumberOfValues())]
-
-  def getAllSegments(self, segmentationNode):
-    segmentation = segmentationNode.GetSegmentation()
-    return [segmentation.GetSegment(segmentID) for segmentID in self.getSegmentIDs(segmentationNode, False)]
-
-  def getVisibleSegments(self, segmentationNode):
-    segmentation = segmentationNode.GetSegmentation()
-    return [segmentation.GetSegment(segmentID) for segmentID in self.getSegmentIDs(segmentationNode, True)]
-
-  def getSegmentIndexByID(self, segmentationNode, segmentID):
-    segmentIDs = self.getSegmentIDs(segmentationNode, False)
-    return segmentIDs.index(segmentID)
-
-  def getSegmentCentroid(self, segmentationNode, segment):
-    imageData = vtkSegmentationCore.vtkOrientedImageData()
-    segmentID = segmentationNode.GetSegmentation().GetSegmentIdBySegment(segment)
-    self.segmentationsLogic.GetSegmentBinaryLabelmapRepresentation(segmentationNode, segmentID, imageData)
-    extent = imageData.GetExtent()
-    if extent[1] != -1 and extent[3] != -1 and extent[5] != -1:
-      tempLabel = slicer.vtkMRMLLabelMapVolumeNode()
-      slicer.mrmlScene.AddNode(tempLabel)
-      tempLabel.SetName(segment.GetName() + "CentroidHelper")
-      self.segmentationsLogic.CreateLabelmapVolumeFromOrientedImageData(imageData, tempLabel)
-      self.applyThreshold(tempLabel, 1)
-      centroid = ModuleLogicMixin.getCentroidForLabel(tempLabel, 1)
-      slicer.mrmlScene.RemoveNode(tempLabel)
-      return centroid
-    return None
-
-  def applyThreshold(self, labelNode, outValue):
-    imageData = labelNode.GetImageData()
-    backgroundValue = 0
-    thresh = vtk.vtkImageThreshold()
-    thresh.SetInputData(imageData)
-    thresh.ThresholdByLower(0)
-    thresh.SetInValue(backgroundValue)
-    thresh.SetOutValue(outValue)
-    thresh.SetOutputScalarType(vtk.VTK_UNSIGNED_CHAR)
-    thresh.Update()
-    labelNode.SetAndObserveImageData(thresh.GetOutput())
-
-  def calculateSegmentStatistics(self, segNode, grayscaleNode, visibleSegmentsOnly, tableNode=None):
-    self.segmentStatisticsLogic.getParameterNode().SetParameter("visibleSegmentsOnly", str(visibleSegmentsOnly))
-    self.segmentStatisticsLogic.getParameterNode().SetParameter("Segmentation", segNode.GetID())
-    if grayscaleNode:
-      self.segmentStatisticsLogic.getParameterNode().SetParameter("ScalarVolume", grayscaleNode.GetID())
-    else:
-      self.segmentStatisticsLogic.getParameterNode().UnsetParameter("ScalarVolume")
-    self.segmentStatisticsLogic.computeStatistics()
-    tableNode = self.segmentStatisticsLogic.exportToTable(tableNode)
-    return tableNode
-
-
-class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
-
-  @staticmethod
-  def getDICOMTriplet(codeValue, codingSchemeDesignator, codeMeaning):
-    return {'CodeValue':codeValue,
-            'CodingSchemeDesignator': codingSchemeDesignator,
-            'CodeMeaning': codeMeaning}
-
-  @property
-  def statistics(self):
-    return self.getStatistics()
-
-  @property
-  def segmentationNode(self):
-    return slicer.mrmlScene.GetNodeByID(self.getParameterNode().GetParameter("Segmentation"))
-
-  def __init__(self):
-    SegmentStatisticsLogic.__init__(self)
-    self.terminologyLogic = slicer.modules.terminologies.logic()
-    self.segmentationsLogic = slicer.modules.segmentations.logic()
-
-  def exportToTable(self, table=None, nonEmptyKeysOnly=True):
-    if not table:
-      table = slicer.vtkMRMLTableNode()
-      table.SetName(slicer.mrmlScene.GenerateUniqueName(self.grayscaleNode.GetName() + ' statistics'))
-      slicer.mrmlScene.AddNode(table)
-    table.SetUseColumnNameAsColumnHeader(True)
-    SegmentStatisticsLogic.exportToTable(self, table, nonEmptyKeysOnly)
-    return table
-
-  def isSegmentValid(self, segmentID):
-    for key in self.getNonEmptyKeys():
-      if isinstance(self.statistics[segmentID, key], str):
-        continue
-      if self.statistics[segmentID, key] != 0:
-        return True
-    return False
-
-  def createJSONFromTerminologyContext(self, terminologyEntry):
-    segmentData = dict()
-
-    categoryObject = terminologyEntry.GetCategoryObject()
-    if categoryObject is None or not self.isTerminologyInformationValid(categoryObject):
-      return {}
-    segmentData["SegmentedPropertyCategoryCodeSequence"] = self.getJSONFromVTKSlicerTerminology(categoryObject)
-
-    typeObject = terminologyEntry.GetTypeObject()
-    if typeObject is None or not self.isTerminologyInformationValid(typeObject):
-      return {}
-    segmentData["SegmentedPropertyTypeCodeSequence"] = self.getJSONFromVTKSlicerTerminology(typeObject)
-
-    modifierObject = terminologyEntry.GetTypeModifierObject()
-    if modifierObject is not None and self.isTerminologyInformationValid(modifierObject):
-      segmentData["SegmentedPropertyTypeModifierCodeSequence"] = self.getJSONFromVTKSlicerTerminology(modifierObject)
-
-    return segmentData
-
-  def createJSONFromAnatomicContext(self, terminologyEntry):
-    segmentData = dict()
-
-    regionObject = terminologyEntry.GetAnatomicRegionObject()
-    if regionObject is None or not self.isTerminologyInformationValid(regionObject):
-      return {}
-    segmentData["AnatomicRegionSequence"] = self.getJSONFromVTKSlicerTerminology(regionObject)
-
-    regionModifierObject = terminologyEntry.GetAnatomicRegionModifierObject()
-    if regionModifierObject is not None and self.isTerminologyInformationValid(regionModifierObject):
-      segmentData["AnatomicRegionModifierSequence"] = self.getJSONFromVTKSlicerTerminology(regionModifierObject)
-    return segmentData
-
-  def isTerminologyInformationValid(self, termTypeObject):
-    return all(t is not None for t in [termTypeObject.GetCodeValue(), termTypeObject.GetCodingSchemeDesignator(),
-                                       termTypeObject.GetCodeMeaning()])
-
-  def getJSONFromVTKSlicerTerminology(self, termTypeObject):
-    return self.getDICOMTriplet(termTypeObject.GetCodeValue(), termTypeObject.GetCodingSchemeDesignator(),
-                                termTypeObject.GetCodeMeaning())
-
-  def generateJSON4DcmSR(self, dcmSegmentationFile, sourceVolumeNode):
-    measurements = []
-
-    sourceImageSeriesUID = ModuleLogicMixin.getDICOMValue(sourceVolumeNode, "0020,000E")
-    logging.debug("SourceImageSeriesUID: {}".format(sourceImageSeriesUID))
-    segmentationSOPInstanceUID = ModuleLogicMixin.getDICOMValue(dcmSegmentationFile, "0008,0018")
-    logging.debug("SegmentationSOPInstanceUID: {}".format(segmentationSOPInstanceUID))
-
-    for segmentID in self.statistics["SegmentIDs"]:
-      if not self.isSegmentValid(segmentID):
-        continue
-
-      data = dict()
-      data["TrackingIdentifier"] = self.statistics[segmentID, "Segment"]
-      data["ReferencedSegment"] = len(measurements)+1
-      data["SourceSeriesForImageSegmentation"] = sourceImageSeriesUID
-      data["segmentationSOPInstanceUID"] = segmentationSOPInstanceUID
-      segment = self.segmentationNode.GetSegmentation().GetSegment(segmentID)
-
-      terminologyEntry = DICOMSegmentationExporter.getDeserializedTerminologyEntry(segment)
-
-      data["Finding"] = self.createJSONFromTerminologyContext(terminologyEntry)["SegmentedPropertyTypeCodeSequence"]
-      anatomicContext = self.createJSONFromAnatomicContext(terminologyEntry)
-      if anatomicContext.has_key("AnatomicRegionSequence"):
-        data["FindingSite"] = anatomicContext["AnatomicRegionSequence"]
-      data["measurementItems"] = self.createMeasurementItemsForLabelValue(segmentID)
-      measurements.append(data)
-
-    return measurements
-
-  def createMeasurementItemsForLabelValue(self, segmentValue):
-    measurementItems = []
-    for key in self.getNonEmptyKeys():
-      measurementInfo = self.getMeasurementInfo(key)
-      if measurementInfo:
-        item = dict()
-        item["value"] = str(self.statistics[segmentValue, key])
-        item["quantity"] = self._createCodeSequence(measurementInfo["DICOM.QuantityCode"])
-        item["units"] = self._createCodeSequence(measurementInfo["DICOM.UnitsCode"])
-        if measurementInfo.has_key("DICOM.DerivationCode"):
-          item["derivationModifier"] = self._createCodeSequence(measurementInfo["DICOM.DerivationCode"])
-        measurementItems.append(item)
-    return measurementItems
-
-  def _createCodeSequence(self, vtkStringifiedCodedEntry):
-    codeSequence = dict()
-    for each in vtkStringifiedCodedEntry.split('|'):
-      key, value = each.split(":")
-      codeSequence[key] = value
-    return codeSequence
-
-
-class CustomDICOMDetailsWidget(DICOMDetailsWidget, ParameterNodeObservationMixin):
-
-  FinishedLoadingEvent = vtk.vtkCommand.UserEvent + 101
-
-  def __init__(self, dicomBrowser=None, parent=None):
-    DICOMDetailsWidget.__init__(self, dicomBrowser, parent)
-    self.browserPersistentButton.visible = True
-    self.browserPersistentButton.checked = False
-
-  def onLoadingFinished(self):
-    DICOMDetailsWidget.onLoadingFinished(self)
-    if not self.browserPersistent:
-      self.invokeEvent(self.FinishedLoadingEvent)
 
 
 class QuantitativeReportingSlicelet(qt.QWidget, ModuleWidgetMixin):

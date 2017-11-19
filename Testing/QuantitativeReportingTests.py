@@ -3,11 +3,13 @@ import qt
 import ctk
 import vtk
 import slicer
-import logging
 import inspect
 
-from slicer.ScriptedLoadableModule import ScriptedLoadableModuleTest, ScriptedLoadableModuleWidget, \
-  ScriptedLoadableModuleLogic
+import vtkSegmentationCorePython as vtkSegmentationCore
+
+from QRUtils.testdata import TestDataLogic
+
+from slicer.ScriptedLoadableModule import ScriptedLoadableModuleTest, ScriptedLoadableModuleWidget
 
 __all__ = ['QuantitativeReportingTest']
 
@@ -79,6 +81,20 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
+  collection = "CTLiver"
+
+  data = {
+    "volume": {
+      "uid": "1.2.392.200103.20080913.113635.1.2009.6.22.21.43.10.23430.1"
+    },
+    "seg_dcm": {
+      "uid": "1.2.276.0.7230010.3.1.3.0.68336.1510953324.321969"
+    },
+    "sr": {
+      "uid": "1.2.276.0.7230010.3.1.3.0.68337.1510953324.625906"
+    }
+  }
+
   @property
   def layoutManager(self):
     return slicer.app.layoutManager()
@@ -86,15 +102,19 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
   def setUp(self):
     self.delayDisplay("Closing the scene")
     slicer.mrmlScene.Clear(0)
+    self.setupTimer()
 
-  def loadTestData(self):
+  def setupTimer(self):
+    self.timer = qt.QTimer()
+    self.timer.setInterval(1000)
+    self.timer.setSingleShot(True)
+    self.timer.timeout.connect(self._selectModule)
+
+  def loadTestVolume(self):
     self.delayDisplay("Loading testdata")
 
-    liverCTSeriesUID = "1.2.392.200103.20080913.113635.1.2009.6.22.21.43.10.23430.1"
-    collection = "CTLiver"
-
     qrWidget = slicer.modules.QuantitativeReportingWidget
-    qrWidget.loadTestData(collection, liverCTSeriesUID)
+    qrWidget.loadTestData(self.collection, imageDataType="volume", uid=self.data["volume"]["uid"])
 
   def runTest(self):
     """Run as few or as many tests as needed here.
@@ -103,23 +123,72 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
     self.test_create_report()
     self.test_import_labelmap()
     self.test_import_segmentation()
-
     self.test_read_report()
+
+  def test_read_report(self):
+    self.delayDisplay('Starting %s' % inspect.stack()[0][3])
+
+    self.timer.start()
+
+    def loadTestData():
+      for imageType, fileData in self.data.iteritems():
+        if not len(slicer.dicomDatabase.filesForSeries(fileData['uid'])):
+          sampleData = TestDataLogic.downloadAndUnzipSampleData(self.collection)
+          TestDataLogic.importIntoDICOMDatabase(sampleData[imageType])
+
+    def checkFocusAndClickButton():
+      focus = slicer.app.focusWidget()
+      focus.parent().parent().yesButton.click()
+
+    loadTestData()
+
+    dicomWidget = slicer.modules.dicom.widgetRepresentation().self()
+    checkbox = dicomWidget.detailsPopup.pluginSelector.checkBoxByPlugin["DICOMLongitudinalTID1500Plugin"]
+    crntState = checkbox.checked
+    checkbox.checked = False
+
+    timer = qt.QTimer()
+    timer.setInterval(3000)
+    timer.setSingleShot(True)
+    timer.timeout.connect(checkFocusAndClickButton)
+    timer.start()
+
+    qrWidget = slicer.modules.QuantitativeReportingWidget
+    qrWidget.loadSeries(self.data['sr']['uid'])
+
+    checkbox.checked = crntState
+
+    tableNodes = slicer.util.getNodesByClass("vtkMRMLTableNode")
+
+    self.assertTrue(len(tableNodes),
+                    "Loading SR into mrmlScene failed. No vtkMRMLTableNodes were found within the scene.")
+
+    self.delayDisplay('Selecting measurements report')
+
+    qrWidget.measurementReportSelector.setCurrentNode(tableNodes[0])
+
+    self.delayDisplay('Checking number of segments')
+    self.assertTrue(len(qrWidget.segmentEditorWidget.segments) == 3,
+                    "Number of segments does not match expected count of 3")
+
+    self.delayDisplay('Checking referenced master volume', 2000)
+    self.assertIsNotNone(qrWidget.segmentEditorWidget.masterVolumeNode,
+                         "Master volume for the selected measurement report is None!")
+
+    self.delayDisplay('Test passed!')
 
   def test_create_report(self):
 
     self.delayDisplay('Starting %s' % inspect.stack()[0][3])
 
-    self.layoutManager.selectModule("QuantitativeReporting")
+    self.timer.start()
     qrWidget = slicer.modules.QuantitativeReportingWidget
 
-    self.loadTestData()
+    self.loadTestVolume()
     success, err = qrWidget.saveReport()
     self.assertFalse(success)
 
     self.delayDisplay('Add segments')
-
-    import vtkSegmentationCorePython as vtkSegmentationCore
 
     qrWidget = slicer.modules.QuantitativeReportingWidget
     segmentation = qrWidget.segmentEditorWidget.segmentationNode.GetSegmentation()
@@ -157,12 +226,12 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
 
     self.delayDisplay('Starting %s' % inspect.stack()[0][3])
 
-    self.layoutManager.selectModule("QuantitativeReporting")
+    self.timer.start()
 
     qrWidget = slicer.modules.QuantitativeReportingWidget
-    self.loadTestData()
+    self.loadTestVolume()
 
-    sampleData = TestDataLogic.downloadAndUnzipSampleData("CTLiver")
+    sampleData = TestDataLogic.downloadAndUnzipSampleData(self.collection)
     segmentationsDir = sampleData['seg_nrrd']
 
     labels = []
@@ -195,72 +264,49 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
       focus.click()
 
   def test_import_segmentation(self):
+
     self.delayDisplay('Starting %s' % inspect.stack()[0][3])
+
+    self.timer.start()
+
+    uid = self.data["seg_dcm"]["uid"]
+
+    self.loadTestVolume()
+
+    if not len(slicer.dicomDatabase.filesForSeries(uid)):
+      sampleData = TestDataLogic.downloadAndUnzipSampleData(self.collection)
+      TestDataLogic.importIntoDICOMDatabase(sampleData["seg_dcm"])
+
+    def checkFocusAndClickButton():
+      focus = slicer.app.focusWidget()
+      focus.parent().parent().noButton.click()
+
+    timer = qt.QTimer()
+    timer.setInterval(3000)
+    timer.setSingleShot(True)
+    timer.timeout.connect(checkFocusAndClickButton)
+    timer.start()
+
+    qrWidget = slicer.modules.QuantitativeReportingWidget
+    qrWidget.loadSeries(uid)
+
+    segmentationNode = slicer.util.getNodesByClass('vtkMRMLSegmentationNode')[-1]
+
+    qrWidget.importSegmentationCollapsibleButton.collapsed = False
+
+    importWidget = qrWidget.segmentImportWidget
+    importWidget.otherSegmentationNodeSelector.setCurrentNode(segmentationNode)
+
+    segmentIDs = qrWidget.segmentEditorWidget.logic.getSegmentIDs(segmentationNode, False)
+    importWidget.otherSegmentsTableView.setSelectedSegmentIDs(segmentIDs)
+
+    importWidget.copyOtherToCurrentButton.click()
+
+    self.delayDisplay('Checking number of imported segments')
+    self.assertTrue(len(qrWidget.segmentEditorWidget.segments) == 3,
+                    "Number of segments does not match expected count of 3")
 
     self.delayDisplay('Test passed!')
 
-  def test_read_report(self):
-    self.delayDisplay('Starting %s' % inspect.stack()[0][3])
-
-    self.delayDisplay('Test passed!')
-
-
-class TestDataLogic(ScriptedLoadableModuleLogic):
-
-  collections = {
-    'MRHead': {
-      'volume': ('http://slicer.kitware.com/midas3/download/item/220834/PieperMRHead.zip', 'PieperMRHead.zip')
-    },
-    'CTLiver': {
-      'volume': ('https://github.com/QIICR/QuantitativeReporting/releases/download/test-data/CTLiver.zip', 'CTLiver.zip'),
-      'sr': ('https://github.com/QIICR/QuantitativeReporting/releases/download/test-data/SR.zip', 'SR.zip'),
-      'seg_dcm': ('https://github.com/QIICR/QuantitativeReporting/releases/download/test-data/Liver_Segmentation_DCM.zip',
-                  'Liver_Segmentation_DCM.zip'),
-      'seg_nrrd': ('https://github.com/QIICR/QuantitativeReporting/releases/download/test-data/Segmentations_NRRD.zip',
-                   'Segmentations_NRRD.zip')
-    }
-  }
-
-  DOWNLOAD_DIRECTORY = os.path.join(slicer.app.temporaryPath, 'dicomFiles')
-
-  @staticmethod
-  def importIntoDICOMDatabase(dicomFilesDirectory):
-    indexer = ctk.ctkDICOMIndexer()
-    indexer.addDirectory(slicer.dicomDatabase, dicomFilesDirectory, None)
-    indexer.waitForImportFinished()
-
-  @staticmethod
-  def unzipSampleData(filePath, collection, kind):
-    destinationDirectory = TestDataLogic.getUnzippedDirectoryPath(collection, kind)
-    qt.QDir().mkpath(destinationDirectory)
-    success = slicer.app.applicationLogic().Unzip(filePath, destinationDirectory)
-    if not success:
-      logging.error("Archive %s was NOT unzipped successfully." %  filePath)
-    return destinationDirectory
-
-  @staticmethod
-  def getUnzippedDirectoryPath(collection, kind):
-    return os.path.join(TestDataLogic.DOWNLOAD_DIRECTORY, collection, kind)
-
-  @staticmethod
-  def downloadAndUnzipSampleData(collection='MRHead'):
-    import urllib
-    slicer.util.delayDisplay("Downloading", 1000)
-
-    downloaded = {}
-    for kind, (url, filename) in TestDataLogic.collections[collection].iteritems():
-      filePath = os.path.join(slicer.app.temporaryPath, 'downloads', collection, kind, filename)
-      if not os.path.exists(os.path.dirname(filePath)):
-        os.makedirs(os.path.dirname(filePath))
-      logging.debug('Saving download %s to %s ' % (filename, filePath))
-      expectedOutput = TestDataLogic.getUnzippedDirectoryPath(collection, kind)
-      if not os.path.exists(filePath) or os.stat(filePath).st_size == 0:
-        slicer.util.delayDisplay('Requesting download %s from %s...\n' % (filename, url), 1000)
-        urllib.urlretrieve(url, filePath)
-      if not os.path.exists(expectedOutput) or not len(os.listdir(expectedOutput)):
-        logging.debug('Unzipping data into %s' % expectedOutput)
-        downloaded[kind] = TestDataLogic.unzipSampleData(filePath, collection, kind)
-      else:
-        downloaded[kind] = expectedOutput
-
-    return downloaded
+  def _selectModule(self):
+    self.layoutManager.selectModule("QuantitativeReporting")
