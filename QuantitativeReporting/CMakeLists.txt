@@ -1,7 +1,7 @@
 #-----------------------------------------------------------------------------
 
 file(GLOB_RECURSE MODULE_PYTHON_SCRIPTS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-  *.py
+  ${PROJECT_SOURCE_DIR}/${MODULE_NAME}/*.py
 )
 
 file(GLOB_RECURSE MODULE_PYTHON_RESOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
@@ -12,6 +12,6 @@ slicerMacroBuildScriptedModule(
   NAME ${MODULE_NAME}
   SCRIPTS ${MODULE_PYTHON_SCRIPTS}
   RESOURCES ${MODULE_PYTHON_RESOURCES}
-  )
+)
 
 #-----------------------------------------------------------------------------
