@@ -36,6 +36,7 @@ class QuantitativeReportingTests:
     except AttributeError:
       slicer.selfTests = {}
     slicer.selfTests['QuantitativeReporting'] = self.runTest
+    slicer.selfTests['QuantitativeReportingTests'] = self.runTest
 
   def runTest(self):
     tester = QuantitativeReportingTest()
@@ -109,6 +110,7 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
     self.timer.setInterval(1000)
     self.timer.setSingleShot(True)
     self.timer.timeout.connect(self._selectModule)
+    self.timer.start()
 
   def loadTestVolume(self):
     self.delayDisplay("Loading testdata")
@@ -119,16 +121,14 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
   def runTest(self):
     """Run as few or as many tests as needed here.
     """
-    self.setUp()
-    self.test_create_report()
-    self.test_import_labelmap()
-    self.test_import_segmentation()
-    self.test_read_report()
+
+    for testName in [f for f in QuantitativeReportingTest.__dict__.keys() if f.startswith('test_')]:
+      self.setUp()
+      getattr(self, testName)()
 
   def test_read_report(self):
-    self.delayDisplay('Starting %s' % inspect.stack()[0][3])
 
-    self.timer.start()
+    self.delayDisplay('Starting %s' % inspect.stack()[0][3])
 
     def loadTestData():
       for imageType, fileData in self.data.iteritems():
@@ -181,7 +181,6 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
 
     self.delayDisplay('Starting %s' % inspect.stack()[0][3])
 
-    self.timer.start()
     qrWidget = slicer.modules.QuantitativeReportingWidget
 
     self.loadTestVolume()
@@ -226,8 +225,6 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
 
     self.delayDisplay('Starting %s' % inspect.stack()[0][3])
 
-    self.timer.start()
-
     qrWidget = slicer.modules.QuantitativeReportingWidget
     self.loadTestVolume()
 
@@ -266,8 +263,6 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
   def test_import_segmentation(self):
 
     self.delayDisplay('Starting %s' % inspect.stack()[0][3])
-
-    self.timer.start()
 
     uid = self.data["seg_dcm"]["uid"]
 
