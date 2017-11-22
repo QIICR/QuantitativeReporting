@@ -1,8 +1,9 @@
 import logging
-
 import slicer
+
 from SlicerDevelopmentToolboxUtils.mixins import ModuleLogicMixin
 from SegmentStatistics import SegmentStatisticsLogic
+from SegmentStatisticsPlugins import ScalarVolumeSegmentStatisticsPlugin, ClosedSurfaceSegmentStatisticsPlugin
 from DICOMSegmentationPlugin import DICOMSegmentationExporter
 
 
@@ -23,6 +24,10 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
     return slicer.mrmlScene.GetNodeByID(self.getParameterNode().GetParameter("Segmentation"))
 
   def __init__(self):
+    logging.debug("CustomSegmentStatisticsLogic: only using ScalarVolumeSegmentStatisticsPlugin and "
+                  "ClosedSurfaceSegmentStatisticsPlugin")
+    SegmentStatisticsLogic.registeredPlugins = [ScalarVolumeSegmentStatisticsPlugin,
+                                                ClosedSurfaceSegmentStatisticsPlugin]
     SegmentStatisticsLogic.__init__(self)
     self.terminologyLogic = slicer.modules.terminologies.logic()
 
