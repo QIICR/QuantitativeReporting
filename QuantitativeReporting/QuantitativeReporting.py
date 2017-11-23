@@ -63,6 +63,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.tableNode = None
     self.segmentationObservers = []
     self.dicomSegmentationExporter = None
+    self.segmentStatisticsParameterEditorDialog = None
 
   def enter(self):
     self.measurementReportSelector.setCurrentNode(None)
@@ -352,11 +353,10 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
   def onEditParameters(self, calculatorName=None):
     """Open dialog box to edit calculator's parameters"""
     segmentStatisticsLogic = self.segmentEditorWidget.logic.segmentStatisticsLogic
-    pNode = segmentStatisticsLogic.getParameterNode()
-    if pNode:
-      dialog = CustomSegmentStatisticsParameterEditorDialog(segmentStatisticsLogic)
-      dialog.exec_()
-      self.updateMeasurementsTable(triggered=True)
+    if not self.segmentStatisticsParameterEditorDialog:
+      self.segmentStatisticsParameterEditorDialog = CustomSegmentStatisticsParameterEditorDialog(segmentStatisticsLogic)
+    self.segmentStatisticsParameterEditorDialog.exec_()
+    self.updateMeasurementsTable(triggered=True)
 
   def onExportToHTMLButtonClicked(self):
     creator = HTMLReportCreator(self.segmentEditorWidget.segmentationNode, self.tableNode)
