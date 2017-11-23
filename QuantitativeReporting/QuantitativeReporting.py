@@ -9,7 +9,6 @@ from slicer.ScriptedLoadableModule import *
 
 import vtkSegmentationCorePython as vtkSegmentationCore
 from DICOMSegmentationPlugin import DICOMSegmentationExporter
-from SegmentStatistics import SegmentStatisticsParameterEditorDialog
 
 from SlicerDevelopmentToolboxUtils.buttons import CrosshairButton
 from SlicerDevelopmentToolboxUtils.buttons import RedSliceLayoutButton, FourUpLayoutButton, FourUpTableViewLayoutButton
@@ -23,6 +22,7 @@ from SlicerDevelopmentToolboxUtils.widgets import DICOMBasedInformationWatchBox,
 from QRUtils.htmlReport import HTMLReportCreator
 from QRUtils.testdata import TestDataLogic
 
+from QRCustomizations.CustomSegmentStatistics import CustomSegmentStatisticsParameterEditorDialog
 from QRCustomizations.CustomSegmentEditor import CustomSegmentEditorWidget
 from QRCustomizations.CustomDICOMDetailsWidget import CustomDICOMDetailsWidget
 
@@ -63,6 +63,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.tableNode = None
     self.segmentationObservers = []
     self.dicomSegmentationExporter = None
+    self.segmentStatisticsParameterEditorDialog = None
 
   def enter(self):
     self.measurementReportSelector.setCurrentNode(None)
@@ -351,10 +352,11 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
   def onEditParameters(self, calculatorName=None):
     """Open dialog box to edit calculator's parameters"""
-    pNode = self.segmentEditorWidget.logic.segmentStatisticsLogic.getParameterNode()
-    if pNode:
-      SegmentStatisticsParameterEditorDialog.editParameters(pNode,calculatorName)
-      self.updateMeasurementsTable(triggered=True)
+    segmentStatisticsLogic = self.segmentEditorWidget.logic.segmentStatisticsLogic
+    if not self.segmentStatisticsParameterEditorDialog:
+      self.segmentStatisticsParameterEditorDialog = CustomSegmentStatisticsParameterEditorDialog(segmentStatisticsLogic)
+    self.segmentStatisticsParameterEditorDialog.exec_()
+    self.updateMeasurementsTable(triggered=True)
 
   def onExportToHTMLButtonClicked(self):
     creator = HTMLReportCreator(self.segmentEditorWidget.segmentationNode, self.tableNode)

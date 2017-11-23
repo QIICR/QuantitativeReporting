@@ -1,10 +1,22 @@
 import logging
 import slicer
+import qt
 
 from SlicerDevelopmentToolboxUtils.mixins import ModuleLogicMixin
-from SegmentStatistics import SegmentStatisticsLogic
-from SegmentStatisticsPlugins import ScalarVolumeSegmentStatisticsPlugin, ClosedSurfaceSegmentStatisticsPlugin
+from SegmentStatistics import SegmentStatisticsLogic, SegmentStatisticsParameterEditorDialog
+from SegmentStatisticsPlugins import LabelmapSegmentStatisticsPlugin
 from DICOMSegmentationPlugin import DICOMSegmentationExporter
+
+
+class CustomSegmentStatisticsParameterEditorDialog(SegmentStatisticsParameterEditorDialog):
+
+  def __init__(self, logic, parent=None, pluginName=None):
+    super(qt.QDialog, self).__init__(parent)
+    self.title = "Edit Segment Statistics Parameters"
+    self.logic = logic
+    self.parameterNode = self.logic.getParameterNode()
+    self.pluginName = pluginName
+    self.setup()
 
 
 class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
@@ -24,11 +36,9 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
     return slicer.mrmlScene.GetNodeByID(self.getParameterNode().GetParameter("Segmentation"))
 
   def __init__(self):
-    logging.debug("CustomSegmentStatisticsLogic: only using ScalarVolumeSegmentStatisticsPlugin and "
-                  "ClosedSurfaceSegmentStatisticsPlugin")
-    SegmentStatisticsLogic.registeredPlugins = [ScalarVolumeSegmentStatisticsPlugin,
-                                                ClosedSurfaceSegmentStatisticsPlugin]
     SegmentStatisticsLogic.__init__(self)
+    self.plugins = [p for p in self.plugins if not isinstance(p,LabelmapSegmentStatisticsPlugin)]
+    self.reset()
     self.terminologyLogic = slicer.modules.terminologies.logic()
 
   def exportToTable(self, table=None, nonEmptyKeysOnly=True):
