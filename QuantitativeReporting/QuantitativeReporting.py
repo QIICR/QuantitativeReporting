@@ -9,7 +9,6 @@ from slicer.ScriptedLoadableModule import *
 
 import vtkSegmentationCorePython as vtkSegmentationCore
 from DICOMSegmentationPlugin import DICOMSegmentationExporter
-from SegmentStatistics import SegmentStatisticsParameterEditorDialog
 
 from SlicerDevelopmentToolboxUtils.buttons import CrosshairButton
 from SlicerDevelopmentToolboxUtils.buttons import RedSliceLayoutButton, FourUpLayoutButton, FourUpTableViewLayoutButton
@@ -23,6 +22,7 @@ from SlicerDevelopmentToolboxUtils.widgets import DICOMBasedInformationWatchBox,
 from QRUtils.htmlReport import HTMLReportCreator
 from QRUtils.testdata import TestDataLogic
 
+from QRCustomizations.CustomSegmentStatistics import CustomSegmentStatisticsParameterEditorDialog
 from QRCustomizations.CustomSegmentEditor import CustomSegmentEditorWidget
 from QRCustomizations.CustomDICOMDetailsWidget import CustomDICOMDetailsWidget
 
@@ -351,9 +351,11 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
   def onEditParameters(self, calculatorName=None):
     """Open dialog box to edit calculator's parameters"""
-    pNode = self.segmentEditorWidget.logic.segmentStatisticsLogic.getParameterNode()
+    segmentStatisticsLogic = self.segmentEditorWidget.logic.segmentStatisticsLogic
+    pNode = segmentStatisticsLogic.getParameterNode()
     if pNode:
-      SegmentStatisticsParameterEditorDialog.editParameters(pNode,calculatorName)
+      dialog = CustomSegmentStatisticsParameterEditorDialog(segmentStatisticsLogic)
+      dialog.exec_()
       self.updateMeasurementsTable(triggered=True)
 
   def onExportToHTMLButtonClicked(self):
