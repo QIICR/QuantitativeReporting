@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.5.0)
 
 #-----------------------------------------------------------------------------
 set(EXTENSION_NAME QuantitativeReporting)
-set(EXTENSION_HOMEPAGE "http://wiki.slicer.org/slicerWiki/index.php/Documentation/Nightly/Modules/QuantitativeReporting")
+set(EXTENSION_HOMEPAGE "https://qiicr.gitbooks.io/quantitativereporting-guide")
 set(EXTENSION_CATEGORY "Informatics")
 set(EXTENSION_CONTRIBUTORS "Andrey Fedorov (SPL), Christian Herz (SPL), Csaba Pinter (Queen's), Andras Lasso (Queen's), Steve Pieper (SPL)")
 set(EXTENSION_DESCRIPTION "Support of quantitative image reporting with DICOM")
