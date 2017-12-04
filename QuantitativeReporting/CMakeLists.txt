@@ -12,8 +12,9 @@ set(MODULE_PYTHON_SCRIPTS
   ${MODULE_NAME}.py
   )
 
-file(GLOB_RECURSE MODULE_PYTHON_RESOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-  ${PROJECT_SOURCE_DIR}/${MODULE_NAME}/Resources/*
+set(MODULE_PYTHON_RESOURCES
+  Resources/Icons/QuantitativeReporting.png
+  Resources/Icons/ReportingLogo128px.png
 )
 
 slicerMacroBuildScriptedModule(
