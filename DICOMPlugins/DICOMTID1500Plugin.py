@@ -436,4 +436,4 @@ class DICOMTID1500Plugin:
     except AttributeError:
       slicer.modules.dicomPlugins = {}
     slicer.modules.dicomPlugins['DICOMTID1500Plugin'] = DICOMTID1500PluginClass
-    slicer.modules.dicomPlugins['DICOMLongitudinalTID1500Plugin'] = DICOMLongitudinalTID1500PluginClass
+    # slicer.modules.dicomPlugins['DICOMLongitudinalTID1500Plugin'] = DICOMLongitudinalTID1500PluginClass
