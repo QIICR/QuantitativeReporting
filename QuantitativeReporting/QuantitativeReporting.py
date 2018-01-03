@@ -244,7 +244,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
     self.segmentImportWidget = CopySegmentBetweenSegmentationsWidget()
     self.segmentImportWidget.addEventObserver(self.segmentImportWidget.FailedEvent, self.onImportFailed)
-    self.segmentImportWidget.currentSegmentationNodeSelectorEnabled = False
+    self.segmentImportWidget.addEventObserver(self.segmentImportWidget.SuccessEvent, self.onImportFinished)
+    self.segmentImportWidget.segmentationNodeSelectorEnabled = False
     self.importSegmentsCollapsibleLayout.addWidget(self.segmentImportWidget)
     self.mainModuleWidgetLayout.addWidget(self.importSegmentationCollapsibleButton)
 
@@ -265,14 +266,11 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
   def onImportFailed(self, caller, event):
     slicer.util.errorDisplay("Import failed. Check console for details.")
 
-  def onLabelMapImportSuccessful(self, caller, event):
-    def hideAllLabels():
-      # TODO: move up in SlicerDevelopmentToolbox
-      for widget in self.getAllVisibleWidgets():
-        compositeNode = widget.mrmlSliceCompositeNode()
-        compositeNode.SetLabelVolumeID(None)
+  def onImportFinished(self, caller, event):
+    self.onSegmentationNodeChanged()
 
-    hideAllLabels()
+  def onLabelMapImportSuccessful(self, caller, event):
+    self.hideAllLabels()
 
   def setupViewSettingsArea(self):
     self.redSliceLayoutButton = RedSliceLayoutButton()
@@ -510,7 +508,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
   def updateImportArea(self, node):
     self.segmentImportWidget.otherSegmentationNodeSelector.setCurrentNode(None)
-    self.segmentImportWidget.setCurrentSegmentationNode(node)
+    self.segmentImportWidget.setSegmentationNode(node)
     self.labelMapImportWidget.setSegmentationNode(node)
 
   def _setupSegmentationObservers(self):
@@ -519,8 +517,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       return
     segmentationEvents = [vtkSegmentationCore.vtkSegmentation.SegmentAdded,
                           vtkSegmentationCore.vtkSegmentation.SegmentRemoved,
-                          vtkSegmentationCore.vtkSegmentation.SegmentModified,
-                          vtkSegmentationCore.vtkSegmentation.RepresentationModified]
+                          vtkSegmentationCore.vtkSegmentation.SegmentModified]
+
     for event in segmentationEvents:
       self.segmentationObservers.append(segNode.AddObserver(event, self.onSegmentationNodeChanged))
 
@@ -550,6 +548,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
   @postCall(refreshUIElementsAvailability)
   def onSegmentationNodeChanged(self, observer=None, caller=None):
+    if self.segmentImportWidget.busy:
+      return
     self.enableReportButtons(True)
     self.updateMeasurementsTable()
 
