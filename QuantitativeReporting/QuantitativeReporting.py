@@ -66,15 +66,15 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.segmentStatisticsParameterEditorDialog = None
 
   def enter(self):
-    self.measurementReportSelector.setCurrentNode(None)
-    self.segmentEditorWidget.editor.setSegmentationNode(None)
-    self.segmentEditorWidget.editor.setMasterVolumeNode(None)
+    if self.measurementReportSelector.currentNode():
+      self._useOrCreateSegmentationNodeAndConfigure()
     self.segmentEditorWidget.editor.masterVolumeNodeChanged.connect(self.onImageVolumeSelected)
     self.segmentEditorWidget.editor.segmentationNodeChanged.connect(self.onSegmentationSelected)
     # self.setupDICOMBrowser()
     qt.QTimer.singleShot(0, lambda: self.updateSizes(self.tabWidget.currentIndex))
 
   def exit(self):
+    self.removeSegmentationObserver()
     self.segmentEditorWidget.editor.masterVolumeNodeChanged.disconnect(self.onImageVolumeSelected)
     self.segmentEditorWidget.editor.segmentationNodeChanged.disconnect(self.onSegmentationSelected)
     # self.removeDICOMBrowser()
@@ -86,6 +86,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     super(QuantitativeReportingWidget, self).onReload()
 
   def onSceneClosed(self, caller, event):
+    if self.measurementReportSelector.currentNode():
+      self.measurementReportSelector.setCurrentNode(None)
     if hasattr(self, "watchBox"):
       self.watchBox.reset()
     if hasattr(self, "testArea"):
@@ -464,10 +466,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self.watchBox.reset()
       return
 
-    segmentationNode = self._getOrCreateSegmentationNodeAndConfigure()
-    self.updateImportArea(segmentationNode)
-    self._setupSegmentationObservers()
-    self._configureReadWriteAccess()
+    self._useOrCreateSegmentationNodeAndConfigure()
 
   def _configureReadWriteAccess(self):
     if not self.tableNode:
@@ -486,7 +485,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self.onSegmentationNodeChanged()
     self.exportToHTMLButton.enabled = True
 
-  def _getOrCreateSegmentationNodeAndConfigure(self):
+  def _useOrCreateSegmentationNodeAndConfigure(self):
     segmentationNodeID = self.tableNode.GetAttribute('ReferencedSegmentationNodeID')
     logging.debug("ReferencedSegmentationNodeID {}".format(segmentationNodeID))
     if segmentationNodeID:
@@ -494,7 +493,9 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     else:
       segmentationNode = self._createAndReferenceNewSegmentationNode()
     self._configureSegmentationNode(segmentationNode)
-    return segmentationNode
+    self.updateImportArea(segmentationNode)
+    self._setupSegmentationObservers()
+    self._configureReadWriteAccess()
 
   def _configureSegmentationNode(self, node):
     self.hideAllSegmentations()
