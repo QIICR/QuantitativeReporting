@@ -18,6 +18,25 @@ set(MODULE_NAME QuantitativeReporting)
 find_package(Slicer REQUIRED)
 include(${Slicer_USE_FILE})
 
+find_package(SlicerDevelopmentToolbox REQUIRED)
+find_package(DCMQI REQUIRED)
+find_package(PETDICOMExtension REQUIRED)
+
+set(DEPENDENCY_BUILD_DIRS
+  ${SlicerDevelopmentToolbox_DIR}/${Slicer_QTLOADABLEMODULES_LIB_DIR}
+  ${SlicerDevelopmentToolbox_DIR}/${Slicer_CLIMODULES_LIB_DIR}
+  ${PETDICOMExtension_DIR}/${Slicer_QTLOADABLEMODULES_LIB_DIR}
+  ${PETDICOMExtension_DIR}/${Slicer_CLIMODULES_LIB_DIR}
+  ${DCMQI_DIR}/dcmqi-build/bin
+  )
+
+message("DEPENDENCY_BUILD_DIRS: ${DEPENDENCY_BUILD_DIRS}")
+
+set(DEPENDENCIES_ADDITIONAL_MODULE_PATHS
+  ${DEPENDENCY_BUILD_DIRS}
+  ${SlicerDevelopmentToolbox_DIR}/${Slicer_QTSCRIPTEDMODULES_LIB_DIR}
+)
+
 add_subdirectory(DICOMPlugins)
 add_subdirectory(QuantitativeReporting)
 
