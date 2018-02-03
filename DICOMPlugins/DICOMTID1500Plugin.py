@@ -421,7 +421,7 @@ class DICOMTID1500Plugin:
     Plugin to the DICOM Module to parse and load DICOM SR TID1500 instances.
     No module interface here, only in the DICOM module
     """
-    parent.dependencies = ['DICOM', 'Colors', 'DICOMRWVMPlugin']
+    parent.dependencies = ['DICOM', 'Colors']
     parent.acknowledgementText = """
     This DICOM Plugin was developed by
     Christian Herz and Andrey Fedorov, BWH.
