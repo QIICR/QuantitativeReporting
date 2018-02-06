@@ -18,9 +18,9 @@ set(MODULE_NAME QuantitativeReporting)
 find_package(Slicer REQUIRED)
 include(${Slicer_USE_FILE})
 
-#find_package(SlicerDevelopmentToolbox REQUIRED)
-#find_package(DCMQI REQUIRED)
-#find_package(PETDICOMExtension REQUIRED)
+find_package(SlicerDevelopmentToolbox REQUIRED)
+find_package(DCMQI REQUIRED)
+find_package(PETDICOMExtension REQUIRED)
 
 set(DEPENDENCY_BUILD_DIRS
   ${SlicerDevelopmentToolbox_DIR}/${Slicer_QTLOADABLEMODULES_LIB_DIR}
