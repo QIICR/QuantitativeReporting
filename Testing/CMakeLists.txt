@@ -4,3 +4,8 @@ slicer_add_python_unittest(
     ${CMAKE_BINARY_DIR}/${Slicer_QTSCRIPTEDMODULES_LIB_DIR}
     ${DEPENDENCIES_ADDITIONAL_MODULE_PATHS}
   )
+
+slicerMacroBuildScriptedModule(
+  NAME ${MODULE_NAME}SelfTests
+  SCRIPTS QuantitativeReportingTests.py
+)

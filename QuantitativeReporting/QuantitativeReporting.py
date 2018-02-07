@@ -211,10 +211,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.loadSeries(seriesUID)
 
   def loadSeries(self, seriesUID):
-    dicomWidget = slicer.modules.dicom.widgetRepresentation().self()
-    dicomWidget.detailsPopup.offerLoadables(seriesUID, 'Series')
-    dicomWidget.detailsPopup.examineForLoading()
-    dicomWidget.detailsPopup.loadCheckedLoadables()
+    from DICOMLib.DICOMUtils import loadSeriesByUID
+    loadSeriesByUID([seriesUID])
 
   def setupSelectionArea(self):
     self.segmentEditorWidget.editor.masterVolumeNodeSelectorAddAttribute("vtkMRMLScalarVolumeNode",
