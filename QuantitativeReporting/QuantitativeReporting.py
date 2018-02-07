@@ -593,19 +593,22 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
   def saveReport(self, completed=False):
     try:
-      self.dicomSegmentationExporter = DICOMSegmentationExporter(self.segmentEditorWidget.segmentationNode)
-      segFilename = "quantitative_reporting_export.SEG" + self.dicomSegmentationExporter.currentDateTime + ".dcm"
-      dcmSegmentationPath = os.path.join(self.dicomSegmentationExporter.tempDir, segFilename)
-      self.createSEG(dcmSegmentationPath)
-      self.createDICOMSR(dcmSegmentationPath, completed)
-      self.addProducedDataToDICOMDatabase()
+      dcmSegPath = self.createSEG()
+      dcmSRPath = self.createDICOMSR(dcmSegPath, completed)
+      if dcmSegPath and dcmSRPath:
+        indexer = ctk.ctkDICOMIndexer()
+        indexer.addFile(slicer.dicomDatabase, dcmSegPath, "copy")
+        indexer.addFile(slicer.dicomDatabase, dcmSRPath, "copy")
     except (RuntimeError, ValueError, AttributeError) as exc:
       return False, exc.message
     finally:
       self.cleanupTemporaryData()
     return True, None
 
-  def createSEG(self, dcmSegmentationPath):
+  def createSEG(self):
+    self.dicomSegmentationExporter = DICOMSegmentationExporter(self.segmentEditorWidget.segmentationNode)
+    segFilename = "quantitative_reporting_export.SEG" + self.dicomSegmentationExporter.currentDateTime + ".dcm"
+    dcmSegmentationPath = os.path.join(self.dicomSegmentationExporter.tempDir, segFilename)
     segmentIDs = None
     if self.segmentEditorWidget.hiddenSegmentsAvailable():
       if not slicer.util.confirmYesNoDisplay("Hidden segments have been found. Do you want to export them as well?"):
@@ -623,6 +626,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       logging.info("Added segmentation to DICOM database (%s)", dcmSegmentationPath)
     except (DICOMSegmentationExporter.NoNonEmptySegmentsFoundError, ValueError) as exc:
       raise ValueError(exc.message)
+    return dcmSegmentationPath
 
   def createDICOMSR(self, referencedSegmentation, completed):
     data = self.dicomSegmentationExporter.getSeriesAttributes()
@@ -649,19 +653,11 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
               "outputFileName": outputSRPath}
 
     logging.debug(params)
-    cliNode = None
-    cliNode = slicer.cli.run(slicer.modules.tid1500writer, cliNode, params, wait_for_completion=True)
-    waitCount = 0
-    while cliNode.IsBusy() and waitCount < 20:
-      slicer.util.delayDisplay("Running SR Encoding... %d" % waitCount, 1000)
-      waitCount += 1
+    cliNode = slicer.cli.run(slicer.modules.tid1500writer, None, params, wait_for_completion=True)
 
     if cliNode.GetStatusString() != 'Completed':
       raise Exception("tid1500writer CLI did not complete cleanly")
-
-  def addProducedDataToDICOMDatabase(self):
-    indexer = ctk.ctkDICOMIndexer()
-    indexer.addDirectory(slicer.dicomDatabase, self.dicomSegmentationExporter.tempDir, "copy")  # TODO: doesn't really expect a destination dir
+    return outputSRPath
 
   def cleanupTemporaryData(self):
     if self.dicomSegmentationExporter:

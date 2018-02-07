@@ -4,7 +4,7 @@ import vtk
 
 
 from QRCustomizations.CustomSegmentStatistics import CustomSegmentStatisticsLogic
-from SlicerDevelopmentToolboxUtils.decorators import onExceptionReturnNone
+from SlicerDevelopmentToolboxUtils.decorators import onExceptionReturnNone, onModuleSelected
 from SlicerDevelopmentToolboxUtils.mixins import ModuleWidgetMixin, ModuleLogicMixin
 from slicer.ScriptedLoadableModule import ScriptedLoadableModuleLogic
 
@@ -78,6 +78,16 @@ class CustomSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
     self.installShortcutKeys()
 
     # Set parameter set node if absent
+    self.selectParameterNode()
+    self.editor.updateWidgetFromMRML()
+
+  @onModuleSelected(moduleName="QuantitativeReporting")
+  def onSceneEndClose(self, caller, event):
+    self.selectParameterNode()
+    self.editor.updateWidgetFromMRML()
+
+  @onModuleSelected(moduleName="QuantitativeReporting")
+  def onSceneEndImport(self, caller, event):
     self.selectParameterNode()
     self.editor.updateWidgetFromMRML()
 
