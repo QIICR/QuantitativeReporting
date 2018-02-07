@@ -37,7 +37,6 @@ class QuantitativeReportingTests:
     except AttributeError:
       slicer.selfTests = {}
     slicer.selfTests['QuantitativeReporting'] = self.runTest
-    slicer.selfTests['QuantitativeReportingTests'] = self.runTest
 
   def runTest(self):
     tester = QuantitativeReportingTest()
@@ -276,18 +275,15 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
         sampleData = TestDataLogic.downloadAndUnzipSampleData(self.collection)
         TestDataLogic.importIntoDICOMDatabase(sampleData["seg_dcm"])
 
-      def checkFocusAndClickButton():
-        focus = slicer.app.focusWidget()
-        focus.parent().parent().noButton.click()
-
-      timer = qt.QTimer()
-      timer.setInterval(3000)
-      timer.setSingleShot(True)
-      timer.timeout.connect(checkFocusAndClickButton)
-      timer.start()
-
       qrWidget = slicer.modules.QuantitativeReportingWidget
+
+      settings = 'DICOM/automaticallyLoadReferences'
+      cacheAutoLoadReferences = qt.QSettings().value('DICOM/automaticallyLoadReferences')
+      qt.QSettings().setValue(settings, qt.QMessageBox.Yes)
+
       qrWidget.loadSeries(uid)
+
+      qt.QSettings().setValue(settings, cacheAutoLoadReferences)
 
       segmentationNode = slicer.util.getNodesByClass('vtkMRMLSegmentationNode')[-1]
 
