@@ -4,6 +4,7 @@ import ctk
 import vtk
 import slicer
 import inspect
+from DICOMLib import DICOMUtils
 
 import vtkSegmentationCorePython as vtkSegmentationCore
 
@@ -102,6 +103,8 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
 
   def setUp(self):
     self.delayDisplay("Closing the scene")
+    self.dicomDatabaseDir = os.path.join(slicer.app.temporaryPath, 'QuantitativeReporting_SelfTest', 'CtkDicomDatabase')
+    self.layoutManager.selectModule("QuantitativeReporting")
     slicer.mrmlScene.Clear(0)
     self.setupTimer()
 
@@ -121,7 +124,6 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
   def runTest(self):
     """Run as few or as many tests as needed here.
     """
-
     for testName in [f for f in QuantitativeReportingTest.__dict__.keys() if f.startswith('test_')]:
       self.setUp()
       getattr(self, testName)()
@@ -136,46 +138,47 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
           sampleData = TestDataLogic.downloadAndUnzipSampleData(self.collection)
           TestDataLogic.importIntoDICOMDatabase(sampleData[imageType])
 
-    def checkFocusAndClickButton():
-      focus = slicer.app.focusWidget()
-      focus.parent().parent().yesButton.click()
+    with DICOMUtils.TemporaryDICOMDatabase(self.dicomDatabaseDir) as db:
+      self.assertTrue(db.isOpen)
+      self.assertEqual(slicer.dicomDatabase, db)
 
-    loadTestData()
+      loadTestData()
 
-    dicomWidget = slicer.modules.dicom.widgetRepresentation().self()
-    checkbox = dicomWidget.detailsPopup.pluginSelector.checkBoxByPlugin["DICOMLongitudinalTID1500Plugin"]
-    crntState = checkbox.checked
-    checkbox.checked = False
+      # dicomWidget = slicer.modules.dicom.widgetRepresentation().self()
+      # checkbox = dicomWidget.detailsPopup.pluginSelector.checkBoxByPlugin["DICOMLongitudinalTID1500Plugin"]
+      # crntState = checkbox.checked
+      # checkbox.checked = False
 
-    timer = qt.QTimer()
-    timer.setInterval(3000)
-    timer.setSingleShot(True)
-    timer.timeout.connect(checkFocusAndClickButton)
-    timer.start()
+      qrWidget = slicer.modules.QuantitativeReportingWidget
 
-    qrWidget = slicer.modules.QuantitativeReportingWidget
-    qrWidget.loadSeries(self.data['sr']['uid'])
+      settings = 'DICOM/automaticallyLoadReferences'
+      cacheAutoLoadReferences = qt.QSettings().value('DICOM/automaticallyLoadReferences')
+      qt.QSettings().setValue(settings, qt.QMessageBox.Yes)
 
-    checkbox.checked = crntState
+      qrWidget.loadSeries(self.data['sr']['uid'])
 
-    tableNodes = slicer.util.getNodesByClass("vtkMRMLTableNode")
+      qt.QSettings().setValue(settings, cacheAutoLoadReferences)
 
-    self.assertTrue(len(tableNodes),
-                    "Loading SR into mrmlScene failed. No vtkMRMLTableNodes were found within the scene.")
+      # checkbox.checked = crntState
 
-    self.delayDisplay('Selecting measurements report')
+      tableNodes = slicer.util.getNodesByClass("vtkMRMLTableNode")
 
-    qrWidget.measurementReportSelector.setCurrentNode(tableNodes[0])
+      self.assertTrue(len(tableNodes),
+                      "Loading SR into mrmlScene failed. No vtkMRMLTableNodes were found within the scene.")
 
-    self.delayDisplay('Checking number of segments')
-    self.assertTrue(len(qrWidget.segmentEditorWidget.segments) == 3,
-                    "Number of segments does not match expected count of 3")
+      self.delayDisplay('Selecting measurements report')
 
-    self.delayDisplay('Checking referenced master volume', 2000)
-    self.assertIsNotNone(qrWidget.segmentEditorWidget.masterVolumeNode,
-                         "Master volume for the selected measurement report is None!")
+      qrWidget.measurementReportSelector.setCurrentNode(tableNodes[0])
 
-    self.delayDisplay('Test passed!')
+      self.delayDisplay('Checking number of segments')
+      self.assertTrue(len(qrWidget.segmentEditorWidget.segments) == 3,
+                      "Number of segments does not match expected count of 3")
+
+      self.delayDisplay('Checking referenced master volume', 2000)
+      self.assertIsNotNone(qrWidget.segmentEditorWidget.masterVolumeNode,
+                           "Master volume for the selected measurement report is None!")
+
+      self.delayDisplay('Test passed!')
 
   def test_create_report(self):
 
@@ -183,82 +186,79 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
 
     qrWidget = slicer.modules.QuantitativeReportingWidget
 
-    self.loadTestVolume()
-    success, err = qrWidget.saveReport()
-    self.assertFalse(success)
+    with DICOMUtils.TemporaryDICOMDatabase(self.dicomDatabaseDir) as db:
+      self.assertTrue(db.isOpen)
+      self.assertEqual(slicer.dicomDatabase, db)
 
-    self.delayDisplay('Add segments')
+      self.loadTestVolume()
+      success, err = qrWidget.saveReport()
+      self.assertFalse(success)
 
-    qrWidget = slicer.modules.QuantitativeReportingWidget
-    segmentation = qrWidget.segmentEditorWidget.segmentationNode.GetSegmentation()
+      self.delayDisplay('Add segments')
 
-    segmentGeometries = {
-      'Tumor': [[2, 30, 30, -127.7], [2, 40, 40, -127.7], [2, 50, 50, -127.7], [2, 40, 80, -127.7]],
-      'Air': [[2, 60, 100, -127.7], [2, 80, 30, -127.7]]
-    }
+      qrWidget = slicer.modules.QuantitativeReportingWidget
+      segmentation = qrWidget.segmentEditorWidget.segmentationNode.GetSegmentation()
 
-    for segmentName, segmentGeometry in segmentGeometries.iteritems():
-      appender = vtk.vtkAppendPolyData()
+      segmentGeometries = {
+        'Tumor': [[2, 30, 30, -127.7], [2, 40, 40, -127.7], [2, 50, 50, -127.7], [2, 40, 80, -127.7]],
+        'Air': [[2, 60, 100, -127.7], [2, 80, 30, -127.7]]
+      }
 
-      for sphere in segmentGeometry:
-        sphereSource = vtk.vtkSphereSource()
-        sphereSource.SetRadius(sphere[0])
-        sphereSource.SetCenter(sphere[1], sphere[2], sphere[3])
-        appender.AddInputConnection(sphereSource.GetOutputPort())
+      for segmentName, segmentGeometry in segmentGeometries.iteritems():
+        appender = vtk.vtkAppendPolyData()
 
-      segment = vtkSegmentationCore.vtkSegment()
-      segment.SetName(segmentation.GenerateUniqueSegmentID(segmentName))
+        for sphere in segmentGeometry:
+          sphereSource = vtk.vtkSphereSource()
+          sphereSource.SetRadius(sphere[0])
+          sphereSource.SetCenter(sphere[1], sphere[2], sphere[3])
+          appender.AddInputConnection(sphereSource.GetOutputPort())
 
-      appender.Update()
-      representationName = vtkSegmentationCore.vtkSegmentationConverter.GetSegmentationClosedSurfaceRepresentationName()
-      segment.AddRepresentation(representationName, appender.GetOutput())
-      segmentation.AddSegment(segment)
+        segment = vtkSegmentationCore.vtkSegment()
+        segment.SetName(segmentation.GenerateUniqueSegmentID(segmentName))
 
-    self.delayDisplay('Save report')
+        appender.Update()
+        representationName = vtkSegmentationCore.vtkSegmentationConverter.GetSegmentationClosedSurfaceRepresentationName()
+        segment.AddRepresentation(representationName, appender.GetOutput())
+        segmentation.AddSegment(segment)
 
-    success, err = qrWidget.saveReport()
-    self.assertTrue(success)
+      self.delayDisplay('Save report')
 
-    self.delayDisplay('Test passed!')
+      success, err = qrWidget.saveReport()
+      self.assertTrue(success)
+
+      self.delayDisplay('Test passed!')
 
   def test_import_labelmap(self):
 
     self.delayDisplay('Starting %s' % inspect.stack()[0][3])
 
     qrWidget = slicer.modules.QuantitativeReportingWidget
-    self.loadTestVolume()
 
-    sampleData = TestDataLogic.downloadAndUnzipSampleData(self.collection)
-    segmentationsDir = sampleData['seg_nrrd']
+    with DICOMUtils.TemporaryDICOMDatabase(self.dicomDatabaseDir) as db:
+      self.assertTrue(db.isOpen)
+      self.assertEqual(slicer.dicomDatabase, db)
 
-    labels = []
-    for f in [os.path.join(segmentationsDir, f) for f in os.listdir(segmentationsDir) if f.endswith(".nrrd")]:
-      _, label = slicer.util.loadVolume(f, {'labelmap': True}, returnNode=True)
-      if label:
-        labels.append(label)
+      self.loadTestVolume()
 
-    labelImportWidget = qrWidget.labelMapImportWidget
+      sampleData = TestDataLogic.downloadAndUnzipSampleData(self.collection)
+      segmentationsDir = sampleData['seg_nrrd']
 
-    timer = qt.QTimer()
-    timer.setInterval(2000)
-    timer.timeout.connect(self._checkFocusAndClickButton)
-    timer.start()
+      labels = []
+      for f in [os.path.join(segmentationsDir, f) for f in os.listdir(segmentationsDir) if f.endswith(".nrrd")]:
+        _, label = slicer.util.loadVolume(f, {'labelmap': True}, returnNode=True)
+        if label:
+          labels.append(label)
 
-    for label in labels:
-      labelImportWidget.labelMapSelector.setCurrentNode(label)
-      labelImportWidget.importButton.click()
+      labelImportLogic = qrWidget.labelMapImportWidget.logic
 
-    timer.stop()
+      for label in labels:
+        labelImportLogic.labelmap = label
+        labelImportLogic.run(resampleIfNecessary=True)
 
-    segmentation = qrWidget.segmentEditorWidget.segmentationNode.GetSegmentation()
-    self.assertEquals(segmentation.GetNumberOfSegments(), len(labels))
+      segmentation = qrWidget.segmentEditorWidget.segmentationNode.GetSegmentation()
+      self.assertEquals(segmentation.GetNumberOfSegments(), len(labels))
 
-    self.delayDisplay('Test passed!')
-
-  def _checkFocusAndClickButton(self):
-    focus = slicer.app.focusWidget()
-    if type(focus) is qt.QPushButton:
-      focus.click()
+      self.delayDisplay('Test passed!')
 
   def test_import_segmentation(self):
 
@@ -266,42 +266,46 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
 
     uid = self.data["seg_dcm"]["uid"]
 
-    self.loadTestVolume()
+    with DICOMUtils.TemporaryDICOMDatabase(self.dicomDatabaseDir) as db:
+      self.assertTrue(db.isOpen)
+      self.assertEqual(slicer.dicomDatabase, db)
 
-    if not len(slicer.dicomDatabase.filesForSeries(uid)):
-      sampleData = TestDataLogic.downloadAndUnzipSampleData(self.collection)
-      TestDataLogic.importIntoDICOMDatabase(sampleData["seg_dcm"])
+      self.loadTestVolume()
 
-    def checkFocusAndClickButton():
-      focus = slicer.app.focusWidget()
-      focus.parent().parent().noButton.click()
+      if not len(slicer.dicomDatabase.filesForSeries(uid)):
+        sampleData = TestDataLogic.downloadAndUnzipSampleData(self.collection)
+        TestDataLogic.importIntoDICOMDatabase(sampleData["seg_dcm"])
 
-    timer = qt.QTimer()
-    timer.setInterval(3000)
-    timer.setSingleShot(True)
-    timer.timeout.connect(checkFocusAndClickButton)
-    timer.start()
+      def checkFocusAndClickButton():
+        focus = slicer.app.focusWidget()
+        focus.parent().parent().noButton.click()
 
-    qrWidget = slicer.modules.QuantitativeReportingWidget
-    qrWidget.loadSeries(uid)
+      timer = qt.QTimer()
+      timer.setInterval(3000)
+      timer.setSingleShot(True)
+      timer.timeout.connect(checkFocusAndClickButton)
+      timer.start()
 
-    segmentationNode = slicer.util.getNodesByClass('vtkMRMLSegmentationNode')[-1]
+      qrWidget = slicer.modules.QuantitativeReportingWidget
+      qrWidget.loadSeries(uid)
 
-    qrWidget.importSegmentationCollapsibleButton.collapsed = False
+      segmentationNode = slicer.util.getNodesByClass('vtkMRMLSegmentationNode')[-1]
 
-    importWidget = qrWidget.segmentImportWidget
-    importWidget.otherSegmentationNodeSelector.setCurrentNode(segmentationNode)
+      qrWidget.importSegmentationCollapsibleButton.collapsed = False
 
-    segmentIDs = qrWidget.segmentEditorWidget.logic.getSegmentIDs(segmentationNode, False)
-    importWidget.otherSegmentsTableView.setSelectedSegmentIDs(segmentIDs)
+      importWidget = qrWidget.segmentImportWidget
+      importWidget.otherSegmentationNodeSelector.setCurrentNode(segmentationNode)
 
-    importWidget.copyOtherToCurrentButton.click()
+      segmentIDs = qrWidget.segmentEditorWidget.logic.getSegmentIDs(segmentationNode, False)
+      importWidget.otherSegmentsTableView.setSelectedSegmentIDs(segmentIDs)
 
-    self.delayDisplay('Checking number of imported segments')
-    self.assertTrue(len(qrWidget.segmentEditorWidget.segments) == 3,
-                    "Number of segments does not match expected count of 3")
+      importWidget.copyOtherToCurrentButton.click()
 
-    self.delayDisplay('Test passed!')
+      self.delayDisplay('Checking number of imported segments')
+      self.assertTrue(len(qrWidget.segmentEditorWidget.segments) == 3,
+                      "Number of segments does not match expected count of 3")
+
+      self.delayDisplay('Test passed!')
 
   def _selectModule(self):
     self.layoutManager.selectModule("QuantitativeReporting")
