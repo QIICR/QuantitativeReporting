@@ -28,7 +28,7 @@ set(DEPENDENCIES_ADDITIONAL_MODULE_PATHS
   ${SlicerDevelopmentToolbox_DIR}/${Slicer_CLIMODULES_LIB_DIR}
   ${PETDICOMExtension_DIR}/${Slicer_QTSCRIPTEDMODULES_LIB_DIR}
   ${PETDICOMExtension_DIR}/${Slicer_CLIMODULES_LIB_DIR}
-  ${DCMQI_DIR}/dcmqi-build/bin
+  ${DCMQI_DIR}/bin
   )
 
 add_subdirectory(DICOMPlugins)
