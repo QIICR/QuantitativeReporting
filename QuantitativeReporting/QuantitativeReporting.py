@@ -613,13 +613,13 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     oldAlgorithmName = vtk.mutable('')
     segment.GetTag('DICOM.SegmentAlgorithmName', oldAlgorithmName)
     updatedAlgorithmName = oldAlgorithmName
-    if updatedAlgorithmName=='': # no other editor tool was applied before
+    if oldAlgorithmName=='': # no other editor tool was applied before
       if segmentWasImported:
         updatedAlgorithmName = GenericSlicerAlgorithmName
       else:
         updatedAlgorithmName = ToolSegmentEditorAlgorithmName
-    elif updatedAlgorithmName!=ToolSegmentEditorAlgorithmName:
-      if updatedAlgorithmName.startswith(GenericSegmentEditorAlgorithmName):
+    elif oldAlgorithmName!=ToolSegmentEditorAlgorithmName:
+      if oldAlgorithmName.startswith(GenericSegmentEditorAlgorithmName):
         updatedAlgorithmName = GenericSegmentEditorAlgorithmName
       else:
         updatedAlgorithmName = GenericSlicerAlgorithmName
