@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import ctk
+import vtk
 import qt
 import slicer
 from slicer.ScriptedLoadableModule import *
@@ -518,6 +519,117 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
                           vtkSegmentationCore.vtkSegmentation.RepresentationModified]
     for event in segmentationEvents:
       self.segmentationObservers.append(segNode.AddObserver(event, self.onSegmentationNodeChanged))
+
+    self._updateSegmentationSignature(segNode)
+    self.segmentationObservers.append(segNode.AddObserver(vtkSegmentationCore.vtkSegmentation.MasterRepresentationModified, self._onMasterRepresentationModified))
+    self.segmentationObservers.append(segNode.AddObserver(vtkSegmentationCore.vtkSegmentation.SegmentModified, self._onSegmentModified))
+    updateSignatureEvents = [vtkSegmentationCore.vtkSegmentation.RepresentationModified,
+                             vtkSegmentationCore.vtkSegmentation.SegmentAdded,
+                             vtkSegmentationCore.vtkSegmentation.SegmentRemoved,
+                             vtkSegmentationCore.vtkSegmentation.SegmentsOrderModified]
+    for event in segmentationEvents:
+      self.segmentationObservers.append(segNode.AddObserver(event, self._updateSegmentationSignature))
+
+  def _onMasterRepresentationModified(self, observer=None, caller=None):
+    oldSignature = self.cbsegmenationSignature
+    newSignature = self._updateSegmentationSignature(observer)
+    effect = self.segmentEditorWidget.editor.activeEffect()
+    if len(newSignature)==len(self.cbsegmenationSignature) and effect:
+      for i in range(len(newSignature)):
+        if newSignature[i]['mtime']!=oldSignature[i]['mtime'] or \
+          newSignature[i]['data']!=oldSignature[i]['data']:
+          #print ('Segment '+str(i)+' was modified with '+str(effect.name))
+          self.addAppliedToolToSegment(observer.GetNthSegment(i),str(effect.name))
+
+  def _onSegmentModified(self, observer=None, caller=None):
+    oldSignature = self.cbsegmenationSignature
+    newSignature = self._updateSegmentationSignature(observer)
+    # if a segment gets modified before it's added to the segmentation, it means
+    # that an empty segment was added
+    if len(newSignature)>len(oldSignature):
+      oldSegmentsData = [d['data'] for d in oldSignature]
+      for i in range(len(newSignature)):
+        if newSignature[i]['data'] not in oldSegmentsData:
+          #print ('Segment '+str(i)+' was added as empty segment')
+          segment = observer.GetNthSegment(i)
+          if not segment.HasTag('QuantitativeReporting.AppliedTools'):
+            segment.SetTag('QuantitativeReporting.AppliedTools','Add')
+
+  def _updateSegmentationSignature(self, segNode=None, caller=None):
+    signature = []
+    if not segNode: segNode = self.segmentEditorWidget.segmentation
+    if not segNode: return signature
+    representationType = segNode.GetMasterRepresentationName()
+    for i in range(segNode.GetNumberOfSegments()):
+      segment = segNode.GetNthSegment(i)
+      segmentationData = segment.GetRepresentation(representationType)
+      segmentSignature = {'data': segmentationData, \
+                          'mtime': segmentationData.GetMTime()}
+      signature.append(segmentSignature)
+    self.cbsegmenationSignature = signature
+    return signature
+
+  def addAppliedToolToSegment(self, segment, toolName, toolType=None):
+    # append list of applied tools
+    tools = vtk.mutable('')
+    tools = str(tools).split(';') if segment.GetTag('QuantitativeReporting.AppliedTools', tools) else []
+    if not toolName in tools:
+      tools.append(toolName)
+      segment.SetTag('QuantitativeReporting.AppliedTools',";".join(tools))
+
+    segmentWasImported = tools[0]!='Add'
+
+    # determine algorithm type (if not specified by user)
+    manualTools =  ['Paint','Draw','Erase']
+    automaticTools = [] # no 'standard' editor effect can be considered fully automatic
+    if not toolType:
+      if toolName in manualTools:
+        toolType = 'MANUAL'
+      elif toolName in automaticTools:
+        toolType = 'AUTOMATIC'
+      else: # default tool type
+        toolType = 'SEMIAUTOMATIC'
+
+    # update DICOM algorithm type
+    oldAlgorithmType = vtk.mutable('')
+    segment.GetTag('DICOM.SegmentAlgorithmType', oldAlgorithmType)
+    updatedAlgorithmType = oldAlgorithmType
+    if oldAlgorithmType=='': # no other editor effect was applied before
+      if segmentWasImported:
+        updatedAlgorithmType = 'SEMIAUTOMATIC'
+      else:
+        updatedAlgorithmType = toolType
+    elif oldAlgorithmType=='MANUAL' and toolType!='MANUAL':
+      updatedAlgorithmType = 'SEMIAUTOMATIC'
+    elif oldAlgorithmType=='AUTOMATIC':
+      updatedAlgorithmType = 'SEMIAUTOMATIC'
+    if oldAlgorithmType!=updatedAlgorithmType:
+      segment.SetTag('DICOM.SegmentAlgorithmType' ,updatedAlgorithmType)
+
+    # update DICOM algorithm name
+    GenericSlicerAlgorithmName = slicer.app.applicationName+' '+slicer.app.applicationVersion
+    GenericSegmentEditorAlgorithmName = GenericSlicerAlgorithmName+' Segment Editor'
+    ToolSegmentEditorAlgorithmName = GenericSegmentEditorAlgorithmName+' '+toolName+' Effect'
+    oldAlgorithmName = vtk.mutable('')
+    segment.GetTag('DICOM.SegmentAlgorithmName', oldAlgorithmName)
+    updatedAlgorithmName = oldAlgorithmName
+    if updatedAlgorithmName=='': # no other editor tool was applied before
+      if segmentWasImported:
+        updatedAlgorithmName = GenericSlicerAlgorithmName
+      else:
+        updatedAlgorithmName = ToolSegmentEditorAlgorithmName
+    elif updatedAlgorithmName!=ToolSegmentEditorAlgorithmName:
+      if updatedAlgorithmName.startswith(GenericSegmentEditorAlgorithmName):
+        updatedAlgorithmName = GenericSegmentEditorAlgorithmName
+      else:
+        updatedAlgorithmName = GenericSlicerAlgorithmName
+    if oldAlgorithmName!=updatedAlgorithmName:
+      segment.SetTag('DICOM.SegmentAlgorithmName', updatedAlgorithmName)
+
+    #print('segment name: '+str(segment.GetName()))
+    #print('imported: '+str(segmentWasImported))
+    #print('applied tools: '+str(tools))
+    #print('updated DICOM algorithm type and name: '+str(updatedAlgorithmType)+' '+str(updatedAlgorithmName))
 
   def initializeWatchBox(self, node):
     if not node:

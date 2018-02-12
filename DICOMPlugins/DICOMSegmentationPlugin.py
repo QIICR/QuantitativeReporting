@@ -205,6 +205,10 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
           labelNode.SetAttribute("ColorR", str(rgb[0]))
           labelNode.SetAttribute("ColorG", str(rgb[1]))
           labelNode.SetAttribute("ColorB", str(rgb[2]))
+          if "SegmentAlgorithmType" in segment:
+            labelNode.SetAttribute("SegmentAlgorithmType", segment["SegmentAlgorithmType"])
+          if "SegmentAlgorithmName" in segment:
+            labelNode.SetAttribute("SegmentAlgorithmName", segment["SegmentAlgorithmName"])
 
           segmentLabelNodes.append(labelNode)
 
@@ -235,6 +239,12 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
 
       segment.SetTag(vtkSegmentationCore.vtkSegment.GetTerminologyEntryTagName(),
                      segmentLabelNode.GetAttribute("Terminology"))
+      algorithmName = segmentLabelNode.GetAttribute("SegmentAlgorithmName")
+      if algorithmName:
+          segment.SetTag("DICOM.SegmentAlgorithmName", algorithmName)
+      algorithmType = segmentLabelNode.GetAttribute("SegmentAlgorithmType")
+      if algorithmType:
+        segment.SetTag("DICOM.SegmentAlgorithmType", algorithmType)
 
       self._removeLabelNode(segmentLabelNode)
     return segmentation
@@ -583,7 +593,21 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     terminologyEntry = self.getDeserializedTerminologyEntry(segment)
     category = terminologyEntry.GetCategoryObject()
     segmentData["SegmentDescription"] = category.GetCodeMeaning()
-    segmentData["SegmentAlgorithmType"] = "MANUAL"
+    algorithmType = vtk.mutable('')
+    if not segment.GetTag("DICOM.SegmentAlgorithmType", algorithmType):
+      algorithmType = "MANUAL"
+    if not algorithmType in ["MANUAL","SEMIAUTOMATIC","AUTOMATIC"]:
+      raise ValueError("Segment {} has invalid attribute for SegmentAlgorithmType."\
+        +"Should be one of (MANUAL,SEMIAUTOMATIC,AUTOMATIC).".format(segment.GetName()))
+    algorithmName = vtk.mutable('')
+    if not segment.GetTag("DICOM.SegmentAlgorithmName", algorithmName):
+        algorithmName = None
+    if algorithmType!="MANUAL" and not algorithmName:
+      raise ValueError("Segment {} has has missing SegmentAlgorithmName, which"\
+        +"should be specified for non-manual segmentations.".format(segment.GetName()))
+    segmentData["SegmentAlgorithmType"] = str(algorithmType)
+    if algorithmName:
+      segmentData["SegmentAlgorithmName"] = str(algorithmName)
     rgb = segment.GetColor()
     segmentData["recommendedDisplayRGBValue"] = [rgb[0] * 255, rgb[1] * 255, rgb[2] * 255]
     segmentData.update(self.createJSONFromTerminologyContext(terminologyEntry))
