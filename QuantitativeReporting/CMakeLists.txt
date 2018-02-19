@@ -6,6 +6,7 @@ set(MODULE_PYTHON_SCRIPTS
   QRCustomizations/CustomDICOMDetailsWidget.py
   QRCustomizations/CustomSegmentEditor.py
   QRCustomizations/CustomSegmentStatistics.py
+  QRCustomizations/SegmentEditorAlgorithmTracker.py
   QRUtils/__init__.py
   QRUtils/htmlReport.py
   QRUtils/testdata.py
