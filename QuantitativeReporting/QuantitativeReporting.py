@@ -299,7 +299,12 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.tableView.setMinimumHeight(150)
     self.tableView.setMaximumHeight(150)
     self.tableView.setSelectionBehavior(qt.QTableView.SelectRows)
-    self.tableView.horizontalHeader().setResizeMode(qt.QHeaderView.Stretch)
+
+    if ModuleWidgetMixin.isQtVersionOlder():
+      self.tableView.horizontalHeader().setResizeMode(qt.QHeaderView.Stretch)
+    else:
+      self.tableView.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
+
     self.fourUpTableView = None
     self.segmentStatisticsConfigButton = self.createButton("Segment Statistics Parameters")
 
