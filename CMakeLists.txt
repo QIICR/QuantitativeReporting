@@ -20,7 +20,7 @@ include(${Slicer_USE_FILE})
 
 find_package(SlicerDevelopmentToolbox REQUIRED)
 find_package(DCMQI REQUIRED)
-find_package(PETDICOMExtension REQUIRED)
+#find_package(PETDICOMExtension REQUIRED)
 
 set(DEPENDENCIES_ADDITIONAL_MODULE_PATHS
   ${SlicerDevelopmentToolbox_DIR}/${Slicer_QTSCRIPTEDMODULES_LIB_DIR}
