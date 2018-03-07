@@ -66,15 +66,15 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.segmentStatisticsParameterEditorDialog = None
 
   def enter(self):
-    self.measurementReportSelector.setCurrentNode(None)
-    self.segmentEditorWidget.editor.setSegmentationNode(None)
-    self.segmentEditorWidget.editor.setMasterVolumeNode(None)
+    if self.measurementReportSelector.currentNode():
+      self._useOrCreateSegmentationNodeAndConfigure()
     self.segmentEditorWidget.editor.masterVolumeNodeChanged.connect(self.onImageVolumeSelected)
     self.segmentEditorWidget.editor.segmentationNodeChanged.connect(self.onSegmentationSelected)
     # self.setupDICOMBrowser()
     qt.QTimer.singleShot(0, lambda: self.updateSizes(self.tabWidget.currentIndex))
 
   def exit(self):
+    self.removeSegmentationObserver()
     self.segmentEditorWidget.editor.masterVolumeNodeChanged.disconnect(self.onImageVolumeSelected)
     self.segmentEditorWidget.editor.segmentationNodeChanged.disconnect(self.onSegmentationSelected)
     # self.removeDICOMBrowser()
@@ -86,6 +86,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     super(QuantitativeReportingWidget, self).onReload()
 
   def onSceneClosed(self, caller, event):
+    if self.measurementReportSelector.currentNode():
+      self.measurementReportSelector.setCurrentNode(None)
     if hasattr(self, "watchBox"):
       self.watchBox.reset()
     if hasattr(self, "testArea"):
@@ -244,7 +246,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
     self.segmentImportWidget = CopySegmentBetweenSegmentationsWidget()
     self.segmentImportWidget.addEventObserver(self.segmentImportWidget.FailedEvent, self.onImportFailed)
-    self.segmentImportWidget.currentSegmentationNodeSelectorEnabled = False
+    self.segmentImportWidget.addEventObserver(self.segmentImportWidget.SuccessEvent, self.onImportFinished)
+    self.segmentImportWidget.segmentationNodeSelectorEnabled = False
     self.importSegmentsCollapsibleLayout.addWidget(self.segmentImportWidget)
     self.mainModuleWidgetLayout.addWidget(self.importSegmentationCollapsibleButton)
 
@@ -265,14 +268,11 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
   def onImportFailed(self, caller, event):
     slicer.util.errorDisplay("Import failed. Check console for details.")
 
-  def onLabelMapImportSuccessful(self, caller, event):
-    def hideAllLabels():
-      # TODO: move up in SlicerDevelopmentToolbox
-      for widget in self.getAllVisibleWidgets():
-        compositeNode = widget.mrmlSliceCompositeNode()
-        compositeNode.SetLabelVolumeID(None)
+  def onImportFinished(self, caller, event):
+    self.onSegmentationNodeChanged()
 
-    hideAllLabels()
+  def onLabelMapImportSuccessful(self, caller, event):
+    self.hideAllLabels()
 
   def setupViewSettingsArea(self):
     self.redSliceLayoutButton = RedSliceLayoutButton()
@@ -466,10 +466,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self.watchBox.reset()
       return
 
-    segmentationNode = self._getOrCreateSegmentationNodeAndConfigure()
-    self.updateImportArea(segmentationNode)
-    self._setupSegmentationObservers()
-    self._configureReadWriteAccess()
+    self._useOrCreateSegmentationNodeAndConfigure()
 
   def _configureReadWriteAccess(self):
     if not self.tableNode:
@@ -488,7 +485,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self.onSegmentationNodeChanged()
     self.exportToHTMLButton.enabled = True
 
-  def _getOrCreateSegmentationNodeAndConfigure(self):
+  def _useOrCreateSegmentationNodeAndConfigure(self):
     segmentationNodeID = self.tableNode.GetAttribute('ReferencedSegmentationNodeID')
     logging.debug("ReferencedSegmentationNodeID {}".format(segmentationNodeID))
     if segmentationNodeID:
@@ -496,7 +493,9 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     else:
       segmentationNode = self._createAndReferenceNewSegmentationNode()
     self._configureSegmentationNode(segmentationNode)
-    return segmentationNode
+    self.updateImportArea(segmentationNode)
+    self._setupSegmentationObservers()
+    self._configureReadWriteAccess()
 
   def _configureSegmentationNode(self, node):
     self.hideAllSegmentations()
@@ -510,7 +509,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
   def updateImportArea(self, node):
     self.segmentImportWidget.otherSegmentationNodeSelector.setCurrentNode(None)
-    self.segmentImportWidget.setCurrentSegmentationNode(node)
+    self.segmentImportWidget.setSegmentationNode(node)
     self.labelMapImportWidget.setSegmentationNode(node)
 
   def _setupSegmentationObservers(self):
@@ -519,8 +518,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       return
     segmentationEvents = [vtkSegmentationCore.vtkSegmentation.SegmentAdded,
                           vtkSegmentationCore.vtkSegmentation.SegmentRemoved,
-                          vtkSegmentationCore.vtkSegmentation.SegmentModified,
-                          vtkSegmentationCore.vtkSegmentation.RepresentationModified]
+                          vtkSegmentationCore.vtkSegmentation.SegmentModified]
+
     for event in segmentationEvents:
       self.segmentationObservers.append(segNode.AddObserver(event, self.onSegmentationNodeChanged))
 
@@ -550,6 +549,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
   @postCall(refreshUIElementsAvailability)
   def onSegmentationNodeChanged(self, observer=None, caller=None):
+    if self.segmentImportWidget.busy:
+      return
     self.enableReportButtons(True)
     self.updateMeasurementsTable()
 

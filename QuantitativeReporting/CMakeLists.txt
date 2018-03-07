@@ -1,7 +1,6 @@
 #-----------------------------------------------------------------------------
 
 set(MODULE_PYTHON_SCRIPTS
-  __init__.py
   QRCustomizations/__init__.py
   QRCustomizations/CustomDICOMDetailsWidget.py
   QRCustomizations/CustomSegmentEditor.py
