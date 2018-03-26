@@ -1,0 +1,40 @@
+{
+  "type": "object",
+  "properties": {
+    "ContentCreatorName": {
+      "type": "string",
+      "maxLength": 64,
+      "default": "Reader1"
+    },
+    "ClinicalTrialSeriesID": {
+      "type": "string",
+      "maxLength": 64,
+      "default": "Session1"
+    },
+    "ClinicalTrialCoordinatingCenterName": {
+      "type": "string",
+      "maxLength": 64,
+      "default": "dcmqi"
+    },
+    "ClinicalTrialTimePointID": {
+      "type": "string",
+      "maxLength": 64,
+      "default": "1"
+    },
+    "SeriesDescription": {
+      "type": "string",
+      "maxLength": 64,
+      "default": "Segmentation"
+    },
+    "SeriesNumber": {
+      "type": "string",
+      "maxLength": 12,
+      "default": "300"
+    },
+    "InstanceNumber": {
+      "type": "string",
+      "maxLength": 12,
+      "default": "1"
+    }
+  }
+}
