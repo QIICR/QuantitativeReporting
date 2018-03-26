@@ -2,6 +2,7 @@ import slicer
 import vtk
 import vtkSegmentationCorePython as vtkSegmentationCore
 
+
 class SegmentEditorAlgorithmTracker(object):
 
   def __init__(self):
@@ -101,7 +102,7 @@ class SegmentEditorAlgorithmTracker(object):
 
   def _setupSegmentEditorWidgetObservers(self):
     if self.observedSegmentEditorWidget:
-      self._removeEditorParameterSetObservers()
+      self._removeSegmentEditorWidgetObservers()
     self.segmentEditorWidget.editor.connect(
       'segmentationNodeChanged(vtkMRMLSegmentationNode *)',self._setupSegmentationObservers)
     self.observedSegmentEditorWidget = self.segmentEditorWidget
@@ -143,10 +144,10 @@ class SegmentEditorAlgorithmTracker(object):
     self.observedSegmentation = None
 
   def _onMasterRepresentationModified(self, segNode=None, caller=None):
-    oldSignature = self.segmenationSignature
+    oldSignature = self.segmentationSignature
     newSignature = self._updateSegmentationSignature(segNode)
     effect = self.segmentEditorWidget.editor.activeEffect()
-    if len(newSignature)==len(self.segmenationSignature) and effect:
+    if len(newSignature)==len(self.segmentationSignature) and effect:
       for i in range(len(newSignature)):
         if newSignature[i]['mtime']!=oldSignature[i]['mtime'] or \
           newSignature[i]['data']!=oldSignature[i]['data']:
@@ -154,7 +155,7 @@ class SegmentEditorAlgorithmTracker(object):
           self.addAppliedToolToSegment(segNode.GetNthSegment(i),str(effect.name))
 
   def _onSegmentModified(self, segNode=None, caller=None):
-    oldSignature = self.segmenationSignature
+    oldSignature = self.segmentationSignature
     newSignature = self._updateSegmentationSignature(segNode)
     # if a segment gets modified before it has been added to the segmentation,
     # it means that an empty segment was added
@@ -175,8 +176,8 @@ class SegmentEditorAlgorithmTracker(object):
     for i in range(segNode.GetNumberOfSegments()):
       segment = segNode.GetNthSegment(i)
       segmentationData = segment.GetRepresentation(representationType)
-      segmentSignature = {'data': segmentationData, \
+      segmentSignature = {'data': segmentationData,
                           'mtime': segmentationData.GetMTime()}
       signature.append(segmentSignature)
-    self.segmenationSignature = signature
+    self.segmentationSignature = signature
     return signature

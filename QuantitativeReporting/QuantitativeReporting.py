@@ -551,7 +551,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
   def onSegmentationNodeChanged(self, observer=None, caller=None):
     self.enableReportButtons(True)
     # SegmentEditorAlgorithmTracker makes modifications to Segmentation tags,
-    # (which inovke SegmentModified events), which do not require updating the
+    # (which invoke SegmentModified events), which do not require updating the
     # measurement table
     if self.segmentEditorAlgorithmTracker and \
       self.segmentEditorAlgorithmTracker.updatingSegmentTags:
