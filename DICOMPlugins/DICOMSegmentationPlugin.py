@@ -206,9 +206,9 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
           labelNode.SetAttribute("ColorG", str(rgb[1]))
           labelNode.SetAttribute("ColorB", str(rgb[2]))
           if "SegmentAlgorithmType" in segment:
-            labelNode.SetAttribute("SegmentAlgorithmType", segment["SegmentAlgorithmType"])
+            labelNode.SetAttribute("DICOM.SegmentAlgorithmType", segment["SegmentAlgorithmType"])
           if "SegmentAlgorithmName" in segment:
-            labelNode.SetAttribute("SegmentAlgorithmName", segment["SegmentAlgorithmName"])
+            labelNode.SetAttribute("DICOM.SegmentAlgorithmName", segment["SegmentAlgorithmName"])
 
           segmentLabelNodes.append(labelNode)
 
@@ -239,10 +239,10 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
 
       segment.SetTag(vtkSegmentationCore.vtkSegment.GetTerminologyEntryTagName(),
                      segmentLabelNode.GetAttribute("Terminology"))
-      algorithmName = segmentLabelNode.GetAttribute("SegmentAlgorithmName")
+      algorithmName = segmentLabelNode.GetAttribute("DICOM.SegmentAlgorithmName")
       if algorithmName:
-          segment.SetTag("DICOM.SegmentAlgorithmName", algorithmName)
-      algorithmType = segmentLabelNode.GetAttribute("SegmentAlgorithmType")
+        segment.SetTag("DICOM.SegmentAlgorithmName", algorithmName)
+      algorithmType = segmentLabelNode.GetAttribute("DICOM.SegmentAlgorithmType")
       if algorithmType:
         segment.SetTag("DICOM.SegmentAlgorithmType", algorithmType)
 
