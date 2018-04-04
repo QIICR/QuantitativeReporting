@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import ctk
+import vtk
 import qt
 import slicer
 from slicer.ScriptedLoadableModule import *
@@ -25,6 +26,7 @@ from QRUtils.testdata import TestDataLogic
 from QRCustomizations.CustomSegmentStatistics import CustomSegmentStatisticsParameterEditorDialog
 from QRCustomizations.CustomSegmentEditor import CustomSegmentEditorWidget
 from QRCustomizations.CustomDICOMDetailsWidget import CustomDICOMDetailsWidget
+from QRCustomizations.SegmentEditorAlgorithmTracker import SegmentEditorAlgorithmTracker
 
 
 class QuantitativeReporting(ScriptedLoadableModule):
@@ -291,6 +293,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.segmentationGroupBox.setLayout(self.segmentationGroupBoxLayout)
     self.segmentEditorWidget = CustomSegmentEditorWidget(parent=self.segmentationGroupBox)
     self.segmentEditorWidget.setup()
+    self.segmentEditorAlgorithmTracker = SegmentEditorAlgorithmTracker()
+    self.segmentEditorAlgorithmTracker.setSegmentEditorWidget(self.segmentEditorWidget)
 
   def setupMeasurementsArea(self):
     self.measurementsGroupBox = qt.QGroupBox("Measurements")
@@ -552,6 +556,12 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     if self.segmentImportWidget.busy:
       return
     self.enableReportButtons(True)
+    # SegmentEditorAlgorithmTracker makes modifications to Segmentation tags,
+    # (which invoke SegmentModified events), which do not require updating the
+    # measurement table
+    if self.segmentEditorAlgorithmTracker and \
+      self.segmentEditorAlgorithmTracker.updatingSegmentTags:
+      return
     self.updateMeasurementsTable()
 
   def updateMeasurementsTable(self, triggered=False, visibleOnly=False):
