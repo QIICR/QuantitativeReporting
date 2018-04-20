@@ -24,7 +24,7 @@ class TestDataLogic(ScriptedLoadableModuleLogic):
     }
   }
 
-  DOWNLOAD_DIRECTORY = os.path.join(slicer.app.temporaryPath, 'dicomFiles')
+  DOWNLOAD_DIRECTORY = os.path.join(slicer.app.temporaryPath, 'QR', 'downloads')
 
   @staticmethod
   def importIntoDICOMDatabase(dicomFilesDirectory):
@@ -51,14 +51,14 @@ class TestDataLogic(ScriptedLoadableModuleLogic):
 
     downloaded = {}
     for kind, (url, filename) in TestDataLogic.collections[collection].iteritems():
-      filePath = os.path.join(slicer.app.temporaryPath, 'downloads', collection, kind, filename)
+      filePath = os.path.join(TestDataLogic.DOWNLOAD_DIRECTORY, collection, filename)
       if not os.path.exists(os.path.dirname(filePath)):
         os.makedirs(os.path.dirname(filePath))
       logging.debug('Saving download %s to %s ' % (filename, filePath))
-      expectedOutput = TestDataLogic.getUnzippedDirectoryPath(collection, kind)
       if not os.path.exists(filePath) or os.stat(filePath).st_size == 0:
         slicer.util.delayDisplay('Requesting download %s from %s...\n' % (filename, url), 1000)
         urllib.urlretrieve(url, filePath)
+      expectedOutput = TestDataLogic.getUnzippedDirectoryPath(collection, kind)
       if not os.path.exists(expectedOutput) or not len(os.listdir(expectedOutput)):
         logging.debug('Unzipping data into %s' % expectedOutput)
         downloaded[kind] = TestDataLogic.unzipSampleData(filePath, collection, kind)
