@@ -15,6 +15,7 @@ set(MODULE_PYTHON_SCRIPTS
 set(MODULE_PYTHON_RESOURCES
   Resources/Icons/QuantitativeReporting.png
   Resources/Icons/ReportingLogo128px.png
+  Resources/Validation/general_content_schema.json
 )
 
 slicerMacroBuildScriptedModule(

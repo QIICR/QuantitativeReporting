@@ -372,7 +372,10 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     pass
 
   class NoNonEmptySegmentsFoundError(ValueError):
-      pass
+    pass
+
+  class MissingAttributeError(ValueError):
+    pass
 
   @staticmethod
   def getDeserializedTerminologyEntry(vtkSegment):
@@ -447,10 +450,16 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     except AttributeError:
       pass
 
-  def export(self, outputDirectory, segFileName, segmentIDs=None, skipEmpty=False):
+  def export(self, outputDirectory, segFileName, metadata, segmentIDs=None, skipEmpty=False):
     data = self.getSeriesAttributes()
-    data["SeriesDescription"] = "Segmentation"
-    data.update(self._getAdditionalSeriesAttributes())
+    data.update(metadata)
+
+    try:
+      for attr in ["SeriesDescription", "ContentCreatorName", "ClinicalTrialSeriesID", "ClinicalTrialTimePointID",
+                   "ClinicalTrialCoordinatingCenterName"]:
+        data[attr]
+    except KeyError as exc:
+      raise self.MissingAttributeError(str(exc))
 
     segmentIDs = segmentIDs if segmentIDs else self.getSegmentIDs(self.segmentationNode)
 
@@ -515,6 +524,14 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     logging.debug("Saved DICOM Segmentation to {}".format(segFilePath))
     return True
 
+  def getSeriesAttributes(self):
+    attributes = dict()
+    volumeNode = self.getReferencedVolumeFromSegmentationNode(self.segmentationNode)
+    seriesNumber = ModuleLogicMixin.getDICOMValue(volumeNode, DICOMTAGS.SERIES_NUMBER)
+    attributes["SeriesNumber"] = "100" if seriesNumber in [None,''] else str(int(seriesNumber)+100)
+    attributes["InstanceNumber"] = "1"
+    return attributes
+
   def getNonEmptySegmentIDs(self, segmentIDs):
     segmentation = self.segmentationNode.GetSegmentation()
     return [segmentID for segmentID in segmentIDs if not self.isSegmentEmpty(segmentation.GetSegment(segmentID))]
@@ -561,20 +578,6 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     # duplicate in quantitative Reporting
     path = slicer.dicomDatabase.fileForInstance(uid)
     return os.path.dirname(path), os.path.basename(path)
-
-  def getSeriesAttributes(self):
-    attributes = dict()
-    volumeNode = self.getReferencedVolumeFromSegmentationNode(self.segmentationNode)
-    seriesNumber = ModuleLogicMixin.getDICOMValue(volumeNode, DICOMTAGS.SERIES_NUMBER)
-    attributes["SeriesNumber"] = "100" if seriesNumber in [None,''] else str(int(seriesNumber)+100)
-    attributes["InstanceNumber"] = "1"
-    return attributes
-
-  def _getAdditionalSeriesAttributes(self):
-    return {"ContentCreatorName": self.contentCreatorName,
-            "ClinicalTrialSeriesID": "1",
-            "ClinicalTrialTimePointID": "1",
-            "ClinicalTrialCoordinatingCenterName": "QIICR"}
 
   def generateJSON4DcmSEGExport(self, segmentIDs):
     self.checkTerminologyOfSegments(segmentIDs)

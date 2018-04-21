@@ -4,7 +4,7 @@
     "ContentCreatorName": {
       "type": "string",
       "maxLength": 64,
-      "default": "Reader1"
+      "default": "callback:import slicer;userInfo=slicer.app.applicationLogic().GetUserInformation().GetName()"
     },
     "ClinicalTrialSeriesID": {
       "type": "string",
@@ -25,16 +25,6 @@
       "type": "string",
       "maxLength": 64,
       "default": "Segmentation"
-    },
-    "SeriesNumber": {
-      "type": "string",
-      "maxLength": 12,
-      "default": "300"
-    },
-    "InstanceNumber": {
-      "type": "string",
-      "maxLength": 12,
-      "default": "1"
     }
   }
 }
