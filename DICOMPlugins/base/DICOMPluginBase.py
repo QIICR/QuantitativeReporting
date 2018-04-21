@@ -37,6 +37,25 @@ class DICOMPluginBase(DICOMPlugin):
     except OSError:
       pass
 
+  def examineForImport(self, fileLists):
+    """ Returns a sorted list of DICOMLoadable instances
+    corresponding to ways of interpreting the
+    fileLists parameter (list of file lists).
+    """
+    loadables = []
+    for files in fileLists:
+      cachedLoadables = self.getCachedLoadables(files)
+      if cachedLoadables is not None:
+        logging.debug("%s : Using cached files" % self.__class__.__name__)
+        loadables += cachedLoadables
+      else:
+        logging.debug("%s : Caching files" % self.__class__.__name__)
+        loadablesForFiles = self.examineFiles(files)
+        loadables += loadablesForFiles
+        self.cacheLoadables(files, loadablesForFiles)
+
+    return loadables
+
   def addReferences(self, loadable):
     """Puts a list of the referenced UID into the loadable for use
     in the node if this is loaded."""
