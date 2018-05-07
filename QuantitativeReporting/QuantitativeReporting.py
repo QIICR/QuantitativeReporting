@@ -60,13 +60,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     ScriptedLoadableModuleWidget.__init__(self, parent)
     self.slicerTempDir = slicer.util.tempDirectory()
     slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, self.onSceneClosed)
-
-    # Wait this much after the last modified event before starting updating measurements
-    autoUpdateDelaySec = 0.5
-    self.delayedAutoUpdateTimer = qt.QTimer()
-    self.delayedAutoUpdateTimer.setSingleShot(True)
-    self.delayedAutoUpdateTimer.interval = autoUpdateDelaySec * 1000
-    self.delayedAutoUpdateTimer.connect('timeout()', self.updateMeasurementsTable)
+    self.delayedAutoUpdateTimer = self.createTimer(500, self.updateMeasurementsTable, singleShot=True)
 
   def __del__(self):
     self.delayedAutoUpdateTimer.stop()
