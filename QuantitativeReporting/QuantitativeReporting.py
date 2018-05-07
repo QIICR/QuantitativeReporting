@@ -61,6 +61,16 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.slicerTempDir = slicer.util.tempDirectory()
     slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, self.onSceneClosed)
 
+    # Wait this much after the last modified event before starting updating measurements
+    autoUpdateDelaySec = 0.5
+    self.delayedAutoUpdateTimer = qt.QTimer()
+    self.delayedAutoUpdateTimer.setSingleShot(True)
+    self.delayedAutoUpdateTimer.interval = autoUpdateDelaySec * 1000
+    self.delayedAutoUpdateTimer.connect('timeout()', self.updateMeasurementsTable)
+
+  def __del__(self):
+    self.delayedAutoUpdateTimer.stop()
+
   def initializeMembers(self):
     self.tableNode = None
     self.segmentationObservers = []
@@ -522,7 +532,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       return
     segmentationEvents = [vtkSegmentationCore.vtkSegmentation.SegmentAdded,
                           vtkSegmentationCore.vtkSegmentation.SegmentRemoved,
-                          vtkSegmentationCore.vtkSegmentation.SegmentModified]
+                          vtkSegmentationCore.vtkSegmentation.SegmentModified,
+                          vtkSegmentationCore.vtkSegmentation.RepresentationModified]
 
     for event in segmentationEvents:
       self.segmentationObservers.append(segNode.AddObserver(event, self.onSegmentationNodeChanged))
@@ -556,13 +567,9 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     if self.segmentImportWidget.busy:
       return
     self.enableReportButtons(True)
-    # SegmentEditorAlgorithmTracker makes modifications to Segmentation tags,
-    # (which invoke SegmentModified events), which do not require updating the
-    # measurement table
-    if self.segmentEditorAlgorithmTracker and \
-      self.segmentEditorAlgorithmTracker.updatingSegmentTags:
-      return
-    self.updateMeasurementsTable()
+    self.tableView.setStyleSheet("QTableView{border:2px solid red;};")
+    self.delayedAutoUpdateTimer.start()
+    #self.updateMeasurementsTable() # instead use delayed auto update triggered above 
 
   def updateMeasurementsTable(self, triggered=False, visibleOnly=False):
     if not self.calculateAutomaticallyCheckbox.checked and not triggered:
