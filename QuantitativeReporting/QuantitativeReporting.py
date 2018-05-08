@@ -60,6 +60,10 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     ScriptedLoadableModuleWidget.__init__(self, parent)
     self.slicerTempDir = slicer.util.tempDirectory()
     slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, self.onSceneClosed)
+    self.delayedAutoUpdateTimer = self.createTimer(500, self.updateMeasurementsTable, singleShot=True)
+
+  def __del__(self):
+    self.delayedAutoUpdateTimer.stop()
 
   def initializeMembers(self):
     self.tableNode = None
@@ -522,7 +526,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       return
     segmentationEvents = [vtkSegmentationCore.vtkSegmentation.SegmentAdded,
                           vtkSegmentationCore.vtkSegmentation.SegmentRemoved,
-                          vtkSegmentationCore.vtkSegmentation.SegmentModified]
+                          vtkSegmentationCore.vtkSegmentation.SegmentModified,
+                          vtkSegmentationCore.vtkSegmentation.RepresentationModified]
 
     for event in segmentationEvents:
       self.segmentationObservers.append(segNode.AddObserver(event, self.onSegmentationNodeChanged))
@@ -556,13 +561,9 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     if self.segmentImportWidget.busy:
       return
     self.enableReportButtons(True)
-    # SegmentEditorAlgorithmTracker makes modifications to Segmentation tags,
-    # (which invoke SegmentModified events), which do not require updating the
-    # measurement table
-    if self.segmentEditorAlgorithmTracker and \
-      self.segmentEditorAlgorithmTracker.updatingSegmentTags:
-      return
-    self.updateMeasurementsTable()
+    self.tableView.setStyleSheet("QTableView{border:2px solid red;};")
+    self.delayedAutoUpdateTimer.start()
+    #self.updateMeasurementsTable() # instead use delayed auto update triggered above 
 
   def updateMeasurementsTable(self, triggered=False, visibleOnly=False):
     if not self.calculateAutomaticallyCheckbox.checked and not triggered:
