@@ -6,6 +6,11 @@
       "maxLength": 64,
       "default": "callback:import slicer;userInfo=slicer.app.applicationLogic().GetUserInformation().GetName()"
     },
+    "SeriesDescription": {
+      "type": "string",
+      "maxLength": 64,
+      "default": "Segmentation"
+    },
     "ClinicalTrialSeriesID": {
       "type": "string",
       "maxLength": 64,
@@ -21,10 +26,15 @@
       "maxLength": 64,
       "default": "1"
     },
-    "SeriesDescription": {
+    "SeriesNumber": {
       "type": "string",
-      "maxLength": 64,
-      "default": "Segmentation"
+      "maxLength": 12,
+      "default": "300"
+    },
+    "InstanceNumber": {
+      "type": "string",
+      "maxLength": 12,
+      "default": "1"
     }
   }
 }
