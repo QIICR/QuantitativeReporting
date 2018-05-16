@@ -1,4 +1,5 @@
 {
+  "title": "Please enter DICOM SEG meta-data",
   "type": "object",
   "properties": {
     "ContentCreatorName": {
@@ -36,5 +37,14 @@
       "maxLength": 12,
       "default": "1"
     }
-  }
+  },
+  "required": [
+    "ContentCreatorName",
+    "SeriesDescription",
+    "ClinicalTrialSeriesID",
+    "ClinicalTrialCoordinatingCenterName",
+    "ClinicalTrialTimePointID",
+    "SeriesNumber",
+    "InstanceNumber"
+  ]
 }
