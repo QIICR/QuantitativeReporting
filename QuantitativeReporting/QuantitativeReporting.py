@@ -1,9 +1,7 @@
-import getpass
 import json
 import logging
 import os
 import ctk
-import vtk
 import qt
 import slicer
 from slicer.ScriptedLoadableModule import *
@@ -17,7 +15,7 @@ from SlicerDevelopmentToolboxUtils.constants import DICOMTAGS
 from SlicerDevelopmentToolboxUtils.decorators import postCall
 from SlicerDevelopmentToolboxUtils.helpers import WatchBoxAttribute
 from SlicerDevelopmentToolboxUtils.mixins import ModuleWidgetMixin, ModuleLogicMixin
-from SlicerDevelopmentToolboxUtils.widgets import CopySegmentBetweenSegmentationsWidget
+from SlicerDevelopmentToolboxUtils.widgets import CopySegmentBetweenSegmentationsWidget, TextInformationRequestDialog
 from SlicerDevelopmentToolboxUtils.widgets import DICOMBasedInformationWatchBox, ImportLabelMapIntoSegmentationWidget
 from SlicerDevelopmentToolboxUtils.forms.FormsDialog import FormsDialog
 
@@ -74,6 +72,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.segmentStatisticsParameterEditorDialog = None
 
   def enter(self):
+    self._checkUserInformation()
     if self.measurementReportSelector.currentNode():
       self._useOrCreateSegmentationNodeAndConfigure()
     self.segmentEditorWidget.editor.masterVolumeNodeChanged.connect(self.onImageVolumeSelected)
@@ -87,6 +86,14 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.segmentEditorWidget.editor.segmentationNodeChanged.disconnect(self.onSegmentationSelected)
     # self.removeDICOMBrowser()
     qt.QTimer.singleShot(0, lambda: self.tabWidget.setCurrentIndex(0))
+
+  def _checkUserInformation(self):
+    if not slicer.app.applicationLogic().GetUserInformation().GetName():
+      if slicer.util.confirmYesNoDisplay("Slicer user name required to save measurement reports. \n\n"
+                                         "Do you want to set it now?"):
+        dialog = TextInformationRequestDialog("User Name:")
+        if dialog.exec_():
+          slicer.app.applicationLogic().GetUserInformation().SetName(dialog.getValue())
 
   def onReload(self):
     self.cleanupUIElements()
