@@ -440,6 +440,9 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     except AttributeError:
       pass
 
+  def formatMetaDataDICOMConform(self, metadata):
+    metadata["ContentCreatorName"] = "^".join(metadata["ContentCreatorName"].split(" ")[::-1])
+
   def export(self, outputDirectory, segFileName, metadata, segmentIDs=None, skipEmpty=False):
     data = self.getSeriesAttributes()
     data.update(metadata)
@@ -450,6 +453,8 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
         data[attr]
     except KeyError as exc:
       raise self.MissingAttributeError(str(exc))
+
+    self.formatMetaDataDICOMConform(data)
 
     segmentIDs = segmentIDs if segmentIDs else self.getSegmentIDs(self.segmentationNode)
 
