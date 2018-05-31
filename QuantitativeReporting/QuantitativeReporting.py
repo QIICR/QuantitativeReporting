@@ -640,18 +640,24 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     return True, None
 
   def retrieveMetaDataFromUser(self):
-    self._metaDataFormWidget = getattr(self, "_metaDataFormWidget", None)
-    if not self._metaDataFormWidget:
-      settings = qt.QSettings()
-      settings.beginGroup("QuantitativeReporting/GeneralContentInformationDefaults")
-      schema = os.path.join(self.modulePath, 'Resources', 'Validation', 'general_content_schema.json')
-      self._metaDataFormWidget = FormsDialog([schema], defaultSettings=settings)
-      settings.endGroup()
+    settings = qt.QSettings()
+    settings.beginGroup("QuantitativeReporting/GeneralContentInformationDefaults")
+    schema = os.path.join(self.modulePath, 'Resources', 'Validation', 'general_content_schema.json')
+    metaDataFormWidget = FormsDialog([schema], defaultSettings=settings)
+    settings.endGroup()
 
     metadata = None
-    if self._metaDataFormWidget.exec_():
-      metadata = self._metaDataFormWidget.getData()
+    if metaDataFormWidget.exec_():
+      metadata = metaDataFormWidget.getData()
+      self._persistEnteredMetaData(metadata)
     return metadata
+
+  def _persistEnteredMetaData(self, metadata):
+    settings = qt.QSettings()
+    settings.beginGroup("QuantitativeReporting/GeneralContentInformationDefaults")
+    for attr in metadata.keys():
+      settings.setValue(attr, metadata[attr])
+    settings.endGroup()
 
   def createSEG(self):
     self.dicomSegmentationExporter = DICOMSegmentationExporter(self.segmentEditorWidget.segmentationNode)
