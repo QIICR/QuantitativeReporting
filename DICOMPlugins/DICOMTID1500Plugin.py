@@ -9,9 +9,10 @@ import dicom
 import slicer
 from DICOMLib import DICOMLoadable
 from base.DICOMPluginBase import DICOMPluginBase
+from SlicerDevelopmentToolboxUtils.mixins import ModuleLogicMixin
 
 
-class DICOMTID1500PluginClass(DICOMPluginBase):
+class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
 
   UID_EnhancedSRStorage = "1.2.840.10008.5.1.4.1.1.88.22"
   UID_ComprehensiveSRStorage = "1.2.840.10008.5.1.4.1.1.88.33"
@@ -19,24 +20,10 @@ class DICOMTID1500PluginClass(DICOMPluginBase):
   UID_RealWorldValueMappingStorage = "1.2.840.10008.5.1.4.1.1.67"
 
   def __init__(self):
-    super(DICOMTID1500PluginClass, self).__init__()
+    DICOMPluginBase.__init__(self)
     self.loadType = "DICOM Structured Report TID1500"
     self.segPlugin = slicer.modules.dicomPlugins["DICOMSegmentationPlugin"]()
     self.rwvmPlugin = slicer.modules.dicomPlugins["DICOMRWVMPlugin"]()
-    self.scalarVolumePlugin = slicer.modules.dicomPlugins["DICOMScalarVolumePlugin"]()
-
-  def examine(self, fileLists):
-    loadables = []
-    for files in fileLists:
-      loadables += self.examineFiles(files)
-    return loadables
-
-  def getDICOMValue(self, dataset, tagName, default=""):
-    try:
-      value = getattr(dataset, tagName)
-    except AttributeError:
-      value = default
-    return value
 
   def examineFiles(self, files):
     loadables = []

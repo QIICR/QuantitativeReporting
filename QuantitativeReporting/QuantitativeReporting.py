@@ -1,9 +1,7 @@
-import getpass
 import json
 import logging
 import os
 import ctk
-import vtk
 import qt
 import slicer
 from slicer.ScriptedLoadableModule import *
@@ -17,8 +15,9 @@ from SlicerDevelopmentToolboxUtils.constants import DICOMTAGS
 from SlicerDevelopmentToolboxUtils.decorators import postCall
 from SlicerDevelopmentToolboxUtils.helpers import WatchBoxAttribute
 from SlicerDevelopmentToolboxUtils.mixins import ModuleWidgetMixin, ModuleLogicMixin
-from SlicerDevelopmentToolboxUtils.widgets import CopySegmentBetweenSegmentationsWidget
+from SlicerDevelopmentToolboxUtils.widgets import CopySegmentBetweenSegmentationsWidget, TextInformationRequestDialog
 from SlicerDevelopmentToolboxUtils.widgets import DICOMBasedInformationWatchBox, ImportLabelMapIntoSegmentationWidget
+from SlicerDevelopmentToolboxUtils.forms.FormsDialog import FormsDialog
 
 from QRUtils.htmlReport import HTMLReportCreator
 from QRUtils.testdata import TestDataLogic
@@ -60,6 +59,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     ScriptedLoadableModuleWidget.__init__(self, parent)
     self.slicerTempDir = slicer.util.tempDirectory()
     slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, self.onSceneClosed)
+    self.modulePath = os.path.dirname(slicer.util.modulePath(self.moduleName))
     self.delayedAutoUpdateTimer = self.createTimer(500, self.updateMeasurementsTable, singleShot=True)
 
   def __del__(self):
@@ -72,6 +72,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.segmentStatisticsParameterEditorDialog = None
 
   def enter(self):
+    self._checkUserInformation()
     if self.measurementReportSelector.currentNode():
       self._useOrCreateSegmentationNodeAndConfigure()
     self.segmentEditorWidget.editor.masterVolumeNodeChanged.connect(self.onImageVolumeSelected)
@@ -85,6 +86,14 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.segmentEditorWidget.editor.segmentationNodeChanged.disconnect(self.onSegmentationSelected)
     # self.removeDICOMBrowser()
     qt.QTimer.singleShot(0, lambda: self.tabWidget.setCurrentIndex(0))
+
+  def _checkUserInformation(self):
+    if not slicer.app.applicationLogic().GetUserInformation().GetName():
+      if slicer.util.confirmYesNoDisplay("Slicer user name required to save measurement reports. \n\n"
+                                         "Do you want to set it now?"):
+        dialog = TextInformationRequestDialog("User Name:")
+        if dialog.exec_():
+          slicer.app.applicationLogic().GetUserInformation().SetName(dialog.getValue())
 
   def onReload(self):
     self.cleanupUIElements()
@@ -186,7 +195,8 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       WatchBoxAttribute('StudyID', 'Study ID: ', DICOMTAGS.STUDY_ID),
       WatchBoxAttribute('PatientName', 'Patient Name: ', DICOMTAGS.PATIENT_NAME),
       WatchBoxAttribute('DOB', 'Date of Birth: ', DICOMTAGS.PATIENT_BIRTH_DATE),
-      WatchBoxAttribute('Reader', 'Reader Name: ', callback=getpass.getuser)]
+      WatchBoxAttribute('Reader', 'Reader Name: ',
+                        callback=slicer.app.applicationLogic().GetUserInformation().GetName)]
     self.watchBox = DICOMBasedInformationWatchBox(self.watchBoxInformation)
     self.mainModuleWidgetLayout.addWidget(self.watchBox)
 
@@ -206,7 +216,11 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       sampleData = TestDataLogic.downloadAndUnzipSampleData(collection)
       TestDataLogic.importIntoDICOMDatabase(sampleData[imageDataType])
     self.loadSeries(uid)
-    masterNode = slicer.util.getNodesByClass('vtkMRMLScalarVolumeNode')[-1]
+    loadedVolumeNodes = slicer.util.getNodesByClass('vtkMRMLScalarVolumeNode')
+    if not loadedVolumeNodes:
+      logging.error("No volumes were loaded into Slicer. Canceling.")
+      return
+    masterNode = loadedVolumeNodes[-1]
     tableNode = slicer.vtkMRMLTableNode()
     tableNode.SetAttribute("QuantitativeReporting", "Yes")
     slicer.mrmlScene.AddNode(tableNode)
@@ -563,7 +577,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.enableReportButtons(True)
     self.tableView.setStyleSheet("QTableView{border:2px solid red;};")
     self.delayedAutoUpdateTimer.start()
-    #self.updateMeasurementsTable() # instead use delayed auto update triggered above 
+    #self.updateMeasurementsTable() # instead use delayed auto update triggered above
 
   def updateMeasurementsTable(self, triggered=False, visibleOnly=False):
     if not self.calculateAutomaticallyCheckbox.checked and not triggered:
@@ -609,6 +623,9 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       slicer.util.warningDisplay(err)
 
   def saveReport(self, completed=False):
+    self._metadata = self.retrieveMetaDataFromUser()
+    if not self._metadata:
+      return False, "Saving process canceled. Meta-information was not confirmed by user."
     try:
       dcmSegPath = self.createSEG()
       dcmSRPath = self.createDICOMSR(dcmSegPath, completed)
@@ -622,6 +639,26 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self.cleanupTemporaryData()
     return True, None
 
+  def retrieveMetaDataFromUser(self):
+    settings = qt.QSettings()
+    settings.beginGroup("QuantitativeReporting/GeneralContentInformationDefaults")
+    schema = os.path.join(self.modulePath, 'Resources', 'Validation', 'general_content_schema.json')
+    metaDataFormWidget = FormsDialog([schema], defaultSettings=settings)
+    settings.endGroup()
+
+    metadata = None
+    if metaDataFormWidget.exec_():
+      metadata = metaDataFormWidget.getData()
+      self._persistEnteredMetaData(metadata)
+    return metadata
+
+  def _persistEnteredMetaData(self, metadata):
+    settings = qt.QSettings()
+    settings.beginGroup("QuantitativeReporting/GeneralContentInformationDefaults")
+    for attr in metadata.keys():
+      settings.setValue(attr, metadata[attr])
+    settings.endGroup()
+
   def createSEG(self):
     self.dicomSegmentationExporter = DICOMSegmentationExporter(self.segmentEditorWidget.segmentationNode)
     segFilename = "quantitative_reporting_export.SEG" + self.dicomSegmentationExporter.currentDateTime + ".dcm"
@@ -634,8 +671,10 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
         segmentIDs = [segment.GetName() for segment in visibleSegments]
     try:
       try:
-        self.dicomSegmentationExporter.export(os.path.dirname(dcmSegmentationPath),
-                                              os.path.basename(dcmSegmentationPath), segmentIDs=segmentIDs)
+        self.dicomSegmentationExporter.export(outputDirectory=os.path.dirname(dcmSegmentationPath), segmentIDs=segmentIDs,
+                                              segFileName=os.path.basename(dcmSegmentationPath), metadata=self._metadata)
+      except DICOMSegmentationExporter.MissingAttributeError as exc:
+        raise ValueError("Missing attributes: %s " % str(exc))
       except DICOMSegmentationExporter.EmptySegmentsFoundError:
         raise ValueError("Empty segments found. Please make sure that there are no empty segments.")
       logging.debug("Saved DICOM Segmentation to {}".format(dcmSegmentationPath))
@@ -684,11 +723,11 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
   def _getAdditionalSRInformation(self, completed=False):
     data = dict()
     data["observerContext"] = {"ObserverType": "PERSON",
-                               "PersonObserverName": self.watchBox.getAttribute("Reader").value}
+                               "PersonObserverName": self._metadata["ContentCreatorName"]}
     data["VerificationFlag"] = "VERIFIED" if completed else "UNVERIFIED"
     data["CompletionFlag"] = "COMPLETE" if completed else "PARTIAL"
     data["activitySession"] = "1"
-    data["timePoint"] = "1"
+    data["timePoint"] = self._metadata["ClinicalTrialTimePointID"]
     return data
 
   def saveJSON(self, data, destination):
