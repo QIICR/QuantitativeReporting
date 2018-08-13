@@ -84,7 +84,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
     logging.debug('DICOM SEG load()')
     try:
       uid = loadable.uid
-      logging.debug('in load(): uid = ', uid)
+      logging.debug('in load(): uid = '+uid)
     except AttributeError:
       return False
 
@@ -215,7 +215,8 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
       self._importSegmentAndRemoveLabel(segmentLabelNode, segmentationNode)
 
     self.addSeriesInSubjectHierarchy(loadable, segmentationNode)
-    self._findAndSetGeometryReference(loadable.referencedSeriesUID, segmentationNode)
+    if hasattr(loadable, "referencedSeriesUID"):
+      self._findAndSetGeometryReference(loadable.referencedSeriesUID, segmentationNode)
 
   def _importSegmentAndRemoveLabel(self, segmentLabelNode, segmentationNode):
     segmentationsLogic = slicer.modules.segmentations.logic()
@@ -347,7 +348,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
           else:
             raise ValueError("Export canceled")
         slicer.dicomDatabase.insert(segFilePath)
-        logging.info("Added segmentation to DICOM database (%s)", segFilePath)
+        logging.info("Added segmentation to DICOM database (" +segFilePath+")")
       except (DICOMSegmentationExporter.NoNonEmptySegmentsFoundError, ValueError) as exc:
         return exc.message
       finally:
