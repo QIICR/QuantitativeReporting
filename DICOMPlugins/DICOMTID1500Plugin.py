@@ -22,8 +22,6 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
   def __init__(self):
     DICOMPluginBase.__init__(self)
     self.loadType = "DICOM Structured Report TID1500"
-    self.segPlugin = slicer.modules.dicomPlugins["DICOMSegmentationPlugin"]()
-    self.rwvmPlugin = slicer.modules.dicomPlugins["DICOMRWVMPlugin"]()
 
   def examineFiles(self, files):
     loadables = []
@@ -85,6 +83,8 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
     loadable.ReferencedOtherInstanceUIDs = []
     loadable.referencedInstanceUIDs = []
 
+    segPlugin = slicer.modules.dicomPlugins["DICOMSegmentationPlugin"]()
+
     for dataset in datasets:
       uid = self.getDICOMValue(dataset, "SOPInstanceUID")
       loadable.ReferencedSegmentationInstanceUIDs[uid] = []
@@ -105,7 +105,7 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
                 loadable.ReferencedOtherInstanceUIDs.append(refSOPSequence.ReferencedSOPInstanceUID)
 
       for segSeriesInstanceUID in loadable.ReferencedSegmentationInstanceUIDs[uid]:
-        segLoadables = self.segPlugin.examine([slicer.dicomDatabase.filesForSeries(segSeriesInstanceUID)])
+        segLoadables = segPlugin.examine([slicer.dicomDatabase.filesForSeries(segSeriesInstanceUID)])
         for segLoadable in segLoadables:
           loadable.referencedInstanceUIDs += segLoadable.referencedInstanceUIDs
 
@@ -142,17 +142,19 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
     sortedUIDs = self.sortReportsByDateTime(loadable.uids)
     logging.debug("after sorting: %s" % sortedUIDs)
 
+    segPlugin = slicer.modules.dicomPlugins["DICOMSegmentationPlugin"]()
+
     tables = []
 
     for idx, uid in enumerate(sortedUIDs):
 
       for segSeriesInstanceUID in loadable.ReferencedSegmentationInstanceUIDs[uid]:
-        segLoadables = self.segPlugin.examine([slicer.dicomDatabase.filesForSeries(segSeriesInstanceUID)])
+        segLoadables = segPlugin.examine([slicer.dicomDatabase.filesForSeries(segSeriesInstanceUID)])
         for segLoadable in segLoadables:
           if hasattr(segLoadable, "referencedSegInstanceUIDs"):
             segLoadable.referencedSegInstanceUIDs = list(set(segLoadable.referencedSegInstanceUIDs) -
                                                          set(loadable.referencedInstanceUIDs))
-          self.segPlugin.load(segLoadable)
+          segPlugin.load(segLoadable)
           if hasattr(segLoadable, "referencedSeriesUID") and len(loadable.ReferencedRWVMSeriesInstanceUIDs) > 0:
             self.determineAndApplyRWVMToReferencedSeries(loadable, segLoadable)
 
@@ -234,6 +236,7 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
     if len(rwvmFiles) > 0:
       # consider only the first item on the list - there should be only
       # one anyway, for the cases we are handling at the moment
+      rwvmPlugin = slicer.modules.dicomPlugins["DICOMRWVMPlugin"]()
       rwvmFile = rwvmFiles[0]
       logging.debug("Reading RWVM from " + rwvmFile)
       rwvmDataset = dicom.read_file(rwvmFile)
@@ -243,8 +246,8 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
             logging.debug("SEG references the same image series that is referenced by the RWVM series referenced from "
                           "SR. Will load via RWVM.")
             logging.debug("Examining " + rwvmFile)
-            rwvmLoadables = self.rwvmPlugin.examine([[rwvmFile]])
-            self.rwvmPlugin.load(rwvmLoadables[0])
+            rwvmLoadables = rwvmPlugin.examine([[rwvmFile]])
+            rwvmPlugin.load(rwvmLoadables[0])
     else:
       logging.warning("RWVM is referenced from SR, but is not found in the DICOM database!")
 
