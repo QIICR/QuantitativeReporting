@@ -481,7 +481,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.segmentEditorWidget.editor.setMasterVolumeNode(None)
     self.calculateAutomaticallyCheckbox.checked = True
     self.tableNode = node
-    self.hideAllSegmentations()
+    #self.hideAllSegmentations()
     if node is None:
       self.segmentEditorWidget.editor.setSegmentationNode(None)
       self.updateImportArea(None)
@@ -520,7 +520,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self._configureReadWriteAccess()
 
   def _configureSegmentationNode(self, node):
-    self.hideAllSegmentations()
+    #self.hideAllSegmentations()
     self.segmentEditorWidget.editor.setSegmentationNode(node)
     node.SetDisplayVisibility(True)
 
