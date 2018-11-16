@@ -191,6 +191,10 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
 
       table = self.metadata2vtkTableNode(outputFile)
       if table:
+        with open(outputFile, 'r') as srMetadataFile:
+          srMetadataJSON = json.loads(srMetadataFile.read())
+          table.SetName(srMetadataJSON["SeriesDescription"])
+
         # TODO: think about the following...
         segmentationNode = slicer.util.getNodesByClass('vtkMRMLSegmentationNode')[-1]
         segmentationNodeID = segmentationNode.GetID()

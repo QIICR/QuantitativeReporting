@@ -48,15 +48,12 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
       if isDicomSeg:
         loadable = DICOMLoadable()
         loadable.files = [cFile]
-        loadable.name = desc + ' - as a DICOM SEG object'
-        loadable.tooltip = loadable.name
+        loadable.name = desc
+        loadable.tooltip = loadable.name + ' - as a DICOM SEG object'
         loadable.selected = True
         loadable.confidence = 0.95
         loadable.uid = uid
         self.addReferences(loadable)
-        refName = self.referencedSeriesName(loadable)
-        if refName != "":
-          loadable.name = refName + " " + desc + " - Segmentations"
 
         loadables.append(loadable)
 
@@ -183,7 +180,11 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
 
           # load the segmentation volume file and name it for the reference series and segment color
           labelFileName = os.path.join(self.tempDir, str(segmentId) + ".nrrd")
-          segmentName = seriesName + "-" + typeCodeMeaning + "-label"
+	  if segment["SegmentDescription"] is None:
+            segmentName = seriesName + "-" + typeCodeMeaning + "-label"
+          else:
+            segmentName = segment["SegmentDescription"]
+
           success, labelNode = slicer.util.loadLabelVolume(labelFileName,properties={'name': segmentName},
                                                            returnNode=True)
           if not success:
@@ -248,7 +249,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
 
   def _initializeSegmentation(self, loadable):
     segmentationNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
-    segmentationNode.SetName(self.referencedSeriesName(loadable))
+    segmentationNode.SetName(loadable.name)
 
     segmentationDisplayNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationDisplayNode")
     segmentationNode.SetAndObserveDisplayNodeID(segmentationDisplayNode.GetID())
