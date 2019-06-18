@@ -129,6 +129,8 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
     dataset = dicom.read_file(filename)
     seriesDate = dataset.SeriesDate
     seriesTime = dataset.SeriesTime
+    if seriesTime.find("."):
+      seriesTime = seriesTime.split(".")[0]
     return datetime.datetime.strptime(seriesDate+seriesTime, '%Y%m%d%H%M%S')
 
   def load(self, loadable):
