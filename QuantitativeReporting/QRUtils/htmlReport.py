@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+from __future__ import print_function
 import os
 import webbrowser
 
@@ -12,6 +14,7 @@ from SlicerDevelopmentToolboxUtils.constants import DICOMTAGS
 from SlicerDevelopmentToolboxUtils.mixins import ModuleWidgetMixin, ModuleLogicMixin
 
 import vtkSegmentationCorePython as vtkSegmentationCore
+from six.moves import range
 
 
 class ScreenShotHelper(ModuleWidgetMixin):
@@ -186,7 +189,7 @@ class HTMLReportCreator(ScreenShotHelper):
     body {
       font-family: Helvetica, Arial;
     }
-    
+
     h2 {
       color: #2e6c80;
     }
@@ -221,7 +224,7 @@ class HTMLReportCreator(ScreenShotHelper):
         <style type=\"text/css\">{0}</style>
         <body>
           {1}
-        </body> 
+        </body>
        </html>
     '''
 
@@ -244,7 +247,7 @@ class HTMLReportCreator(ScreenShotHelper):
     if not os.path.exists(outputPath):
       ModuleLogicMixin.createDirectory(outputPath)
     outputHTML = os.path.join(outputPath, currentDateTime()+"_testReport.html")
-    print outputHTML
+    print(outputHTML)
     f = open(outputHTML, 'w')
     f.write(html)
     f.close()
@@ -330,7 +333,7 @@ class HTMLReportCreator(ScreenShotHelper):
               <td>{3}</td>
               <td>{4}</td>
             </tr>
-          </table>  
+          </table>
           <br>
           <table border=1 width='100%' cellPadding=3 cellSpacing=0>
             <thead border=1>
@@ -378,7 +381,7 @@ class HTMLReportCreator(ScreenShotHelper):
     html = '''
       <table border=0 width='100%' cellPadding=3 cellSpacing=0>
         {}{}{}{}{}
-      </table> 
+      </table>
     '''.format(self.infoRow.format("Category:", terminologyEntry.GetCategoryObject().GetCodeMeaning()),
                self.infoRow.format("Category Type:", terminologyEntry.GetTypeObject().GetCodeMeaning()),
                self.infoRow.format("Category Type Modifier:", catModifier) if catModifier else "",

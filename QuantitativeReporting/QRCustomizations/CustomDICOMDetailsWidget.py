@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 import vtk
 from DICOMLib import DICOMDetailsWidget
 from SlicerDevelopmentToolboxUtils.mixins import ParameterNodeObservationMixin

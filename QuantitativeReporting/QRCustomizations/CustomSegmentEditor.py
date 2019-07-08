@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 import qt
 import slicer
 import vtk
@@ -11,6 +12,7 @@ from slicer.ScriptedLoadableModule import ScriptedLoadableModuleLogic
 from SegmentEditor import SegmentEditorWidget
 
 import vtkSegmentationCorePython as vtkSegmentationCore
+from six.moves import range
 
 
 class CustomSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):

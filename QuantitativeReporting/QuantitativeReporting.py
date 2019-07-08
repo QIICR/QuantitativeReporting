@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+from __future__ import print_function
 import json
 import logging
 import os
@@ -655,7 +657,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
   def _persistEnteredMetaData(self, metadata):
     settings = qt.QSettings()
     settings.beginGroup("QuantitativeReporting/GeneralContentInformationDefaults")
-    for attr in metadata.keys():
+    for attr in list(metadata.keys()):
       settings.setValue(attr, metadata[attr])
     settings.endGroup()
 
@@ -789,7 +791,7 @@ class QuantitativeReportingSlicelet(qt.QWidget, ModuleWidgetMixin):
 
   def onSplitterMoved(self, pos, index):
     vScroll = self.scrollArea.verticalScrollBar()
-    print self.moduleFrame.width, self.widget.parent.width, self.scrollArea.width, vScroll.width
+    print(self.moduleFrame.width, self.widget.parent.width, self.scrollArea.width, vScroll.width)
     vScrollbarWidth = 4 if not vScroll.isVisible() else vScroll.width + 4 # TODO: find out, what is 4px wide
     if self.scrollArea.minimumWidth != self.widget.parent.minimumSizeHint.width() + vScrollbarWidth:
       self.scrollArea.setMinimumWidth(self.widget.parent.minimumSizeHint.width() + vScrollbarWidth)
@@ -804,6 +806,6 @@ class QuantitativeReportingSlicelet(qt.QWidget, ModuleWidgetMixin):
 
 if __name__ == "QuantitativeReportingSlicelet":
   import sys
-  print( sys.argv )
+  print(( sys.argv ))
 
   slicelet = QuantitativeReportingSlicelet()

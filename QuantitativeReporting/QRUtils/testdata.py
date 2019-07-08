@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 import ctk
 import os
 import slicer
@@ -5,6 +6,7 @@ import qt
 import logging
 import urllib
 from slicer.ScriptedLoadableModule import ScriptedLoadableModuleLogic
+import six
 
 
 
@@ -50,7 +52,7 @@ class TestDataLogic(ScriptedLoadableModuleLogic):
     slicer.util.delayDisplay("Downloading", 1000)
 
     downloaded = {}
-    for kind, (url, filename) in TestDataLogic.collections[collection].iteritems():
+    for kind, (url, filename) in six.iteritems(TestDataLogic.collections[collection]):
       filePath = os.path.join(TestDataLogic.DOWNLOAD_DIRECTORY, collection, filename)
       if not os.path.exists(os.path.dirname(filePath)):
         os.makedirs(os.path.dirname(filePath))
