@@ -4,7 +4,7 @@ import os
 import slicer
 import qt
 import logging
-import urllib
+from urllib.request import urlretrieve
 from slicer.ScriptedLoadableModule import ScriptedLoadableModuleLogic
 import six
 
@@ -59,7 +59,7 @@ class TestDataLogic(ScriptedLoadableModuleLogic):
       logging.debug('Saving download %s to %s ' % (filename, filePath))
       if not os.path.exists(filePath) or os.stat(filePath).st_size == 0:
         slicer.util.delayDisplay('Requesting download %s from %s...\n' % (filename, url), 1000)
-        urllib.urlretrieve(url, filePath)
+        urlretrieve(url, filePath)
       expectedOutput = TestDataLogic.getUnzippedDirectoryPath(collection, kind)
       if not os.path.exists(expectedOutput) or not len(os.listdir(expectedOutput)):
         logging.debug('Unzipping data into %s' % expectedOutput)

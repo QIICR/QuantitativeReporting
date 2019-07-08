@@ -180,7 +180,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
 
           # load the segmentation volume file and name it for the reference series and segment color
           labelFileName = os.path.join(self.tempDir, str(segmentId) + ".nrrd")
-	  if segment["SegmentDescription"] is None:
+          if segment["SegmentDescription"] is None:
             segmentName = seriesName + "-" + typeCodeMeaning + "-label"
           else:
             segmentName = segment["SegmentDescription"]

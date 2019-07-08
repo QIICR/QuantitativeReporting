@@ -2,6 +2,7 @@ from __future__ import absolute_import
 import qt
 import slicer
 import vtk
+import os
 
 
 from QRCustomizations.CustomSegmentStatistics import CustomSegmentStatisticsLogic
@@ -47,6 +48,10 @@ class CustomSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
   def __init__(self, parent):
     SegmentEditorWidget.__init__(self, parent)
     self.logic = CustomSegmentEditorLogic()
+
+  def resourcePath(self, filename):
+    scriptedModulesPath = os.path.dirname(slicer.util.modulePath("QuantitativeReporting"))
+    return os.path.join(scriptedModulesPath, 'Resources', filename)
 
   def setup(self):
     super(CustomSegmentEditorWidget, self).setup()
