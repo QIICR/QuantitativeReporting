@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 import glob
 import os
 import json
@@ -12,6 +13,7 @@ from DICOMLib import DICOMLoadable
 
 from SlicerDevelopmentToolboxUtils.mixins import ModuleLogicMixin
 from SlicerDevelopmentToolboxUtils.constants import DICOMTAGS
+from six.moves import range
 
 
 #
@@ -142,7 +144,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
         for segment in segmentAttributes:
           try:
             rgb255 = segment["recommendedDisplayRGBValue"]
-            rgb = map(lambda c: float(c) / 255., rgb255)
+            rgb = [float(c) / 255. for c in rgb255]
           except KeyError:
             rgb = (0., 0., 0.)
 
@@ -185,10 +187,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
           else:
             segmentName = segment["SegmentDescription"]
 
-          success, labelNode = slicer.util.loadLabelVolume(labelFileName,properties={'name': segmentName},
-                                                           returnNode=True)
-          if not success:
-            raise ValueError("{} could not be loaded into Slicer!".format(labelFileName))
+          labelNode = slicer.util.loadLabelVolume(labelFileName,properties={'name': segmentName})
 
           # Set terminology properties as attributes to the label node (which is a temporary node)
           #TODO: This is a quick solution, maybe there is a better one
