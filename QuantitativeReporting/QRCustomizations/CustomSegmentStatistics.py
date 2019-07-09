@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 import logging
 import slicer
 import qt
@@ -121,7 +122,7 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
 
       data["Finding"] = self.createJSONFromTerminologyContext(terminologyEntry)["SegmentedPropertyTypeCodeSequence"]
       anatomicContext = self.createJSONFromAnatomicContext(terminologyEntry)
-      if anatomicContext.has_key("AnatomicRegionSequence"):
+      if "AnatomicRegionSequence" in anatomicContext:
         data["FindingSite"] = anatomicContext["AnatomicRegionSequence"]
       data["measurementItems"] = self.createMeasurementItemsForLabelValue(segmentID)
       measurements.append(data)
@@ -137,7 +138,7 @@ class CustomSegmentStatisticsLogic(SegmentStatisticsLogic):
         item["value"] = str(self.statistics[segmentValue, key])
         item["quantity"] = self._createCodeSequence(measurementInfo["DICOM.QuantityCode"])
         item["units"] = self._createCodeSequence(measurementInfo["DICOM.UnitsCode"])
-        if measurementInfo.has_key("DICOM.DerivationCode"):
+        if "DICOM.DerivationCode" in measurementInfo:
           item["derivationModifier"] = self._createCodeSequence(measurementInfo["DICOM.DerivationCode"])
         measurementItems.append(item)
     return measurementItems

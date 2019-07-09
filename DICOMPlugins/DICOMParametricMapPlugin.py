@@ -105,7 +105,7 @@ class DICOMParametricMapPluginClass(DICOMPluginBase):
       self.cleanup()
       return False
 
-    (_,pmNode) = slicer.util.loadVolume(os.path.join(self.tempDir,"pmap.nrrd"), returnNode=True)
+    pmNode = slicer.util.loadVolume(os.path.join(self.tempDir,"pmap.nrrd"))
 
     # load the metadata JSON to retrieve volume semantics (quantity stored and units)
     with open(os.path.join(self.tempDir,"meta.json")) as metafile:

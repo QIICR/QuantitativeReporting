@@ -1,10 +1,12 @@
+from __future__ import absolute_import
 import ctk
 import os
 import slicer
 import qt
 import logging
-import urllib
+from urllib.request import urlretrieve
 from slicer.ScriptedLoadableModule import ScriptedLoadableModuleLogic
+import six
 
 
 
@@ -50,14 +52,14 @@ class TestDataLogic(ScriptedLoadableModuleLogic):
     slicer.util.delayDisplay("Downloading", 1000)
 
     downloaded = {}
-    for kind, (url, filename) in TestDataLogic.collections[collection].iteritems():
+    for kind, (url, filename) in six.iteritems(TestDataLogic.collections[collection]):
       filePath = os.path.join(TestDataLogic.DOWNLOAD_DIRECTORY, collection, filename)
       if not os.path.exists(os.path.dirname(filePath)):
         os.makedirs(os.path.dirname(filePath))
       logging.debug('Saving download %s to %s ' % (filename, filePath))
       if not os.path.exists(filePath) or os.stat(filePath).st_size == 0:
         slicer.util.delayDisplay('Requesting download %s from %s...\n' % (filename, url), 1000)
-        urllib.urlretrieve(url, filePath)
+        urlretrieve(url, filePath)
       expectedOutput = TestDataLogic.getUnzippedDirectoryPath(collection, kind)
       if not os.path.exists(expectedOutput) or not len(os.listdir(expectedOutput)):
         logging.debug('Unzipping data into %s' % expectedOutput)
