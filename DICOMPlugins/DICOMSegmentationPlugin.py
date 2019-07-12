@@ -316,7 +316,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
     exportable.subjectHierarchyItemID = subjectHierarchyItemID
     exportable.pluginClass = self.__module__
     # Define common required tags and default values
-    exportable.setTag('SeriesDescription', 'No series description')
+    exportable.setTag('SeriesDescription', 'Segmentation')
     exportable.setTag('SeriesNumber', '1')
     return [exportable]
 
@@ -338,14 +338,20 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
 
       exporter = DICOMSegmentationExporter(segmentationNode)
 
+      metadata = {}
+      for attr in ["SeriesDescription", "ContentCreatorName", "ClinicalTrialSeriesID", "ClinicalTrialTimePointID",
+        "ClinicalTrialCoordinatingCenterName"]:
+        if exportable.tag(attr) != "":
+          metadata[attr] = exportable.tag(attr)
+
       try:
         segFileName = "subject_hierarchy_export.SEG" + exporter.currentDateTime + ".dcm"
         segFilePath = os.path.join(exportable.directory, segFileName)
         try:
-          exporter.export(exportable.directory, segFileName)
+          exporter.export(exportable.directory, segFileName, metadata)
         except DICOMSegmentationExporter.EmptySegmentsFoundError as exc:
           if slicer.util.confirmYesNoDisplay(exc.message):
-            exporter.export(exportable.directory, segFileName, skipEmpty=True)
+            exporter.export(exportable.directory, segFileName, metadata, skipEmpty=True)
           else:
             raise ValueError("Export canceled")
         slicer.dicomDatabase.insert(segFilePath)
@@ -449,12 +455,21 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     data = self.getSeriesAttributes()
     data.update(metadata)
 
-    try:
-      for attr in ["SeriesDescription", "ContentCreatorName", "ClinicalTrialSeriesID", "ClinicalTrialTimePointID",
-                   "ClinicalTrialCoordinatingCenterName"]:
-        data[attr]
-    except KeyError as exc:
-      raise self.MissingAttributeError(str(exc))
+    metadataDefaults = {}
+    metadataDefaults["SeriesDescription"] = "Segmentation"
+    metadataDefaults["ContentCreatorName"] = self.contentCreatorName
+    metadataDefaults["ClinicalTrialSeriesID"] = "1"
+    metadataDefaults["ClinicalTrialTimePointID"] = "1"
+    metadataDefaults["ClinicalTrialCoordinatingCenterName"] = "QIICR"
+    
+    for attr in ["SeriesDescription", "ContentCreatorName", "ClinicalTrialSeriesID", "ClinicalTrialTimePointID",
+                 "ClinicalTrialCoordinatingCenterName"]:
+      try:
+        if data[attr] == "":
+          data[attr] = metadataDefaults[attr]
+
+      except KeyError as exc:
+        data[attr] = metadataDefaults[attr]
 
     self.formatMetaDataDICOMConform(data)
 
