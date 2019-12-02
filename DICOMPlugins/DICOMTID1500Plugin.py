@@ -4,7 +4,7 @@ import os
 import vtk
 import datetime
 from collections import Counter
-import dicom
+import pydicom
 
 import slicer
 from DICOMLib import DICOMLoadable
@@ -27,7 +27,7 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
     loadables = []
 
     for cFile in files:
-      dataset = dicom.read_file(cFile)
+      dataset = pydicom.read_file(cFile)
 
       uid = self.getDICOMValue(dataset, "SOPInstanceUID")
       if uid == "":
