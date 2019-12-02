@@ -26,7 +26,6 @@ from QRUtils.testdata import TestDataLogic
 
 from QRCustomizations.CustomSegmentStatistics import CustomSegmentStatisticsParameterEditorDialog
 from QRCustomizations.CustomSegmentEditor import CustomSegmentEditorWidget
-from QRCustomizations.CustomDICOMDetailsWidget import CustomDICOMDetailsWidget
 from QRCustomizations.SegmentEditorAlgorithmTracker import SegmentEditorAlgorithmTracker
 
 
@@ -79,7 +78,6 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self._useOrCreateSegmentationNodeAndConfigure()
     self.segmentEditorWidget.editor.masterVolumeNodeChanged.connect(self.onImageVolumeSelected)
     self.segmentEditorWidget.editor.segmentationNodeChanged.connect(self.onSegmentationSelected)
-    # self.setupDICOMBrowser()
     qt.QTimer.singleShot(0, lambda: self.updateSizes(self.tabWidget.currentIndex))
 
   def exit(self):
@@ -174,18 +172,6 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
     self.tabWidget.setIconSize(qt.QSize(85, 30))
     self.tabWidget.addTab(self.mainModuleWidget, 'QR')
-
-  def setupDICOMBrowser(self):
-    self.dicomBrowser = CustomDICOMDetailsWidget()
-    self.dicomBrowser.addEventObserver(CustomDICOMDetailsWidget.FinishedLoadingEvent, self.onLoadingFinishedEvent)
-    self.tabWidget.addTab(self.dicomBrowser, 'DICOM')
-
-  def removeDICOMBrowser(self):
-    if not self.dicomBrowser:
-      return
-    self.dicomBrowser.removeEventObserver(CustomDICOMDetailsWidget.FinishedLoadingEvent, self.onLoadingFinishedEvent)
-    self.tabWidget.removeTab(self.tabWidget.indexOf(self.dicomBrowser))
-    self.dicomBrowser = None
 
   def enableReportButtons(self, enabled):
     self.saveReportButton.enabled = enabled
