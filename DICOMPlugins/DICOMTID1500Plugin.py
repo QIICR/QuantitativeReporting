@@ -126,7 +126,7 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
 
   def getDateTime(self, uid):
     filename = slicer.dicomDatabase.fileForInstance(uid)
-    dataset = dicom.read_file(filename)
+    dataset = pydicom.read_file(filename)
     seriesDate = dataset.SeriesDate
     seriesTime = dataset.SeriesTime
     if seriesTime.find("."):
@@ -245,7 +245,7 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
       rwvmPlugin = slicer.modules.dicomPlugins["DICOMRWVMPlugin"]()
       rwvmFile = rwvmFiles[0]
       logging.debug("Reading RWVM from " + rwvmFile)
-      rwvmDataset = dicom.read_file(rwvmFile)
+      rwvmDataset = pydicom.read_file(rwvmFile)
       if hasattr(rwvmDataset, "ReferencedSeriesSequence"):
         if hasattr(rwvmDataset.ReferencedSeriesSequence[0], "SeriesInstanceUID"):
           if rwvmDataset.ReferencedSeriesSequence[0].SeriesInstanceUID == segLoadable.referencedSeriesUID:
@@ -349,7 +349,7 @@ class DICOMLongitudinalTID1500PluginClass(DICOMTID1500PluginClass):
     loadables = []
 
     for cFile in files:
-      dataset = dicom.read_file(cFile)
+      dataset = pydicom.read_file(cFile)
 
       uid = self.getDICOMValue(dataset, "SOPInstanceUID")
       if uid == "":
@@ -389,7 +389,7 @@ class DICOMLongitudinalTID1500PluginClass(DICOMTID1500PluginClass):
       foundSRs = []
       for s in series:
         srFile = self.fileForSeries(s)
-        tempDCM = dicom.read_file(srFile)
+        tempDCM = pydicom.read_file(srFile)
         if self.isDICOMTID1500(tempDCM):
           foundSRs.append(srFile)
           otherSRDatasets.append(tempDCM)
