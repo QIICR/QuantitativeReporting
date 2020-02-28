@@ -622,7 +622,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
         indexer.addFile(slicer.dicomDatabase, dcmSegPath, "copy")
         indexer.addFile(slicer.dicomDatabase, dcmSRPath, "copy")
     except (RuntimeError, ValueError, AttributeError) as exc:
-      return False, exc.message
+      return False, exc.args
     finally:
       self.cleanupTemporaryData()
     return True, None
@@ -669,7 +669,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       slicer.dicomDatabase.insert(dcmSegmentationPath)
       logging.info("Added segmentation to DICOM database (%s)", dcmSegmentationPath)
     except (DICOMSegmentationExporter.NoNonEmptySegmentsFoundError, ValueError) as exc:
-      raise ValueError(exc.message)
+      raise ValueError(exc.args)
     return dcmSegmentationPath
 
   def createDICOMSR(self, referencedSegmentation, completed):
