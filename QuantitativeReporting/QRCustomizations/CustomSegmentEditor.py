@@ -55,12 +55,13 @@ class CustomSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
 
   def setup(self):
     super(CustomSegmentEditorWidget, self).setup()
-    if self.developerMode:
-      self.reloadCollapsibleButton.hide()
     self.editor.switchToSegmentationsButtonVisible = False
     self.editor.segmentationNodeSelectorVisible = False
     self.editor.setEffectButtonStyle(qt.Qt.ToolButtonIconOnly)
     self.clearSegmentationEditorSelectors()
+  
+  def setupDeveloperSection(self):
+    return
 
   def onSegmentSelected(self, selectedRow):
     try:

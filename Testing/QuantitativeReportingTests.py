@@ -42,9 +42,10 @@ class QuantitativeReportingTests:
       slicer.selfTests = {}
     slicer.selfTests['QuantitativeReporting'] = self.runTest
 
-  def runTest(self):
+  def runTest(self, msec=100, **kwargs):
     tester = QuantitativeReportingTest()
-    tester.runTest()
+    tester.messageDelay = msec
+    tester.runTest(**kwargs)
 
 
 class QuantitativeReportingTestsWidget(ScriptedLoadableModuleWidget):
@@ -158,7 +159,8 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
       cacheAutoLoadReferences = qt.QSettings().value('DICOM/automaticallyLoadReferences')
       qt.QSettings().setValue(settings, qt.QMessageBox.Yes)
 
-      qrWidget.loadSeries(self.data['sr']['uid'])
+      qrWidget.loadSeries(self.data['sr']['uid']) # note: this no longer loads referenced data recursively; this functionality only works whithin the DICOMbrowser GUI
+      qrWidget.loadSeries(self.data['volume']['uid']) # load volume manually for test
 
       qt.QSettings().setValue(settings, cacheAutoLoadReferences)
 
@@ -248,9 +250,12 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
 
       labels = []
       for f in [os.path.join(segmentationsDir, f) for f in os.listdir(segmentationsDir) if f.endswith(".nrrd")]:
-        _, label = slicer.util.loadVolume(f, {'labelmap': True}, returnNode=True)
+        label = slicer.util.loadLabelVolume(f)
         if label:
           labels.append(label)
+          
+      o = labels[0].GetOrigin()
+      qrWidget.segmentEditorWidget.masterVolumeNode.SetOrigin(o[0], o[1], o[2]) # mimic origin as produced by Slicer 4.10
 
       labelImportLogic = qrWidget.labelMapImportWidget.logic
 
