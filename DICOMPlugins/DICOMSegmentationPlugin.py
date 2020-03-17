@@ -150,7 +150,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
 
           segmentId = segment["labelID"]
 
-          defaults = ['T-D0050', 'Tissue', 'SRT']
+          defaults = ['85756007', 'Tissue', 'SCT']
           categoryCode, categoryCodingScheme, categoryCodeMeaning = \
             self.getValuesFromCodeSequence(segment, "SegmentedPropertyCategoryCodeSequence", defaults)
 
@@ -160,7 +160,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
           typeModCode, typeModCodingScheme, typeModCodeMeaning = \
             self.getValuesFromCodeSequence(segment, "SegmentedPropertyTypeModifierCodeSequence")
 
-          anatomicRegionDefaults = ['T-D0010', 'SRT', 'Entire Body']
+          anatomicRegionDefaults = ['38266002', 'SCT', 'Entire Body']
           regionCode, regionCodingScheme, regionCodeMeaning = \
             self.getValuesFromCodeSequence(segment, "AnatomicRegionSequence", anatomicRegionDefaults)
 
