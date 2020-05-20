@@ -4,7 +4,11 @@ import os
 import vtk
 import datetime
 from collections import Counter
+
+import numpy
+import random
 import pydicom
+
 
 import slicer
 from DICOMLib import DICOMLoadable
@@ -22,6 +26,18 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
   def __init__(self):
     DICOMPluginBase.__init__(self)
     self.loadType = "DICOM Structured Report TID1500"
+
+    self.codings = {
+      "imagingMeasurementReport": { "scheme": "DCM", "value": "126000" },
+      "personObserver": { "scheme": "DCM", "value": "121008" },
+      "imagingMeasuremnts": { "scheme": "DCM", "value": "126010" },
+      "measurementGroup": { "scheme": "DCM", "value": "125007" },
+      "trackingIdentifier": { "scheme": "DCM", "value": "112039" },
+      "trackingUniqueIdentifier": { "scheme": "DCM", "value": "112040" },
+      "findingSite": { "scheme": "SRT", "value": "G-C0E3" },
+      "length": { "scheme": "SRT", "value": "G-D7FE" },
+    }
+
 
   def examineFiles(self, files):
     loadables = []
@@ -127,11 +143,20 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
   def getDateTime(self, uid):
     filename = slicer.dicomDatabase.fileForInstance(uid)
     dataset = pydicom.read_file(filename)
-    seriesDate = dataset.SeriesDate
-    seriesTime = dataset.SeriesTime
-    if seriesTime.find("."):
-      seriesTime = seriesTime.split(".")[0]
-    return datetime.datetime.strptime(seriesDate+seriesTime, '%Y%m%d%H%M%S')
+    if hasattr(dataset, 'SeriesDate') and hasattr(dataset, "SeriesTime"):
+      date = dataset.SeriesDate
+      time = dataset.SeriesTime
+    elif hasattr(dataset, 'StudyDate') and hasattr(dataset, "StudyTime"):
+      date = dataset.StudyDate
+      time = dataset.StudyDate
+    else:
+      date = ""
+      time = ""
+    try:
+      dateTime = datetime.datetime.strptime(date+time, '%Y%m%d%H%M%S')
+    except ValueError:
+      dateTime = ""
+    return dateTime
 
   def load(self, loadable):
     logging.debug('DICOM SR TID1500 load()')
@@ -198,18 +223,22 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
           table.SetName(srMetadataJSON["SeriesDescription"])
 
         # TODO: think about the following...
-        segmentationNode = slicer.util.getNodesByClass('vtkMRMLSegmentationNode')[-1]
-        segmentationNodeID = segmentationNode.GetID()
-        table.SetAttribute("ReferencedSegmentationNodeID", segmentationNodeID)
+        if len(slicer.util.getNodesByClass('vtkMRMLSegmentationNode')) > 0:
+          segmentationNode = slicer.util.getNodesByClass('vtkMRMLSegmentationNode')[-1]
+          segmentationNodeID = segmentationNode.GetID()
+          table.SetAttribute("ReferencedSegmentationNodeID", segmentationNodeID)
 
-        # TODO: think about a better solution for finding related reports
-        if idx-1 > -1:
-          table.SetAttribute("PriorReportUID", sortedUIDs[idx-1])
-          tables[idx-1].SetAttribute("FollowUpReportUID", uid)
-        table.SetAttribute("SOPInstanceUID", uid)
-        self.assignTrackingUniqueIdentifier(outputFile, segmentationNode)
+          # TODO: think about a better solution for finding related reports
+          if idx-1 > -1:
+            table.SetAttribute("PriorReportUID", sortedUIDs[idx-1])
+            tables[idx-1].SetAttribute("FollowUpReportUID", uid)
+          table.SetAttribute("SOPInstanceUID", uid)
+          self.assignTrackingUniqueIdentifier(outputFile, segmentationNode)
 
       tables.append(table)
+
+      self.loadAdditionalMeasurements(uid)
+
       self.cleanup()
 
     return len(tables) > 0
@@ -276,7 +305,6 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
   def addMeasurementsToTable(self, data, table):
     for measurement in data["Measurements"]:
       name = measurement["TrackingIdentifier"]
-      value = measurement["ReferencedSegment"]
       rowIndex = table.AddEmptyRow()
       table.SetCellText(rowIndex, 0, name)
       for columnIndex, measurementItem in enumerate(measurement["measurementItems"]):
@@ -292,7 +320,7 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
 
   def setupTableInformation(self, measurement, table):
     col = table.AddColumn()
-    col.SetName("Segment")
+    col.SetName("Tracking Identifier")
 
     infoItems = self.enumerateDuplicateNames(self.generateMeasurementInformation(measurement["measurementItems"]))
 
@@ -337,6 +365,80 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
     for idx, item in enumerate(nameListCopy):
       items[idx]["name"] = item
     return items
+
+  def isConcept(self, item, coding):
+    code = item.ConceptNameCodeSequence[0]
+    return code.CodingSchemeDesignator == self.codings[coding]["scheme"] and code.CodeValue == self.codings[coding]["value"]
+
+  def loadAdditionalMeasurements(self, srUID):
+    """
+    Loads length measements as annotation rulers
+    TODO: need to generalize to other report contents
+    """
+
+    srFilePath = slicer.dicomDatabase.fileForInstance(srUID)
+    sr = dicom.read_file(srFilePath)
+
+    if not self.isConcept(sr, "imagingMeasurementReport"):
+      return sr
+
+    contents = {}
+    measurements = []
+    contents['measurements'] = measurements
+    for item in sr.ContentSequence:
+      if self.isConcept(item, "personObserver"):
+        contents['personObserver'] = item.PersonName
+      if self.isConcept(item, "imagingMeasuremnts"):
+        for contentItem in item.ContentSequence:
+          if self.isConcept(contentItem, "measurementGroup"):
+            measurement = {}
+            for measurementItem in contentItem.ContentSequence:
+              if self.isConcept(measurementItem, "trackingIdentifier"):
+                measurement['trackingIdentifier'] = measurementItem.TextValue
+              if self.isConcept(measurementItem, "trackingUniqueIdentifier"):
+                measurement['trackingUniqueIdentifier'] = measurementItem.UID
+              if self.isConcept(measurementItem, "findingSite"):
+                measurement['findingSite'] = measurementItem.ConceptCodeSequence[0].CodeMeaning
+              if self.isConcept(measurementItem, "length"):
+                for lengthItem in measurementItem.ContentSequence:
+                  measurement['polyline'] = lengthItem.GraphicData
+                  for selectionItem in lengthItem.ContentSequence:
+                    if selectionItem.RelationshipType == "SELECTED FROM":
+                      for reference in selectionItem.ReferencedSOPSequence:
+                        measurement['referencedSOPInstanceUID'] = reference.ReferencedSOPInstanceUID
+                        if hasattr(reference, "ReferencedFrameNumber") and reference.ReferencedFrameNumber != "1":
+                          print('Error - only single frame references supported')
+            measurements.append(measurement)
+
+    for measurement in contents['measurements']:
+      rulerNode = slicer.vtkMRMLAnnotationRulerNode()
+      rulerNode.SetLocked(True)
+      rulerNode.SetName(contents['personObserver'])
+
+      referenceFilePath = slicer.dicomDatabase.fileForInstance(measurement['referencedSOPInstanceUID'])
+      reference = dicom.read_file(referenceFilePath)
+      origin = numpy.array(reference.ImagePositionPatient)
+      alongColumnVector = numpy.array(reference.ImageOrientationPatient[:3])
+      alongRowVector = numpy.array(reference.ImageOrientationPatient[3:])
+      alongColumnVector *= reference.PixelSpacing[1]
+      alongRowVector *= reference.PixelSpacing[0]
+      col1,row1,col2,row2 = measurement['polyline']
+      lpsToRAS = numpy.array([-1,-1,1])
+      p1 = (origin + col1 * alongColumnVector + row1 * alongRowVector) * lpsToRAS
+      p2 = (origin + col2 * alongColumnVector + row2 * alongRowVector) * lpsToRAS
+      rulerNode.SetPosition1(*p1)
+      rulerNode.SetPosition2(*p2)
+
+      rulerNode.Initialize(slicer.mrmlScene)
+      colorIndex = 1 + len(slicer.util.getNodesByClass('vtkMRMLAnnotationRulerNode'))
+      colorNode = slicer.util.getNode("GenericAnatomyColors")
+      color = [0,]*4
+      colorNode.GetColor(colorIndex, color)
+      rulerNode.GetDisplayNode().SetColor(*color[:3])
+      rulerNode.GetAnnotationTextDisplayNode().SetColor(*color[:3])
+      rulerNode.GetAnnotationPointDisplayNode().SetColor(*color[:3])
+      rulerNode.GetAnnotationPointDisplayNode().SetGlyphScale(2)
+      rulerNode.GetAnnotationLineDisplayNode().SetLabelPosition(random.random())
 
 
 class DICOMLongitudinalTID1500PluginClass(DICOMTID1500PluginClass):
