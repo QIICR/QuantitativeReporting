@@ -1,6 +1,8 @@
+from __future__ import absolute_import
 import slicer
 import vtk
 import vtkSegmentationCorePython as vtkSegmentationCore
+from six.moves import range
 
 
 class SegmentEditorAlgorithmTracker(object):

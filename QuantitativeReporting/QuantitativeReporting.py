@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+from __future__ import print_function
 import json
 import logging
 import os
@@ -24,7 +26,6 @@ from QRUtils.testdata import TestDataLogic
 
 from QRCustomizations.CustomSegmentStatistics import CustomSegmentStatisticsParameterEditorDialog
 from QRCustomizations.CustomSegmentEditor import CustomSegmentEditorWidget
-from QRCustomizations.CustomDICOMDetailsWidget import CustomDICOMDetailsWidget
 from QRCustomizations.SegmentEditorAlgorithmTracker import SegmentEditorAlgorithmTracker
 
 
@@ -77,7 +78,6 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       self._useOrCreateSegmentationNodeAndConfigure()
     self.segmentEditorWidget.editor.masterVolumeNodeChanged.connect(self.onImageVolumeSelected)
     self.segmentEditorWidget.editor.segmentationNodeChanged.connect(self.onSegmentationSelected)
-    # self.setupDICOMBrowser()
     qt.QTimer.singleShot(0, lambda: self.updateSizes(self.tabWidget.currentIndex))
 
   def exit(self):
@@ -172,18 +172,6 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
 
     self.tabWidget.setIconSize(qt.QSize(85, 30))
     self.tabWidget.addTab(self.mainModuleWidget, 'QR')
-
-  def setupDICOMBrowser(self):
-    self.dicomBrowser = CustomDICOMDetailsWidget()
-    self.dicomBrowser.addEventObserver(CustomDICOMDetailsWidget.FinishedLoadingEvent, self.onLoadingFinishedEvent)
-    self.tabWidget.addTab(self.dicomBrowser, 'DICOM')
-
-  def removeDICOMBrowser(self):
-    if not self.dicomBrowser:
-      return
-    self.dicomBrowser.removeEventObserver(CustomDICOMDetailsWidget.FinishedLoadingEvent, self.onLoadingFinishedEvent)
-    self.tabWidget.removeTab(self.tabWidget.indexOf(self.dicomBrowser))
-    self.dicomBrowser = None
 
   def enableReportButtons(self, enabled):
     self.saveReportButton.enabled = enabled
@@ -481,7 +469,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self.segmentEditorWidget.editor.setMasterVolumeNode(None)
     self.calculateAutomaticallyCheckbox.checked = True
     self.tableNode = node
-    self.hideAllSegmentations()
+    #self.hideAllSegmentations()
     if node is None:
       self.segmentEditorWidget.editor.setSegmentationNode(None)
       self.updateImportArea(None)
@@ -520,7 +508,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
     self._configureReadWriteAccess()
 
   def _configureSegmentationNode(self, node):
-    self.hideAllSegmentations()
+    #self.hideAllSegmentations()
     self.segmentEditorWidget.editor.setSegmentationNode(node)
     node.SetDisplayVisibility(True)
 
@@ -634,7 +622,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
         indexer.addFile(slicer.dicomDatabase, dcmSegPath, "copy")
         indexer.addFile(slicer.dicomDatabase, dcmSRPath, "copy")
     except (RuntimeError, ValueError, AttributeError) as exc:
-      return False, exc.message
+      return False, exc.args
     finally:
       self.cleanupTemporaryData()
     return True, None
@@ -655,7 +643,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
   def _persistEnteredMetaData(self, metadata):
     settings = qt.QSettings()
     settings.beginGroup("QuantitativeReporting/GeneralContentInformationDefaults")
-    for attr in metadata.keys():
+    for attr in list(metadata.keys()):
       settings.setValue(attr, metadata[attr])
     settings.endGroup()
 
@@ -681,7 +669,7 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
       slicer.dicomDatabase.insert(dcmSegmentationPath)
       logging.info("Added segmentation to DICOM database (%s)", dcmSegmentationPath)
     except (DICOMSegmentationExporter.NoNonEmptySegmentsFoundError, ValueError) as exc:
-      raise ValueError(exc.message)
+      raise ValueError(exc.args)
     return dcmSegmentationPath
 
   def createDICOMSR(self, referencedSegmentation, completed):
@@ -789,7 +777,7 @@ class QuantitativeReportingSlicelet(qt.QWidget, ModuleWidgetMixin):
 
   def onSplitterMoved(self, pos, index):
     vScroll = self.scrollArea.verticalScrollBar()
-    print self.moduleFrame.width, self.widget.parent.width, self.scrollArea.width, vScroll.width
+    print(self.moduleFrame.width, self.widget.parent.width, self.scrollArea.width, vScroll.width)
     vScrollbarWidth = 4 if not vScroll.isVisible() else vScroll.width + 4 # TODO: find out, what is 4px wide
     if self.scrollArea.minimumWidth != self.widget.parent.minimumSizeHint.width() + vScrollbarWidth:
       self.scrollArea.setMinimumWidth(self.widget.parent.minimumSizeHint.width() + vScrollbarWidth)
@@ -804,6 +792,6 @@ class QuantitativeReportingSlicelet(qt.QWidget, ModuleWidgetMixin):
 
 if __name__ == "QuantitativeReportingSlicelet":
   import sys
-  print( sys.argv )
+  print(( sys.argv ))
 
   slicelet = QuantitativeReportingSlicelet()

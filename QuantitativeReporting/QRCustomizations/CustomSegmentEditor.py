@@ -1,6 +1,8 @@
+from __future__ import absolute_import
 import qt
 import slicer
 import vtk
+import os
 
 
 from QRCustomizations.CustomSegmentStatistics import CustomSegmentStatisticsLogic
@@ -11,6 +13,7 @@ from slicer.ScriptedLoadableModule import ScriptedLoadableModuleLogic
 from SegmentEditor import SegmentEditorWidget
 
 import vtkSegmentationCorePython as vtkSegmentationCore
+from six.moves import range
 
 
 class CustomSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
@@ -46,14 +49,19 @@ class CustomSegmentEditorWidget(SegmentEditorWidget, ModuleWidgetMixin):
     SegmentEditorWidget.__init__(self, parent)
     self.logic = CustomSegmentEditorLogic()
 
+  def resourcePath(self, filename):
+    scriptedModulesPath = os.path.dirname(slicer.util.modulePath("QuantitativeReporting"))
+    return os.path.join(scriptedModulesPath, 'Resources', filename)
+
   def setup(self):
     super(CustomSegmentEditorWidget, self).setup()
-    if self.developerMode:
-      self.reloadCollapsibleButton.hide()
     self.editor.switchToSegmentationsButtonVisible = False
     self.editor.segmentationNodeSelectorVisible = False
     self.editor.setEffectButtonStyle(qt.Qt.ToolButtonIconOnly)
     self.clearSegmentationEditorSelectors()
+  
+  def setupDeveloperSection(self):
+    return
 
   def onSegmentSelected(self, selectedRow):
     try:

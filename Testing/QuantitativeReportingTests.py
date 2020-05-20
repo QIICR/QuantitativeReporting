@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+from __future__ import print_function
 import os
 import qt
 import ctk
@@ -11,6 +13,8 @@ import vtkSegmentationCorePython as vtkSegmentationCore
 from QRUtils.testdata import TestDataLogic
 
 from slicer.ScriptedLoadableModule import ScriptedLoadableModuleTest, ScriptedLoadableModuleWidget
+import six
+from six.moves import map
 
 __all__ = ['QuantitativeReportingTest']
 
@@ -38,9 +42,10 @@ class QuantitativeReportingTests:
       slicer.selfTests = {}
     slicer.selfTests['QuantitativeReporting'] = self.runTest
 
-  def runTest(self):
+  def runTest(self, msec=100, **kwargs):
     tester = QuantitativeReportingTest()
-    tester.runTest()
+    tester.messageDelay = msec
+    tester.runTest(**kwargs)
 
 
 class QuantitativeReportingTestsWidget(ScriptedLoadableModuleWidget):
@@ -60,19 +65,19 @@ class QuantitativeReportingTestsWidget(ScriptedLoadableModuleWidget):
   def generateButtons(self):
 
     def onButtonPressed(button):
-      print "pressed button %s" % button.name
+      print("pressed button %s" % button.name)
       tester = QuantitativeReportingTest()
       tester.setUp()
       getattr(tester, button.name)()
 
     buttons = []
-    for testName in [f for f in QuantitativeReportingTest.__dict__.keys() if f.startswith('test_')]:
+    for testName in [f for f in list(QuantitativeReportingTest.__dict__.keys()) if f.startswith('test_')]:
       b = qt.QPushButton(testName)
       b.name = testName
       self.testsCollapsibleButton.layout().addWidget(b)
       buttons.append(b)
 
-    map(lambda b: b.clicked.connect(lambda clicked: onButtonPressed(b)), buttons)
+    list(map(lambda b: b.clicked.connect(lambda clicked: onButtonPressed(b)), buttons))
 
 
 class QuantitativeReportingTest(ScriptedLoadableModuleTest):
@@ -123,7 +128,7 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
   def runTest(self):
     """Run as few or as many tests as needed here.
     """
-    for testName in [f for f in QuantitativeReportingTest.__dict__.keys() if f.startswith('test_')]:
+    for testName in [f for f in list(QuantitativeReportingTest.__dict__.keys()) if f.startswith('test_')]:
       self.setUp()
       getattr(self, testName)()
 
@@ -132,7 +137,7 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
     self.delayDisplay('Starting %s' % inspect.stack()[0][3])
 
     def loadTestData():
-      for imageType, fileData in self.data.iteritems():
+      for imageType, fileData in six.iteritems(self.data):
         if not len(slicer.dicomDatabase.filesForSeries(fileData['uid'])):
           sampleData = TestDataLogic.downloadAndUnzipSampleData(self.collection)
           TestDataLogic.importIntoDICOMDatabase(sampleData[imageType])
@@ -154,7 +159,8 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
       cacheAutoLoadReferences = qt.QSettings().value('DICOM/automaticallyLoadReferences')
       qt.QSettings().setValue(settings, qt.QMessageBox.Yes)
 
-      qrWidget.loadSeries(self.data['sr']['uid'])
+      qrWidget.loadSeries(self.data['sr']['uid']) # note: this no longer loads referenced data recursively; this functionality only works whithin the DICOMbrowser GUI
+      qrWidget.loadSeries(self.data['volume']['uid']) # load volume manually for test
 
       qt.QSettings().setValue(settings, cacheAutoLoadReferences)
 
@@ -203,7 +209,7 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
         'Air': [[2, 60, 100, -127.7], [2, 80, 30, -127.7]]
       }
 
-      for segmentName, segmentGeometry in segmentGeometries.iteritems():
+      for segmentName, segmentGeometry in six.iteritems(segmentGeometries):
         appender = vtk.vtkAppendPolyData()
 
         for sphere in segmentGeometry:
@@ -244,9 +250,12 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
 
       labels = []
       for f in [os.path.join(segmentationsDir, f) for f in os.listdir(segmentationsDir) if f.endswith(".nrrd")]:
-        _, label = slicer.util.loadVolume(f, {'labelmap': True}, returnNode=True)
+        label = slicer.util.loadLabelVolume(f)
         if label:
           labels.append(label)
+          
+      o = labels[0].GetOrigin()
+      qrWidget.segmentEditorWidget.masterVolumeNode.SetOrigin(o[0], o[1], o[2]) # mimic origin as produced by Slicer 4.10
 
       labelImportLogic = qrWidget.labelMapImportWidget.logic
 
