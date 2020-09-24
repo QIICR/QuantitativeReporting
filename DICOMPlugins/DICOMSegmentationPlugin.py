@@ -180,17 +180,18 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
           # files and labelmap nodes
           # if not hasattr(slicer.modules, 'segmentations'):
 
-          # load the segmentation volume file and name it for the reference series and segment color
           labelFileName = os.path.join(self.tempDir, str(segmentId) + ".nrrd")
-          if segment["SegmentDescription"] is None:
-            segmentName = seriesName + "-" + typeCodeMeaning + "-label"
-          else:
-            segmentName = segment["SegmentDescription"]
-
-          labelNode = slicer.util.loadLabelVolume(labelFileName,properties={'name': segmentName})
+          labelNode = slicer.util.loadLabelVolume(labelFileName)
 
           # Set terminology properties as attributes to the label node (which is a temporary node)
-          #TODO: This is a quick solution, maybe there is a better one
+          if segment["SegmentLabel"]:
+            segmentName = segment["SegmentLabel"]
+          elif segment["SegmentDescription"]:
+            segmentName = segment["SegmentDescription"]
+          else:
+            segmentName = typeCodeMeaning
+          labelNode.SetAttribute("Name", segmentName)
+          labelNode.SetAttribute("Description", segment["SegmentDescription"])
           labelNode.SetAttribute("Terminology", segmentTerminologyTag)
           labelNode.SetAttribute("ColorR", str(rgb[0]))
           labelNode.SetAttribute("ColorG", str(rgb[1]))
@@ -224,10 +225,11 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
     success = segmentationsLogic.ImportLabelmapToSegmentationNode(segmentLabelNode, segmentationNode)
     if success:
       segment = segmentation.GetNthSegment(segmentation.GetNumberOfSegments() - 1)
+      segment.SetName(segmentLabelNode.GetAttribute("Name"))
+      segment.SetTag("Description", segmentLabelNode.GetAttribute("Description"))
       segment.SetColor([float(segmentLabelNode.GetAttribute("ColorR")),
                         float(segmentLabelNode.GetAttribute("ColorG")),
                         float(segmentLabelNode.GetAttribute("ColorB"))])
-
       segment.SetTag(vtkSegmentationCore.vtkSegment.GetTerminologyEntryTagName(),
                      segmentLabelNode.GetAttribute("Terminology"))
       algorithmName = segmentLabelNode.GetAttribute("DICOM.SegmentAlgorithmName")
@@ -606,6 +608,7 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     segment = self.segmentationNode.GetSegmentation().GetSegment(segmentID)
     terminologyEntry = self.getDeserializedTerminologyEntry(segment)
     category = terminologyEntry.GetCategoryObject()
+    segmentData["SegmentLabel"] = segment.GetName()
     segmentData["SegmentDescription"] = category.GetCodeMeaning()
     algorithmType = vtk.mutable('')
     if not segment.GetTag("DICOM.SegmentAlgorithmType", algorithmType):
