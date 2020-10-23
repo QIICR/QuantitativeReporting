@@ -223,7 +223,9 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
     segmentationsLogic = slicer.modules.segmentations.logic()
     segmentation = segmentationNode.GetSegmentation()
     success = segmentationsLogic.ImportLabelmapToSegmentationNode(segmentLabelNode, segmentationNode)
-    if success:
+    if segmentation.GetNumberOfSegments() == 0:
+        logging.warning("Empty segment loaded from DICOM SEG!")
+    if success and segmentation.GetNumberOfSegments()>0:
       segment = segmentation.GetNthSegment(segmentation.GetNumberOfSegments() - 1)
       segment.SetName(segmentLabelNode.GetAttribute("Name"))
       segment.SetTag("Description", segmentLabelNode.GetAttribute("Description"))
