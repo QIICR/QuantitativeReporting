@@ -30,7 +30,7 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
     self.codings = {
       "imagingMeasurementReport": { "scheme": "DCM", "value": "126000" },
       "personObserver": { "scheme": "DCM", "value": "121008" },
-      "imagingMeasurements": { "scheme": "DCM", "value": "126010" },
+      "imagingMeasuremnts": { "scheme": "DCM", "value": "126010" },
       "measurementGroup": { "scheme": "DCM", "value": "125007" },
       "trackingIdentifier": { "scheme": "DCM", "value": "112039" },
       "trackingUniqueIdentifier": { "scheme": "DCM", "value": "112040" },
@@ -218,7 +218,6 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
 
       table = self.metadata2vtkTableNode(outputFile)
       if table:
-        self.addSeriesInSubjectHierarchy(loadable, table)
         with open(outputFile, 'r') as srMetadataFile:
           srMetadataJSON = json.loads(srMetadataFile.read())
           table.SetName(srMetadataJSON["SeriesDescription"])
@@ -238,7 +237,7 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
 
       tables.append(table)
 
-      self.loadAdditionalMeasurements(uid, loadable)
+      self.loadAdditionalMeasurements(uid)
 
       self.cleanup()
 
@@ -290,11 +289,6 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
   def metadata2vtkTableNode(self, metafile):
     with open(metafile) as datafile:
       data = json.load(datafile)
-      if "Measurements" not in data:
-        # Invalid file, just return instead of throw an exception to allow loading
-        # other data.
-        return None
-
       measurement = data["Measurements"][0]
 
       table = self.createAndConfigureTable()
@@ -376,14 +370,14 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
     code = item.ConceptNameCodeSequence[0]
     return code.CodingSchemeDesignator == self.codings[coding]["scheme"] and code.CodeValue == self.codings[coding]["value"]
 
-  def loadAdditionalMeasurements(self, srUID, loadable):
+  def loadAdditionalMeasurements(self, srUID):
     """
     Loads length measements as annotation rulers
     TODO: need to generalize to other report contents
     """
 
     srFilePath = slicer.dicomDatabase.fileForInstance(srUID)
-    sr = pydicom.read_file(srFilePath)
+    sr = dicom.read_file(srFilePath)
 
     if not self.isConcept(sr, "imagingMeasurementReport"):
       return sr
@@ -394,7 +388,7 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
     for item in sr.ContentSequence:
       if self.isConcept(item, "personObserver"):
         contents['personObserver'] = item.PersonName
-      if self.isConcept(item, "imagingMeasurements"):
+      if self.isConcept(item, "imagingMeasuremnts"):
         for contentItem in item.ContentSequence:
           if self.isConcept(contentItem, "measurementGroup"):
             measurement = {}
@@ -417,12 +411,12 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
             measurements.append(measurement)
 
     for measurement in contents['measurements']:
-      markupsNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsLineNode")
-      markupsNode.SetName(str(contents['personObserver']))
-      self.addSeriesInSubjectHierarchy(loadable, markupsNode)
+      rulerNode = slicer.vtkMRMLAnnotationRulerNode()
+      rulerNode.SetLocked(True)
+      rulerNode.SetName(contents['personObserver'])
 
       referenceFilePath = slicer.dicomDatabase.fileForInstance(measurement['referencedSOPInstanceUID'])
-      reference = pydicom.read_file(referenceFilePath)
+      reference = dicom.read_file(referenceFilePath)
       origin = numpy.array(reference.ImagePositionPatient)
       alongColumnVector = numpy.array(reference.ImageOrientationPatient[:3])
       alongRowVector = numpy.array(reference.ImageOrientationPatient[3:])
@@ -432,18 +426,21 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
       lpsToRAS = numpy.array([-1,-1,1])
       p1 = (origin + col1 * alongColumnVector + row1 * alongRowVector) * lpsToRAS
       p2 = (origin + col2 * alongColumnVector + row2 * alongRowVector) * lpsToRAS
-      markupsNode.AddControlPoint(vtk.vtkVector3d(p1))
-      markupsNode.AddControlPoint(vtk.vtkVector3d(p2))
+      rulerNode.SetPosition1(*p1)
+      rulerNode.SetPosition2(*p2)
 
-      # Instead of calling markupsNode.SetLocked(True), lock each control point.
-      # This allows interacting with the points but not change their position.
-      slicer.modules.markups.logic().SetAllMarkupsLocked(markupsNode, True)
-
-      colorIndex = 1 + slicer.mrmlScene.GetNumberOfNodesByClass('vtkMRMLMarkupsLineNode')
-      colorNode = slicer.mrmlScene.GetNodeByID("vtkMRMLColorTableNodeFileGenericAnatomyColors.txt")
-      color = numpy.zeros(4)
+      rulerNode.Initialize(slicer.mrmlScene)
+      colorIndex = 1 + len(slicer.util.getNodesByClass('vtkMRMLAnnotationRulerNode'))
+      colorNode = slicer.util.getNode("GenericAnatomyColors")
+      color = [0,]*4
       colorNode.GetColor(colorIndex, color)
-      markupsNode.GetDisplayNode().SetSelectedColor(*color[:3])
+      rulerNode.GetDisplayNode().SetColor(*color[:3])
+      rulerNode.GetAnnotationTextDisplayNode().SetColor(*color[:3])
+      rulerNode.GetAnnotationPointDisplayNode().SetColor(*color[:3])
+      rulerNode.GetAnnotationPointDisplayNode().SetGlyphScale(2)
+      rulerNode.GetAnnotationLineDisplayNode().SetLabelPosition(random.random())
+
+
 class DICOMLongitudinalTID1500PluginClass(DICOMTID1500PluginClass):
 
   def __init__(self):

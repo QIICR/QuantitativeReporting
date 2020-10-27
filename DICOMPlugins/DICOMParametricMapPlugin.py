@@ -71,7 +71,7 @@ class DICOMParametricMapPluginClass(DICOMPluginBase):
     logging.debug('DICOM PM load()')
     try:
       uid = loadable.uid
-      logging.debug('in load(): uid = %s', uid)
+      logging.debug('in load(): uid = ', uid)
     except AttributeError:
       return False
 
@@ -83,7 +83,7 @@ class DICOMParametricMapPluginClass(DICOMPluginBase):
 
     pmFileName = slicer.dicomDatabase.fileForInstance(uid)
     if pmFileName is None:
-      logging.debug('Failed to get the filename from the DICOM database for %s', uid)
+      logging.debug('Failed to get the filename from the DICOM database for ', uid)
       self.cleanup()
       return False
 
