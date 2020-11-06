@@ -327,7 +327,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
     try:
       slicer.modules.segmentations
     except AttributeError as exc:
-      return exc.message
+      return str(exc)
 
     shNode = slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(slicer.mrmlScene)
     if shNode is None:
@@ -353,14 +353,17 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
         try:
           exporter.export(exportable.directory, segFileName, metadata)
         except DICOMSegmentationExporter.EmptySegmentsFoundError as exc:
-          if slicer.util.confirmYesNoDisplay(exc.message):
+          if slicer.util.confirmYesNoDisplay(str(exc)):
             exporter.export(exportable.directory, segFileName, metadata, skipEmpty=True)
           else:
             raise ValueError("Export canceled")
         slicer.dicomDatabase.insert(segFilePath)
         logging.info("Added segmentation to DICOM database (" +segFilePath+")")
       except (DICOMSegmentationExporter.NoNonEmptySegmentsFoundError, ValueError) as exc:
-        return exc.message
+        return str(exc)
+      except Exception as exc:
+        # Generic error
+        return "Segmentation object export failed.\n{0}".format(str(exc))
       finally:
         exporter.cleanup()
     return ""

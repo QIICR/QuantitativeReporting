@@ -206,7 +206,7 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
       try:
         tid1500reader = slicer.modules.tid1500reader
       except AttributeError as exc:
-        logging.debug('Unable to find CLI module tid1500reader, unable to load SR TID1500 object: %s ' % exc.message)
+        logging.debug('Unable to find CLI module tid1500reader, unable to load SR TID1500 object: %s ' % str(exc))
         self.cleanup()
         return False
 
