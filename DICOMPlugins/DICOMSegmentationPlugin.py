@@ -308,7 +308,10 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
       if instanceUIDs != "" and all(slicer.dicomDatabase.fileForInstance(uid) != "" for uid in instanceUIDs):
         exportable = slicer.qSlicerDICOMExportable()
         exportable.confidence = 1.0
+        # Define common required tags and default values
         exportable.setTag('Modality', 'SEG')
+        exportable.setTag('SeriesDescription', dataNode.GetName())
+        exportable.setTag('SeriesNumber', '100')
     return exportable
 
   def _setupExportable(self, exportable, subjectHierarchyItemID):
@@ -318,9 +321,6 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
     exportable.tooltip = "Create DICOM files from segmentation"
     exportable.subjectHierarchyItemID = subjectHierarchyItemID
     exportable.pluginClass = self.__module__
-    # Define common required tags and default values
-    exportable.setTag('SeriesDescription', 'Segmentation')
-    exportable.setTag('SeriesNumber', '1')
     return [exportable]
 
   def export(self, exportables):
@@ -342,7 +342,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
       exporter = DICOMSegmentationExporter(segmentationNode)
 
       metadata = {}
-      for attr in ["SeriesDescription", "ContentCreatorName", "ClinicalTrialSeriesID", "ClinicalTrialTimePointID",
+      for attr in ["SeriesNumber", "SeriesDescription", "ContentCreatorName", "ClinicalTrialSeriesID", "ClinicalTrialTimePointID",
         "ClinicalTrialCoordinatingCenterName"]:
         if exportable.tag(attr) != "":
           metadata[attr] = exportable.tag(attr)
@@ -462,13 +462,14 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     data.update(metadata)
 
     metadataDefaults = {}
+    metadataDefaults["SeriesNumber"] = "100"
     metadataDefaults["SeriesDescription"] = "Segmentation"
     metadataDefaults["ContentCreatorName"] = self.contentCreatorName
     metadataDefaults["ClinicalTrialSeriesID"] = "1"
     metadataDefaults["ClinicalTrialTimePointID"] = "1"
     metadataDefaults["ClinicalTrialCoordinatingCenterName"] = "QIICR"
 
-    for attr in ["SeriesDescription", "ContentCreatorName", "ClinicalTrialSeriesID", "ClinicalTrialTimePointID",
+    for attr in ["SeriesNumber", "SeriesDescription", "ContentCreatorName", "ClinicalTrialSeriesID", "ClinicalTrialTimePointID",
                    "ClinicalTrialCoordinatingCenterName"]:
       try:
         if data[attr] == "":
