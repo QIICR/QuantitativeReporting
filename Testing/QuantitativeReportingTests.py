@@ -108,6 +108,7 @@ class QuantitativeReportingTest(ScriptedLoadableModuleTest):
   def setUp(self):
     self.delayDisplay("Closing the scene")
     self.dicomDatabaseDir = os.path.join(slicer.app.temporaryPath, 'QuantitativeReporting_SelfTest', 'CtkDicomDatabase')
+    slicer.app.applicationLogic().GetUserInformation().SetName("Tester")
     self.layoutManager.selectModule("QuantitativeReporting")
     slicer.mrmlScene.Clear(0)
     self.setupTimer()
