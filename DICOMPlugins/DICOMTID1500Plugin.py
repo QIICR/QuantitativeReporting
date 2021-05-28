@@ -20,6 +20,7 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
 
   UID_EnhancedSRStorage = "1.2.840.10008.5.1.4.1.1.88.22"
   UID_ComprehensiveSRStorage = "1.2.840.10008.5.1.4.1.1.88.33"
+  UID_Comprehensive3DSRStorage = "1.2.840.10008.5.1.4.1.1.88.34"
   UID_SegmentationStorage = "1.2.840.10008.5.1.4.1.1.66.4"
   UID_RealWorldValueMappingStorage = "1.2.840.10008.5.1.4.1.1.67"
 
@@ -36,6 +37,8 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
       "trackingUniqueIdentifier": { "scheme": "DCM", "value": "112040" },
       "findingSite": { "scheme": "SRT", "value": "G-C0E3" },
       "length": { "scheme": "SRT", "value": "G-D7FE" },
+      "score": { "scheme": "SCT", "value": "246262008" },
+      "imageRegion": { "scheme": "DCM", "value": "111030" },
     }
 
 
@@ -74,7 +77,8 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
     try:
       isDicomTID1500 = self.getDICOMValue(dataset, "Modality") == 'SR' and \
                        (self.getDICOMValue(dataset, "SOPClassUID") == self.UID_EnhancedSRStorage or
-                        self.getDICOMValue(dataset, "SOPClassUID") == self.UID_ComprehensiveSRStorage) and \
+                        self.getDICOMValue(dataset, "SOPClassUID") == self.UID_ComprehensiveSRStorage or \
+                        self.getDICOMValue(dataset, "SOPClassUID") == self.UID_Comprehensive3DSRStorage) and \
                        self.getDICOMValue(dataset, "ContentTemplateSequence")[0].TemplateIdentifier == '1500'
     except (AttributeError, IndexError):
       isDicomTID1500 = False
@@ -409,41 +413,99 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
                 for lengthItem in measurementItem.ContentSequence:
                   measurement['polyline'] = lengthItem.GraphicData
                   for selectionItem in lengthItem.ContentSequence:
-                    if selectionItem.RelationshipType == "SELECTED FROM":
+                    if selectionItem.RelationshipType in ("SELECTED FROM", "INFERRED FROM"):
                       for reference in selectionItem.ReferencedSOPSequence:
                         measurement['referencedSOPInstanceUID'] = reference.ReferencedSOPInstanceUID
                         if hasattr(reference, "ReferencedFrameNumber") and reference.ReferencedFrameNumber != "1":
                           print('Error - only single frame references supported')
+              if self.isConcept(measurementItem, "score"):
+                slicer.modules.measurementItem = measurementItem
+                for scoreItem in measurementItem.ContentSequence:
+                  if scoreItem.RelationshipType in ("SELECTED FROM", "INFERRED FROM"):
+                    for reference in scoreItem.ReferencedSOPSequence:
+                      measurement['referencedSOPInstanceUID'] = reference.ReferencedSOPInstanceUID
+                      if hasattr(reference, "ReferencedFrameNumber") and reference.ReferencedFrameNumber != "1":
+                        print('Error - only single frame references supported')
+              if self.isConcept(measurementItem, "imageRegion"):
+                measurement['polygon'] = measurementItem.GraphicData
+              if hasattr(measurementItem, "MeasuredValueSequence"):
+                measurement['score'] = measurementItem.MeasuredValueSequence[0].FloatingPointValue
             measurements.append(measurement)
 
+    appendPolyData = None
+    scores = []
     for measurement in contents['measurements']:
-      markupsNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsLineNode")
-      markupsNode.SetName(str(contents['personObserver']))
-      self.addSeriesInSubjectHierarchy(loadable, markupsNode)
+      if not hasattr(contents, 'personObserver'):
+        contents['personObserver'] = "Unspecified Person Observer"
+      if hasattr(measurement, 'polyline'):
+        markupsNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsLineNode")
+        markupsNode.SetName(str(contents['personObserver']))
+        self.addSeriesInSubjectHierarchy(loadable, markupsNode)
+          
+        print(measurement)
+        referenceFilePath = slicer.dicomDatabase.fileForInstance(measurement['referencedSOPInstanceUID'])
+        reference = pydicom.read_file(referenceFilePath)
+        origin = numpy.array(reference.ImagePositionPatient)
+        alongColumnVector = numpy.array(reference.ImageOrientationPatient[:3])
+        alongRowVector = numpy.array(reference.ImageOrientationPatient[3:])
+        alongColumnVector *= reference.PixelSpacing[1]
+        alongRowVector *= reference.PixelSpacing[0]
+        col1,row1,col2,row2 = measurement['polyline']
+        lpsToRAS = numpy.array([-1,-1,1])
+        p1 = (origin + col1 * alongColumnVector + row1 * alongRowVector) * lpsToRAS
+        p2 = (origin + col2 * alongColumnVector + row2 * alongRowVector) * lpsToRAS
+        markupsNode.AddControlPoint(vtk.vtkVector3d(p1))
+        markupsNode.AddControlPoint(vtk.vtkVector3d(p2))
+  
+        # Instead of calling markupsNode.SetLocked(True), lock each control point.
+        # This allows interacting with the points but not change their position.
+        slicer.modules.markups.logic().SetAllMarkupsLocked(markupsNode, True)
+  
+        colorIndex = 1 + slicer.mrmlScene.GetNumberOfNodesByClass('vtkMRMLMarkupsLineNode')
+        colorNode = slicer.mrmlScene.GetNodeByID("vtkMRMLColorTableNodeFileGenericAnatomyColors.txt")
+        color = numpy.zeros(4)
+        colorNode.GetColor(colorIndex, color)
+        markupsNode.GetDisplayNode().SetSelectedColor(*color[:3])
 
-      referenceFilePath = slicer.dicomDatabase.fileForInstance(measurement['referencedSOPInstanceUID'])
-      reference = pydicom.read_file(referenceFilePath)
-      origin = numpy.array(reference.ImagePositionPatient)
-      alongColumnVector = numpy.array(reference.ImageOrientationPatient[:3])
-      alongRowVector = numpy.array(reference.ImageOrientationPatient[3:])
-      alongColumnVector *= reference.PixelSpacing[1]
-      alongRowVector *= reference.PixelSpacing[0]
-      col1,row1,col2,row2 = measurement['polyline']
-      lpsToRAS = numpy.array([-1,-1,1])
-      p1 = (origin + col1 * alongColumnVector + row1 * alongRowVector) * lpsToRAS
-      p2 = (origin + col2 * alongColumnVector + row2 * alongRowVector) * lpsToRAS
-      markupsNode.AddControlPoint(vtk.vtkVector3d(p1))
-      markupsNode.AddControlPoint(vtk.vtkVector3d(p2))
+      if 'polygon' in measurement:
+        if appendPolyData is None: 
+          appendPolyData = vtk.vtkAppendPolyData()
+        points = numpy.array(measurement['polygon']).reshape(5,3)
+        polyLineSource = vtk.vtkPolyLineSource()
+        polyLineSource.SetNumberOfPoints(5)
+        for pointIndex in range(5):
+          point = points[pointIndex]
+          polyLineSource.SetPoint(pointIndex, -point[0], -point[1], point[2])
+        appendPolyData.AddInputConnection(polyLineSource.GetOutputPort())
+        if 'score' in measurement:
+          scores.append(measurement['score'])
+        else:
+          scores.append(0)
 
-      # Instead of calling markupsNode.SetLocked(True), lock each control point.
-      # This allows interacting with the points but not change their position.
-      slicer.modules.markups.logic().SetAllMarkupsLocked(markupsNode, True)
+    if appendPolyData is not None:
+      appendPolyData.Update()
+      srNode = slicer.mrmlScene.AddNode(slicer.vtkMRMLModelNode())
+      srNode.SetName(str(contents['personObserver']))
+      srNode.SetAndObservePolyData(appendPolyData.GetOutputDataObject(0))
+      srNode.CreateDefaultDisplayNodes()
 
-      colorIndex = 1 + slicer.mrmlScene.GetNumberOfNodesByClass('vtkMRMLMarkupsLineNode')
-      colorNode = slicer.mrmlScene.GetNodeByID("vtkMRMLColorTableNodeFileGenericAnatomyColors.txt")
-      color = numpy.zeros(4)
-      colorNode.GetColor(colorIndex, color)
-      markupsNode.GetDisplayNode().SetSelectedColor(*color[:3])
+      scoreArray = vtk.vtkFloatArray()
+      boxCount = appendPolyData.GetNumberOfInputConnections(0)
+      scoreArray.SetNumberOfTuples(5 * boxCount)
+      scoreArray.SetName("Score")
+      pointData = srNode.GetPolyData().GetPointData()
+      pointData.AddArray(scoreArray)
+      scoreNumpy = slicer.util.arrayFromModelPointData(srNode, "Score")
+      byBox = scoreNumpy.reshape(boxCount,5)
+      for boxIndex in range(boxCount):
+        byBox[boxIndex] = scores[boxIndex]
+      slicer.util.arrayFromModelPointDataModified(srNode, "Score")
+      displayNode = srNode.GetDisplayNode()
+      displayNode.SetOpacity(0.7)
+      displayNode.SetLineWidth(4)
+      displayNode.SetActiveScalarName("Score")
+      displayNode.SetScalarVisibility(True)
+
 class DICOMLongitudinalTID1500PluginClass(DICOMTID1500PluginClass):
 
   def __init__(self):
