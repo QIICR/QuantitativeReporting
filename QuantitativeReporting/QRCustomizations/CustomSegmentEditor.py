@@ -152,21 +152,9 @@ class CustomSegmentEditorLogic(ScriptedLoadableModuleLogic):
 
   @staticmethod
   def getSegmentCentroid(segmentationNode, segment):
-    imageData = vtkSegmentationCore.vtkOrientedImageData()
     segmentID = segmentationNode.GetSegmentation().GetSegmentIdBySegment(segment)
-    segmentationsLogic = slicer.modules.segmentations.logic()
-    segmentationsLogic.GetSegmentBinaryLabelmapRepresentation(segmentationNode, segmentID, imageData)
-    extent = imageData.GetExtent()
-    if extent[1] != -1 and extent[3] != -1 and extent[5] != -1:
-      tempLabel = slicer.vtkMRMLLabelMapVolumeNode()
-      slicer.mrmlScene.AddNode(tempLabel)
-      tempLabel.SetName(segment.GetName() + "CentroidHelper")
-      segmentationsLogic.CreateLabelmapVolumeFromOrientedImageData(imageData, tempLabel)
-      CustomSegmentEditorLogic.applyThreshold(tempLabel, 1)
-      centroid = ModuleLogicMixin.getCentroidForLabel(tempLabel, 1)
-      slicer.mrmlScene.RemoveNode(tempLabel)
-      return centroid
-    return None
+    centroid = segmentationNode.GetSegmentCenterRAS(segmentID)
+    return centroid
 
   @staticmethod
   def applyThreshold(labelNode, outValue):

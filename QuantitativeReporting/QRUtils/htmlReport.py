@@ -1,7 +1,6 @@
 from __future__ import absolute_import
 from __future__ import print_function
 import os
-import webbrowser
 
 import ctk
 import slicer
@@ -85,19 +84,10 @@ class ScreenShotHelper(ModuleWidgetMixin):
 
   @staticmethod
   def jumpToSegmentAndCreateScreenShot(segmentationNode, segment, widgets, center=False, crosshair=False):
-    imageData = vtkSegmentationCore.vtkOrientedImageData()
     segmentID = segmentationNode.GetSegmentation().GetSegmentIdBySegment(segment)
-    segmentationsLogic = slicer.modules.segmentations.logic()
-    segmentationsLogic.GetSegmentBinaryLabelmapRepresentation(segmentationNode, segmentID, imageData)
-    extent = imageData.GetExtent()
-    if extent[1] != -1 and extent[3] != -1 and extent[5] != -1:
-      tempLabel = slicer.vtkMRMLLabelMapVolumeNode()
-      slicer.mrmlScene.AddNode(tempLabel)
-      tempLabel.SetName(segment.GetName() + "CentroidHelper")
-      segmentationsLogic.CreateLabelmapVolumeFromOrientedImageData(imageData, tempLabel)
-      CustomSegmentEditorLogic.applyThreshold(tempLabel, 1)
-      centroid = ModuleLogicMixin.getCentroidForLabel(tempLabel, 1)
-      slicer.mrmlScene.RemoveNode(tempLabel)
+    centroid = segmentationNode.GetSegmentCenterRAS(segmentID)
+
+    if centroid:
 
       annotationNodes = []
 
@@ -124,6 +114,8 @@ class ScreenShotHelper(ModuleWidgetMixin):
 
         if crosshairButton:
           crosshairButton.crosshairNode.SetCrosshairRAS(centroid)
+
+        slicer.util.forceRenderAllViews()
 
         annotationNode = ScreenShotHelper.takeScreenShot("{}_Screenshot_{}_{}".format(segment.GetName(),
                                                                                       sliceNode.GetName(),
@@ -251,7 +243,10 @@ class HTMLReportCreator(ScreenShotHelper):
     f = open(outputHTML, 'w')
     f.write(html)
     f.close()
-    webbrowser.open("file:///private"+outputHTML)
+
+    # Open the html report in the default web browser
+    import qt
+    qt.QDesktopServices.openUrl(qt.QUrl.fromLocalFile(outputHTML));
 
   def getPatientInformation(self):
     if not self.patientInfo:
