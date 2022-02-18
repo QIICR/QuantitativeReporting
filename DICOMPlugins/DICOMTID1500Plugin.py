@@ -417,11 +417,28 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
             measurements.append(measurement)
 
     for measurement in contents['measurements']:
+      if not 'polyline' in measurement:
+        # only polyline measurements are loaded as nodes
+        continue
+
       markupsNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsLineNode")
       markupsNode.SetName(str(contents['personObserver']))
       self.addSeriesInSubjectHierarchy(loadable, markupsNode)
 
+      # Instead of calling markupsNode.SetLocked(True), lock each control point.
+      # This allows interacting with the points but not change their position.
+      slicer.modules.markups.logic().SetAllMarkupsLocked(markupsNode, True)
+
+      colorIndex = 1 + slicer.mrmlScene.GetNumberOfNodesByClass('vtkMRMLMarkupsLineNode')
+      colorNode = slicer.mrmlScene.GetNodeByID("vtkMRMLColorTableNodeFileGenericAnatomyColors.txt")
+      color = numpy.zeros(4)
+      colorNode.GetColor(colorIndex, color)
+      markupsNode.GetDisplayNode().SetSelectedColor(*color[:3])
+
       referenceFilePath = slicer.dicomDatabase.fileForInstance(measurement['referencedSOPInstanceUID'])
+      if not referenceFilePath:
+        raise Exception(f"Referenced image is not found in the database (referencedSOPInstanceUID={measurement['referencedSOPInstanceUID']}). Polyline point positions cannot be determined in 3D.")
+
       reference = pydicom.read_file(referenceFilePath)
       origin = numpy.array(reference.ImagePositionPatient)
       alongColumnVector = numpy.array(reference.ImageOrientationPatient[:3])
@@ -435,15 +452,6 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
       markupsNode.AddControlPoint(vtk.vtkVector3d(p1))
       markupsNode.AddControlPoint(vtk.vtkVector3d(p2))
 
-      # Instead of calling markupsNode.SetLocked(True), lock each control point.
-      # This allows interacting with the points but not change their position.
-      slicer.modules.markups.logic().SetAllMarkupsLocked(markupsNode, True)
-
-      colorIndex = 1 + slicer.mrmlScene.GetNumberOfNodesByClass('vtkMRMLMarkupsLineNode')
-      colorNode = slicer.mrmlScene.GetNodeByID("vtkMRMLColorTableNodeFileGenericAnatomyColors.txt")
-      color = numpy.zeros(4)
-      colorNode.GetColor(colorIndex, color)
-      markupsNode.GetDisplayNode().SetSelectedColor(*color[:3])
 class DICOMLongitudinalTID1500PluginClass(DICOMTID1500PluginClass):
 
   def __init__(self):
