@@ -181,7 +181,9 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
           # if not hasattr(slicer.modules, 'segmentations'):
 
           labelFileName = os.path.join(self.tempDir, str(segmentId) + ".nrrd")
-          labelNode = slicer.util.loadLabelVolume(labelFileName)
+          # The temporary folder contains 1.nrrd, 2.nrrd,... files. We must specify singleFile=True to ensure
+          # they are not loaded as an image stack (could happen if each image file has a single slice only).
+          labelNode = slicer.util.loadLabelVolume(labelFileName, {'singleFile': True})
 
           # Set terminology properties as attributes to the label node (which is a temporary node)
           if segment["SegmentLabel"]:
@@ -222,9 +224,12 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
   def _importSegmentAndRemoveLabel(self, segmentLabelNode, segmentationNode):
     segmentationsLogic = slicer.modules.segmentations.logic()
     segmentation = segmentationNode.GetSegmentation()
+    numberOfSegmentsBeforeImport = segmentation.GetNumberOfSegments()
     success = segmentationsLogic.ImportLabelmapToSegmentationNode(segmentLabelNode, segmentationNode)
     if segmentation.GetNumberOfSegments() == 0:
         logging.warning("Empty segment loaded from DICOM SEG!")
+    if segmentation.GetNumberOfSegments() - numberOfSegmentsBeforeImport > 1:
+        logging.warning("Multiple segments were loaded from DICOM SEG labelmap. Only one label was expected.")
     if success and segmentation.GetNumberOfSegments()>0:
       segment = segmentation.GetNthSegment(segmentation.GetNumberOfSegments() - 1)
       segment.SetName(segmentLabelNode.GetAttribute("Name"))
