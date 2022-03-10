@@ -130,8 +130,14 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
 
     # Load terminology in the metafile into context
     terminologiesLogic = slicer.modules.terminologies.logic()
-    terminologiesLogic.LoadTerminologyFromSegmentDescriptorFile(loadable.name, metaFileName)
-    terminologiesLogic.LoadAnatomicContextFromSegmentDescriptorFile(loadable.name, metaFileName)
+
+    categoryContextName = loadable.name
+    if not terminologiesLogic.LoadTerminologyFromSegmentDescriptorFile(categoryContextName, metaFileName):
+      categoryContextName = "Segmentation category and type - DICOM master list"
+
+    anatomicContextName = loadable.name
+    if not terminologiesLogic.LoadAnatomicContextFromSegmentDescriptorFile(anatomicContextName, metaFileName):
+      anatomicContextName = "Anatomic codes - DICOM master list"
 
     with open(metaFileName) as metaFile:
       data = json.load(metaFile)
@@ -150,29 +156,27 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
 
           segmentId = segment["labelID"]
 
-          defaults = ['85756007', 'Tissue', 'SCT']
           categoryCode, categoryCodingScheme, categoryCodeMeaning = \
-            self.getValuesFromCodeSequence(segment, "SegmentedPropertyCategoryCodeSequence", defaults)
+            self.getValuesFromCodeSequence(segment, "SegmentedPropertyCategoryCodeSequence")
 
           typeCode, typeCodingScheme, typeCodeMeaning = \
-            self.getValuesFromCodeSequence(segment, "SegmentedPropertyTypeCodeSequence", defaults)
+            self.getValuesFromCodeSequence(segment, "SegmentedPropertyTypeCodeSequence")
 
           typeModCode, typeModCodingScheme, typeModCodeMeaning = \
             self.getValuesFromCodeSequence(segment, "SegmentedPropertyTypeModifierCodeSequence")
 
-          anatomicRegionDefaults = ['38266002', 'SCT', 'Entire Body']
           regionCode, regionCodingScheme, regionCodeMeaning = \
-            self.getValuesFromCodeSequence(segment, "AnatomicRegionSequence", anatomicRegionDefaults)
+            self.getValuesFromCodeSequence(segment, "AnatomicRegionSequence")
 
           regionModCode, regionModCodingScheme, regionModCodeMeaning = \
             self.getValuesFromCodeSequence(segment, "AnatomicRegionModifierSequence")
 
           segmentTerminologyTag = terminologiesLogic.SerializeTerminologyEntry(
-                                    loadable.name,
+                                    categoryContextName,
                                     categoryCode, categoryCodingScheme, categoryCodeMeaning,
                                     typeCode, typeCodingScheme, typeCodeMeaning,
                                     typeModCode, typeModCodingScheme, typeModCodeMeaning,
-                                    loadable.name,
+                                    anatomicContextName,
                                     regionCode, regionCodingScheme, regionCodeMeaning,
                                     regionModCode, regionModCodingScheme, regionModCodeMeaning)
 
