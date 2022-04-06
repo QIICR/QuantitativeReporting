@@ -376,6 +376,8 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
         return str(exc)
       except Exception as exc:
         # Generic error
+        import traceback
+        traceback.print_exc()
         return "Segmentation object export failed.\n{0}".format(str(exc))
       finally:
         exporter.cleanup()
@@ -444,8 +446,11 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
   @staticmethod
   def getReferencedVolumeFromSegmentationNode(segmentationNode):
     if not segmentationNode:
-      return None
-    return segmentationNode.GetNodeReference(segmentationNode.GetReferenceImageGeometryReferenceRole())
+      raise ValueError("Invalid segmentation node")
+    referencedVolumeNode = segmentationNode.GetNodeReference(segmentationNode.GetReferenceImageGeometryReferenceRole())
+    if not referencedVolumeNode:
+      raise ValueError("Referenced volume is not found for the segmentation. Specify segmentation geometry using a volume node as source.")
+    return referencedVolumeNode
 
   @property
   def currentDateTime(self, outputFormat='%Y-%m-%d_%H%M%S'):
@@ -518,6 +523,15 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     segmentFiles = self.createAndGetLabelMapsFromSegments(segmentIDs)
     inputDICOMImageFileNames = self.getDICOMFileList(self.getReferencedVolumeFromSegmentationNode(self.segmentationNode),
                                                      absolutePaths=True)
+
+    # Check if referenced image files are found and raise exception with a descriptive message in case of an error.
+    numberOfImageFilesNotFound = 0
+    for inputDICOMImageFileName in inputDICOMImageFileNames:
+      if not inputDICOMImageFileName:
+        numberOfImageFilesNotFound += 1
+    if numberOfImageFilesNotFound > 0:
+      numberOfImageFilesTotal = len(inputDICOMImageFileNames)
+      raise ValueError(f"Referenced volume files were not found in the DICOM database (missing {numberOfImageFilesNotFound} files out of {numberOfImageFilesTotal}).")
 
     segFilePath = os.path.join(outputDirectory, segFileName)
 
