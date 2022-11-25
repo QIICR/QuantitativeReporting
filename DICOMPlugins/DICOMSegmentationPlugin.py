@@ -461,7 +461,7 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     self.segmentationNode = segmentationNode
     self.contentCreatorName = contentCreatorName if contentCreatorName else "Slicer"
 
-    self.tempDir = os.path.join(slicer.util.tempDirectory(), self.currentDateTime)
+    self.tempDir = slicer.util.tempDirectory()
     os.mkdir(self.tempDir)
 
   def cleanup(self):
