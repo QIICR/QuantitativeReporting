@@ -462,7 +462,6 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     self.contentCreatorName = contentCreatorName if contentCreatorName else "Slicer"
 
     self.tempDir = slicer.util.tempDirectory()
-    os.mkdir(self.tempDir)
 
   def cleanup(self):
     try:
@@ -678,17 +677,22 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     segmentData = dict()
 
     categoryObject = terminologyEntry.GetCategoryObject()
-    if categoryObject is None or not self.isTerminologyInformationValid(categoryObject):
-      return {}
-    segmentData["SegmentedPropertyCategoryCodeSequence"] = self.getJSONFromVtkSlicerTerminology(categoryObject)
+    categoryObject_invalid = categoryObject is None or not self.isTerminologyInformationValid(categoryObject)
 
     typeObject = terminologyEntry.GetTypeObject()
-    if typeObject is None or not self.isTerminologyInformationValid(typeObject):
+    typeObject_invalid = typeObject is None or not self.isTerminologyInformationValid(typeObject)
+
+    if categoryObject_invalid or typeObject_invalid:
+      logging.warning("Terminology information invalid or unset! This might lead to crashes during the conversion to "
+                      "SEG objects. Make sure to select a terminology class for all segments in the Slicer scene.")
       return {}
+
+    segmentData["SegmentedPropertyCategoryCodeSequence"] = self.getJSONFromVtkSlicerTerminology(categoryObject)
     segmentData["SegmentedPropertyTypeCodeSequence"] = self.getJSONFromVtkSlicerTerminology(typeObject)
 
     modifierObject = terminologyEntry.GetTypeModifierObject()
-    if modifierObject is not None and self.isTerminologyInformationValid(modifierObject):
+    modifierObject_valid = modifierObject is not None and self.isTerminologyInformationValid(modifierObject)
+    if modifierObject_valid:
       segmentData["SegmentedPropertyTypeModifierCodeSequence"] = self.getJSONFromVtkSlicerTerminology(modifierObject)
 
     return segmentData
