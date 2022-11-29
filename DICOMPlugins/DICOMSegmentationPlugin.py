@@ -691,8 +691,7 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     segmentData["SegmentedPropertyTypeCodeSequence"] = self.getJSONFromVtkSlicerTerminology(typeObject)
 
     modifierObject = terminologyEntry.GetTypeModifierObject()
-    modifierObject_valid = modifierObject is not None and self.isTerminologyInformationValid(modifierObject)
-    if modifierObject_valid:
+    if modifierObject is not None and self.isTerminologyInformationValid(modifierObject):
       segmentData["SegmentedPropertyTypeModifierCodeSequence"] = self.getJSONFromVtkSlicerTerminology(modifierObject)
 
     return segmentData
