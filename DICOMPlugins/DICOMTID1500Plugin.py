@@ -36,6 +36,9 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
       "trackingUniqueIdentifier": { "scheme": "DCM", "value": "112040" },
       "findingSite": { "scheme": "SRT", "value": "G-C0E3" },
       "length": { "scheme": "SRT", "value": "G-D7FE" },
+      "longAxis": { "scheme": "SRT", "value": "G-A185" },
+      "shortAxis": { "scheme": "SRT", "value": "G-A186" },
+      "cornerstoneFreeText": { "scheme": "CST4", "value": "CORNERSTONEFREETEXT" },
     }
 
 
@@ -372,9 +375,16 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
       items[idx]["name"] = item
     return items
 
-  def isConcept(self, item, coding):
+  def isConcept(self, item, codings):
+    """ accepts single coding string or list of codings """
+    codings = [codings] if isinstance(codings, str) else codings
     code = item.ConceptNameCodeSequence[0]
-    return code.CodingSchemeDesignator == self.codings[coding]["scheme"] and code.CodeValue == self.codings[coding]["value"]
+    conceptMatch = False
+    for coding in codings:
+        schemeMatch = code.CodingSchemeDesignator == self.codings[coding]["scheme"]
+        valueMatch = code.CodeValue == self.codings[coding]["value"]
+        conceptMatch = conceptMatch or (schemeMatch and valueMatch)
+    return conceptMatch
 
   def loadAdditionalMeasurements(self, srUID, loadable):
     """
@@ -405,52 +415,62 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
                 measurement['trackingUniqueIdentifier'] = measurementItem.UID
               if self.isConcept(measurementItem, "findingSite"):
                 measurement['findingSite'] = measurementItem.ConceptCodeSequence[0].CodeMeaning
-              if self.isConcept(measurementItem, "length"):
+              if self.isConcept(measurementItem, "cornerstoneFreeText"):
+                measurement['caption'] = measurementItem.ConceptCodeSequence[0].CodeMeaning
+              if self.isConcept(measurementItem, ["length", "longAxis", "shortAxis"]):
                 for lengthItem in measurementItem.ContentSequence:
-                  measurement['polyline'] = lengthItem.GraphicData
+                  if 'polylines' not in measurement:
+                    measurement['polylines'] = []
+                  measurement['polylines'].append(lengthItem.GraphicData)
                   for selectionItem in lengthItem.ContentSequence:
                     if selectionItem.RelationshipType == "SELECTED FROM":
                       for reference in selectionItem.ReferencedSOPSequence:
                         measurement['referencedSOPInstanceUID'] = reference.ReferencedSOPInstanceUID
                         if hasattr(reference, "ReferencedFrameNumber") and reference.ReferencedFrameNumber != "1":
-                          print('Error - only single frame references supported')
+                          logging.error('Error - only single frame references supported')
             measurements.append(measurement)
 
     for measurement in contents['measurements']:
-      if not 'polyline' in measurement:
+      if not 'polylines' in measurement:
         # only polyline measurements are loaded as nodes
+        logging.debug('Measurement with no polyline is being skipped')
         continue
 
-      markupsNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsLineNode")
-      markupsNode.SetName(str(contents['personObserver']))
-      self.addSeriesInSubjectHierarchy(loadable, markupsNode)
-
-      # Instead of calling markupsNode.SetLocked(True), lock each control point.
-      # This allows interacting with the points but not change their position.
-      slicer.modules.markups.logic().SetAllMarkupsLocked(markupsNode, True)
-
-      colorIndex = 1 + slicer.mrmlScene.GetNumberOfNodesByClass('vtkMRMLMarkupsLineNode')
-      colorNode = slicer.mrmlScene.GetNodeByID("vtkMRMLColorTableNodeFileGenericAnatomyColors.txt")
-      color = numpy.zeros(4)
-      colorNode.GetColor(colorIndex, color)
-      markupsNode.GetDisplayNode().SetSelectedColor(*color[:3])
-
-      referenceFilePath = slicer.dicomDatabase.fileForInstance(measurement['referencedSOPInstanceUID'])
-      if not referenceFilePath:
-        raise Exception(f"Referenced image is not found in the database (referencedSOPInstanceUID={measurement['referencedSOPInstanceUID']}). Polyline point positions cannot be determined in 3D.")
-
-      reference = pydicom.read_file(referenceFilePath)
-      origin = numpy.array(reference.ImagePositionPatient)
-      alongColumnVector = numpy.array(reference.ImageOrientationPatient[:3])
-      alongRowVector = numpy.array(reference.ImageOrientationPatient[3:])
-      alongColumnVector *= reference.PixelSpacing[1]
-      alongRowVector *= reference.PixelSpacing[0]
-      col1,row1,col2,row2 = measurement['polyline']
-      lpsToRAS = numpy.array([-1,-1,1])
-      p1 = (origin + col1 * alongColumnVector + row1 * alongRowVector) * lpsToRAS
-      p2 = (origin + col2 * alongColumnVector + row2 * alongRowVector) * lpsToRAS
-      markupsNode.AddControlPoint(vtk.vtkVector3d(p1))
-      markupsNode.AddControlPoint(vtk.vtkVector3d(p2))
+      for polyline in measurement['polylines']:
+        markupsNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsLineNode")
+        if 'caption' in measurement:
+          name = measurement['caption']
+        else:
+          name = contents['personObserver']
+        markupsNode.SetName(str(name))
+        self.addSeriesInSubjectHierarchy(loadable, markupsNode)
+  
+        # Instead of calling markupsNode.SetLocked(True), lock each control point.
+        # This allows interacting with the points but not change their position.
+        slicer.modules.markups.logic().SetAllControlPointsLocked(markupsNode, True)
+  
+        colorIndex = 1 + slicer.mrmlScene.GetNumberOfNodesByClass('vtkMRMLMarkupsLineNode')
+        colorNode = slicer.mrmlScene.GetNodeByID("vtkMRMLColorTableNodeFileGenericAnatomyColors.txt")
+        color = numpy.zeros(4)
+        colorNode.GetColor(colorIndex, color)
+        markupsNode.GetDisplayNode().SetSelectedColor(*color[:3])
+  
+        referenceFilePath = slicer.dicomDatabase.fileForInstance(measurement['referencedSOPInstanceUID'])
+        if not referenceFilePath:
+          raise Exception(f"Referenced image is not found in the database (referencedSOPInstanceUID={measurement['referencedSOPInstanceUID']}). Polyline point positions cannot be determined in 3D.")
+  
+        reference = pydicom.read_file(referenceFilePath)
+        origin = numpy.array(reference.ImagePositionPatient)
+        alongColumnVector = numpy.array(reference.ImageOrientationPatient[:3])
+        alongRowVector = numpy.array(reference.ImageOrientationPatient[3:])
+        alongColumnVector *= reference.PixelSpacing[1]
+        alongRowVector *= reference.PixelSpacing[0]
+        col1,row1,col2,row2 = polyline
+        lpsToRAS = numpy.array([-1,-1,1])
+        p1 = (origin + col1 * alongColumnVector + row1 * alongRowVector) * lpsToRAS
+        p2 = (origin + col2 * alongColumnVector + row2 * alongRowVector) * lpsToRAS
+        markupsNode.AddControlPoint(vtk.vtkVector3d(p1))
+        markupsNode.AddControlPoint(vtk.vtkVector3d(p2))
 
 class DICOMLongitudinalTID1500PluginClass(DICOMTID1500PluginClass):
 
