@@ -7,8 +7,9 @@ import io
 import shutil
 import vtkSegmentationCorePython as vtkSegmentationCore
 import logging
+import pydicom
 
-from base.DICOMM3DPluginBase import DICOMM3DPluginBase
+from base.DICOMPluginBase import DICOMPluginBase
 
 import slicer
 from DICOMLib import DICOMLoadable
@@ -19,9 +20,11 @@ from six.moves import range
 
 
 #
-# This is the plugin to handle translation of DICOM SEG objects
+# This is the plugin to handle translation of DICOM M3D objects
+# M3D stands for Model for 3D Manufacturing.
+# DICOM M3D objects can be for example .STL files encoded into DICOM M3D.
 #
-class DICOMM3DPluginClass(DICOMM3DPluginBase):
+class DICOMM3DPluginClass(DICOMPluginBase):
 
   def __init__(self):
     super(DICOMM3DPluginClass,self).__init__()
@@ -34,39 +37,35 @@ class DICOMM3DPluginClass(DICOMM3DPluginBase):
     """
     loadables = []
 
-    # just read the modality type; need to go to reporting logic, since DCMTK
-    #   is not wrapped ...
+    for candidateFile in files:
 
-    for cFile in files:
-
-      uid = slicer.dicomDatabase.fileValue(cFile, self.tags['instanceUID'])
+      uid = slicer.dicomDatabase.fileValue(candidateFile, self.tags['instanceUID'])
       if uid == '':
         return []
 
-      desc = slicer.dicomDatabase.fileValue(cFile, self.tags['seriesDescription'])
+      desc = slicer.dicomDatabase.fileValue(candidateFile, self.tags['seriesDescription'])
       if desc == '':
         desc = "Unknown"
-      
-      # EncapsulatedDocument = slicer.dicomDatabase.fileValue(cFile, self.tags['EncapsulatedDocument'])
-      # EncapsulatedDocumentLength = slicer.dicomDatabase.fileValue(cFile, self.tags['EncapsulatedDocumentLength'])
 
-      isDicomM3D = (slicer.dicomDatabase.fileValue(cFile, self.tags['modality']) == 'M3D')
+      #read EncapsulatedDocument for candidateFile
+      docFile = self.getEncapsulatedDocument(candidateFile)
 
-      # print(isDicomM3D)
-      # print(desc)
-      # print(self.tags['modality'])
-      # print(cFile)
-      # print(uid)
+      #read EncapsulatedDocumentLength for candidateFile
+      docLengthFile = self.getEncapsulatedDocumentLength(candidateFile)
+
+      #read modality type to flag M3D object.
+      isDicomM3D = (slicer.dicomDatabase.fileValue(candidateFile, self.tags['modality']) == 'M3D')
+
       if isDicomM3D:
         loadable = DICOMLoadable()
-        loadable.files = [cFile]
+        loadable.files = [candidateFile]
         loadable.name = desc
         loadable.tooltip = loadable.name + ' - as a DICOM M3D object'
         loadable.selected = True
         loadable.confidence = 0.95
         loadable.uid = uid
-        # loadable.EncapsulatedDocument = EncapsulatedDocument
-        # loadable.EncapsulatedDocumentLength = EncapsulatedDocumentLength 
+        loadable.doc = docFile
+        loadable.docLength = docLengthFile
         self.addReferences(loadable)
         loadables.append(loadable)
 
@@ -81,12 +80,19 @@ class DICOMM3DPluginClass(DICOMM3DPluginBase):
       referencedName = self.defaultSeriesNodeName(loadable.referencedSeriesUID)
     return referencedName
 
-  def GetEncapsulatedDocument(self, loadable):
-    return loadable.EncapsulatedDocument
-  
-  def GetEncapsulatedDocumentLength(self, loadable):
-    return loadable.EncapsulatedDocumentLength
-
+  def getEncapsulatedDocument(self, candidateFile):
+    dcm = pydicom.read_file(candidateFile)
+    if hasattr(dcm, "EncapsulatedDocument"):
+      return dcm.EncapsulatedDocument
+    else:
+      return b''
+    
+  def getEncapsulatedDocumentLength(self, candidateFile):
+    dcm = pydicom.read_file(candidateFile)
+    if hasattr(dcm, "EncapsulatedDocumentLength"):
+      return dcm.EncapsulatedDocumentLength
+    else:
+      return 0
 
   def load(self,loadable):
     """ Load the DICOM M3D object
@@ -98,53 +104,45 @@ class DICOMM3DPluginClass(DICOMM3DPluginBase):
     except AttributeError:
       return False
 
-    self.tempDir = os.path.join(slicer.app.temporaryPath, 
-                                "QIICR", "M3D",
-                                  self.currentDateTime, loadable.uid)
+    self.tempDir = slicer.util.tempDirectory()
     print(self.tempDir)
     try:
         os.makedirs(self.tempDir)
     except OSError:
       pass
     
-    # produces output label map files, one per segment, and information files with
-    # the terminology information for each segment
-    STLFileName = slicer.dicomDatabase.fileForInstance(uid)
-    if STLFileName is None:
+    stlFileName = slicer.dicomDatabase.fileForInstance(uid)
+    if stlFileName is None:
       logging.error('Failed to get the filename from the DICOM database for ' + uid)
       self.cleanup()
       return False
     
-    read_buffer = io.BytesIO(self.GetEncapsulatedDocument(loadable))#bytes(loadable.EncapsulatedDocument))
+    read_buffer = io.BytesIO(loadable.doc)
     buffer_view = read_buffer.getbuffer()
-    if (int(self.GetEncapsulatedDocumentLength(loadable)) % 2) != 0:
+    if (int(loadable.docLength) % 2) != 0:
       buffer_view = buffer_view[0:(read_buffer.getbuffer().nbytes -1)]
-    else:
-      pass
     
-    STLFilePath = os.path.join(self.tempDir, "temp.STL")
+    stlFilePath = os.path.join(self.tempDir, "temp.STL")
     
-    with open(STLFilePath, 'wb') as file: 
+    with open(stlFilePath, 'wb') as file: 
       shutil.copyfileobj(read_buffer, file)
-    assert os.path.exists(STLFilePath)
+    assert os.path.exists(stlFilePath)
     file.close()
-    #validity checks !!!!!
-    ####
-    self._createModelNode(loadable, STLFilePath)
+
+    self._createModelNode(loadable, stlFilePath)
     
     self.cleanup()
     
     return True
 
-  def _createModelNode(self, loadable, STLFilePath):
-    ModelNode = slicer.util.loadModel(STLFilePath)#slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode").AddModel(STLFileName)
-    ModelNode.SetName(loadable.name)
+  def _createModelNode(self, loadable, stlFilePath):
+    modelNode = slicer.util.loadModel(stlFilePath)
+    modelNode.SetName(loadable.name)
    
-    ModelDisplayNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelDisplayNode")
-    ModelNode.SetAndObserveDisplayNodeID(ModelDisplayNode.GetID())
-    self.addSeriesInSubjectHierarchy(loadable, ModelNode)
-    # return ModelNode
-  
+    modelDisplayNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelDisplayNode")
+    modelNode.SetAndObserveDisplayNodeID(modelDisplayNode.GetID())
+    self.addSeriesInSubjectHierarchy(loadable, modelNode)
+
 class DICOMM3DPlugin:
   """
   This class is the 'hook' for slicer to detect and recognize the plugin
@@ -153,7 +151,7 @@ class DICOMM3DPlugin:
   def __init__(self, parent):
     parent.title = "DICOM M3D Object Import Plugin"
     parent.categories = ["Developer Tools.DICOM Plugins"]
-    parent.contributors = ["Andrey Fedorov, BWH"]
+    parent.contributors = ["Cosmin Ciausu, BWH"]
     parent.helpText = """
     Plugin to the DICOM Module to parse and load DICOM M3D modality.
     No module interface here, only in the DICOM module
@@ -161,7 +159,7 @@ class DICOMM3DPlugin:
     parent.dependencies = ['DICOM', 'Colors', 'SlicerDevelopmentToolbox']
     parent.acknowledgementText = """
     This DICOM Plugin was developed by
-    Andrey Fedorov, BWH.
+    Cosmin Ciausu, BWH.
     """
 
     # Add this extension to the DICOM module's list for discovery when the module
