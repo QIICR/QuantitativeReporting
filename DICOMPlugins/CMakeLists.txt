@@ -6,4 +6,5 @@ slicerMacroBuildScriptedModule(
     DICOMSegmentationPlugin.py
     DICOMParametricMapPlugin.py
     DICOMTID1500Plugin.py
+    DICOMM3DPlugin.py
   )
