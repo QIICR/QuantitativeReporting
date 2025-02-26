@@ -144,7 +144,7 @@ class DICOMM3DPluginClass(DICOMPluginBase):
     #Setup converters for further export to labelmap or model representations 
     vtkSegConverter = vtkSegmentationCore.vtkSegmentationConverter
     segmentation = vtkSegmentationCore.vtkSegmentation()
-    segmentation.SetMasterRepresentationName(vtkSegConverter.GetSegmentationClosedSurfaceRepresentationName())
+    segmentation.SetSourceRepresentationName(vtkSegConverter.GetSegmentationClosedSurfaceRepresentationName())
     segmentation.CreateRepresentation(vtkSegConverter.GetSegmentationBinaryLabelmapRepresentationName(), True)
     segmentationNode.SetAndObserveSegmentation(segmentation)
     

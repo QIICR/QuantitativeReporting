@@ -291,7 +291,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
 
     vtkSegConverter = vtkSegmentationCore.vtkSegmentationConverter
     segmentation = vtkSegmentationCore.vtkSegmentation()
-    segmentation.SetMasterRepresentationName(vtkSegConverter.GetSegmentationBinaryLabelmapRepresentationName())
+    segmentation.SetSourceRepresentationName(vtkSegConverter.GetSegmentationBinaryLabelmapRepresentationName())
     segmentation.CreateRepresentation(vtkSegConverter.GetSegmentationClosedSurfaceRepresentationName(), True)
     segmentationNode.SetAndObserveSegmentation(segmentation)
 
