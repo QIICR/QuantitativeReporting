@@ -138,7 +138,7 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
       categoryContextName = "Segmentation category and type - DICOM master list"
 
     anatomicContextName = loadable.name
-    if not terminologiesLogic.LoadAnatomicContextFromSegmentDescriptorFile(anatomicContextName, metaFileName):
+    if not terminologiesLogic.LoadRegionContextFromSegmentDescriptorFile(anatomicContextName, metaFileName):
       anatomicContextName = "Anatomic codes - DICOM master list"
 
     with open(metaFileName) as metaFile:
@@ -679,7 +679,7 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
     rgb = segment.GetColor()
     segmentData["recommendedDisplayRGBValue"] = [rgb[0] * 255, rgb[1] * 255, rgb[2] * 255]
     segmentData.update(self.createJSONFromTerminologyContext(terminologyEntry))
-    segmentData.update(self.createJSONFromAnatomicContext(terminologyEntry))
+    segmentData.update(self.createJSONFromRegionContext(terminologyEntry))
     return segmentData
 
   def checkTerminologyOfSegments(self, segmentIDs):
@@ -715,7 +715,7 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
 
     return segmentData
 
-  def createJSONFromAnatomicContext(self, terminologyEntry):
+  def createJSONFromRegionContext(self, terminologyEntry):
     segmentData = dict()
 
     regionObject = terminologyEntry.GetAnatomicRegionObject()
