@@ -138,8 +138,13 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
       categoryContextName = "Segmentation category and type - DICOM master list"
 
     anatomicContextName = loadable.name
-    if not terminologiesLogic.LoadRegionContextFromSegmentDescriptorFile(anatomicContextName, metaFileName):
-      anatomicContextName = "Anatomic codes - DICOM master list"
+    try:
+      if not terminologiesLogic.LoadRegionContextFromSegmentDescriptorFile(anatomicContextName, metaFileName):
+        anatomicContextName = "Anatomic codes - DICOM master list"
+    except AttributeError:
+      # backward compatibility with Slicer 5.8.1
+      if not terminologiesLogic.LoadAnatomicContextFromSegmentDescriptorFile(anatomicContextName, metaFileName):
+        anatomicContextName = "Anatomic codes - DICOM master list"
 
     with open(metaFileName) as metaFile:
       data = json.load(metaFile)
