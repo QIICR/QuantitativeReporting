@@ -4,56 +4,18 @@ import os
 import vtk
 import datetime
 from collections import Counter
+import qt 
 
 import numpy
 import numpy as np 
 import random
+import pydicom 
 from pydicom.sr.codedict import codes
 
 import slicer
 from DICOMLib import DICOMLoadable
 from base.DICOMPluginBase import DICOMPluginBase
 from SlicerDevelopmentToolboxUtils.mixins import ModuleLogicMixin
-
-# If needed, install pydicom
-needToInstall = False
-update = False 
-try:
-  import pydicom 
-except ModuleNotFoundError as e:
-  needToInstall = True
-installed = False
-if needToInstall or update:
-  userMessage = "The current pydicom python package is out of date, and will now be updated."
-  errorMessage = f"Failed to {'install' if needToInstall else 'update'} pydicom."
-  if needToInstall:
-    userMessage = "The module requires pydicom python package, which will now be installed."
-  if slicer.util.confirmOkCancelDisplay(userMessage, "QuantitativeReporting initialization"):
-    with slicer.util.displayPythonShell() as shell, slicer.util.tryWithErrorDisplay(message=errorMessage, waitCursor=True) as errorDisplay:
-      slicer.util.pip_install(f"{'--upgrade ' if update else ''}pydicom")
-      installed = True
-else:
-  installed = True
-
-# If needed, install highdicom
-needToInstall = False
-update = False 
-try:
-  import highdicom as hd 
-except ModuleNotFoundError as e:
-  needToInstall = True
-installed = False
-if needToInstall or update:
-  userMessage = "The current highdicom python package is out of date, and will now be updated."
-  errorMessage = f"Failed to {'install' if needToInstall else 'update'} highdicom."
-  if needToInstall:
-    userMessage = "The module requires highdicom python package, which will now be installed."
-  if slicer.util.confirmOkCancelDisplay(userMessage, "QuantitativeReporting initialization"):
-    with slicer.util.displayPythonShell() as shell, slicer.util.tryWithErrorDisplay(message=errorMessage, waitCursor=True) as errorDisplay:
-      slicer.util.pip_install(f"{'--upgrade ' if update else ''}highdicom")
-      installed = True
-else:
-  installed = True
 
 class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
 
@@ -93,8 +55,8 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
     self.tags["Rows"] = "0028,0010"
     self.tags["Columns"] = "0028,0011"
 
-
   def examineFiles(self, files):
+
     loadables = []
 
     for cFile in files:
@@ -127,6 +89,17 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
     return loadables
 
   def isDICOMTID1500(self, dataset):
+    """"
+    This function checks if the dataset is a TID1500 or not. 
+    """
+
+    # If needed, install highdicom
+    try:
+      import highdicom as hd
+    except ModuleNotFoundError:
+      if slicer.util.confirmOkCancelDisplay("This module requires 'highdicom' Python package. Click OK to install it now."):
+        slicer.util.pip_install("highdicom")
+        import highdicom as hd
     try:
       isDicomTID1500 = self.getDICOMValue(dataset, "Modality") == 'SR' and \
                        (self.getDICOMValue(dataset, "SOPClassUID") == self.UID_EnhancedSRStorage or
@@ -138,16 +111,22 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
     return isDicomTID1500
 
   def referencedSeriesName(self, loadable):
-    """Returns the default series name for the given loadable"""
+    """
+    Returns the default series name for the given loadable.
+    """
+
     referencedName = "Unnamed Reference"
     if hasattr(loadable, "referencedSOPInstanceUID"):
       referencedName = self.defaultSeriesNodeName(loadable.referencedSOPInstanceUID)
     return referencedName
   
   def getSRCode(self, code_meaning):
-    """This function takes as input a standardized string, and returns 
-    the highdicom code, either using pydicom or defining it"""
+    """
+    This function takes as input a standardized string, and returns 
+    the highdicom code, either using pydicom or defining it.
+    """
 
+    import highdicom as hd 
     if (code_meaning == "Image Region"): 
       highdicom_code = codes.DCM.ImageRegion # instead of using hd.sr.value_types.Code(value='111030',scheme_designator='DCM',meaning='Image Region')
     elif (code_meaning == "Geometric purpose of region"): 
@@ -168,6 +147,10 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
     return highdicom_code
 
   def getSOPInstanceUIDsForSeries(self, SeriesInstanceUID):
+    """
+    Gets the list of SOPInstanceUIDs from a SeriesInstanceUID. 
+    """
+
     db = slicer.dicomDatabase
     SOPInstanceUIDs = [] 
     fileList = db.filesForSeries(SeriesInstanceUID) 
@@ -178,6 +161,11 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
     return SOPInstanceUIDs
   
   def createLoadableAndAddReferences(self, datasets):
+    """
+    Main function to create the loadable and add the necessary references. 
+    """
+
+    import highdicom as hd
 
     loadable = DICOMLoadable()
     loadable.selected = True
@@ -393,8 +381,10 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
   
   def checkIfSRContainsGeometry(self, sr, geometry_type='bbox'):
     """ 
-    Checks if the SR contains a bbox, polyline, or point3D
+    Checks if the SR contains a bbox, polyline, or point3D.
     """
+
+    import highdicom as hd 
 
     # If SR contains a bounding box 
     if (geometry_type == "bbox2D"):
@@ -427,9 +417,8 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
   
   def getIPPFromSOP(self, referenced_sop_instance_uid, referenced_series_instance_uid):
     """
-    In order to display the bounding box markups in Slicer, 
-    we need the IPP corresponding to the referenced 
-    SOPInstanceUID. We get this from the Slicer dicom database. 
+    In order to display the bounding box markups in Slicer, we need the IPP corresponding 
+    to the referenced SOPInstanceUID. We get this from the Slicer DICOM database. 
     """
 
     # Get the dicom database 
@@ -457,8 +446,9 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
   
   def showTable(self, table):
     """
-      Display a table in the scene. 
+    Display a table in the scene. 
     """
+
     currentLayout = slicer.app.layoutManager().layout
     layoutWithTable = slicer.modules.tables.logic().GetLayoutWithTable(currentLayout)
     slicer.mrmlScene.AddNode(table)
@@ -575,7 +565,7 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
   
   def createPolylineTable(self, point_infos, table_name):
     """
-    Create and display a table for the polyline info 
+    Create and display a table for the polyline info. 
     """
 
     tableNode = slicer.vtkMRMLTableNode()
@@ -693,6 +683,8 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
     and creates a table node. 
     """
 
+    import highdicom as hd
+
     # We use the SeriesNumber and the SeriesDescription of the SR to name the table
     SeriesNumber = sr.SeriesNumber
     SeriesDescription = sr.SeriesDescription
@@ -768,6 +760,8 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
     Extracts the point metadata from the SR using highdicom, 
     and creates a table node. 
     """
+
+    import highdicom as hd
 
     # We use the SeriesNumber and the SeriesDescription of the SR to name the table
     SeriesNumber = sr.SeriesNumber
@@ -1091,7 +1085,11 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
     return 
   
   def load(self, loadable):
-    
+    """
+    Loads the SR and checks for planar annotations. 
+    """
+
+    import highdicom as hd
     logging.debug('DICOM SR TID1500 load()')
 
     logging.debug("before sorting: %s" % loadable.uids)
