@@ -723,12 +723,22 @@ class DICOMSegmentationExporter(ModuleLogicMixin):
   def createJSONFromRegionContext(self, terminologyEntry):
     segmentData = dict()
 
-    regionObject = terminologyEntry.GetAnatomicRegionObject()
+    try:
+      regionObject = terminologyEntry.GetRegionObject()
+    except AttributeError:
+      # backward compatibility with Slicer 5.8.1
+      regionObject = terminologyEntry.GetAnatomicRegionObject()
+
     if regionObject is None or not self.isTerminologyInformationValid(regionObject):
       return {}
     segmentData["AnatomicRegionSequence"] = self.getJSONFromVtkSlicerTerminology(regionObject)
 
-    regionModifierObject = terminologyEntry.GetAnatomicRegionModifierObject()
+    try:
+      regionModifierObject = terminologyEntry.GetRegionModifierObject()
+    except AttributeError:
+      # backward compatibility with Slicer 5.8.1
+      regionModifierObject = terminologyEntry.GetAnatomicRegionModifierObject()
+
     if regionModifierObject is not None and self.isTerminologyInformationValid(regionModifierObject):
       segmentData["AnatomicRegionModifierSequence"] = self.getJSONFromVtkSlicerTerminology(regionModifierObject)
     return segmentData
