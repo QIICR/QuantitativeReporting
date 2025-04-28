@@ -371,8 +371,15 @@ class HTMLReportCreator(ScreenShotHelper):
   def getTerminologyInformation(self, segment):
     terminologyEntry = DICOMSegmentationExporter.getDeserializedTerminologyEntry(segment)
     catModifier = terminologyEntry.GetTypeModifierObject ().GetCodeMeaning()
-    anatomicRegion = terminologyEntry.GetAnatomicRegionObject().GetCodeMeaning()
-    anatomicRegionModifier = terminologyEntry.GetAnatomicRegionModifierObject ().GetCodeMeaning()
+
+    try:
+      anatomicRegion = terminologyEntry.GetRegionObject().GetCodeMeaning()
+      anatomicRegionModifier = terminologyEntry.GetRegionModifierObject ().GetCodeMeaning()
+    except AttributeError:
+      # backward compatibility with Slicer 5.8.1
+      anatomicRegion = terminologyEntry.GetAnatomicRegionObject().GetCodeMeaning()
+      anatomicRegionModifier = terminologyEntry.GetAnatomicRegionModifierObject ().GetCodeMeaning()
+
     html = '''
       <table border=0 width='100%' cellPadding=3 cellSpacing=0>
         {}{}{}{}{}
