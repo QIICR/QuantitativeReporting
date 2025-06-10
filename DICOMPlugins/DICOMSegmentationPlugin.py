@@ -243,6 +243,8 @@ class DICOMSegmentationPluginClass(DICOMPluginBase):
     if hasattr(loadable, "referencedSeriesUID"):
       self._findAndSetGeometryReference(loadable.referencedSeriesUID, segmentationNode)
 
+    segmentationNode.SetAttribute("DICOM.instanceUIDs", loadable.uid)
+
   def _importSegmentAndRemoveLabel(self, segmentLabelNode, segmentationNode):
     segmentationsLogic = slicer.modules.segmentations.logic()
     segmentation = segmentationNode.GetSegmentation()
