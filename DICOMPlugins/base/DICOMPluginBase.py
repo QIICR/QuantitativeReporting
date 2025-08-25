@@ -59,7 +59,7 @@ class DICOMPluginBase(DICOMPlugin):
   def addReferences(self, loadable):
     """Puts a list of the referenced UID into the loadable for use
     in the node if this is loaded."""
-    dcm = pydicom.read_file(loadable.files[0])
+    dcm = pydicom.dcmread(loadable.files[0])
     loadable.referencedInstanceUIDs = []
     self._addReferencedSeries(loadable, dcm)
     self._addReferencedImages(loadable, dcm)
@@ -69,7 +69,7 @@ class DICOMPluginBase(DICOMPlugin):
     if hasattr(dcm, "ReferencedSeriesSequence"):
       if hasattr(dcm.ReferencedSeriesSequence[0], "SeriesInstanceUID"):
         for f in slicer.dicomDatabase.filesForSeries(dcm.ReferencedSeriesSequence[0].SeriesInstanceUID):
-          refDCM = pydicom.read_file(f)
+          refDCM = pydicom.dcmread(f)
           loadable.referencedInstanceUIDs.append(refDCM.SOPInstanceUID)
         loadable.referencedSeriesUID = dcm.ReferencedSeriesSequence[0].SeriesInstanceUID
 
@@ -79,4 +79,4 @@ class DICOMPluginBase(DICOMPlugin):
         if hasattr(item, "ReferencedSOPInstanceUID"):
           loadable.referencedInstanceUIDs.append(item.ReferencedSOPInstanceUID)
           # TODO: what to do with the SeriesInstanceUID?
-          # refDCM = pydicom.read_file(slicer.dicomDatabase.fileForInstance(item.ReferencedSOPInstanceUID))
+          # refDCM = pydicom.dcmread(slicer.dicomDatabase.fileForInstance(item.ReferencedSOPInstanceUID))

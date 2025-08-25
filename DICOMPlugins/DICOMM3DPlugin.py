@@ -64,14 +64,14 @@ class DICOMM3DPluginClass(DICOMPluginBase):
 
   def getFrameOfReferenceUID(self, candidateFile):
     """Returns the frame of referenceUID for the given loadable"""
-    dcm = pydicom.read_file(candidateFile)
+    dcm = pydicom.dcmread(candidateFile)
     if hasattr(dcm, "FrameOfReferenceUID"):
       return dcm.FrameOfReferenceUID
     else:
       return 'Unnamed FrameOfReferenceUID'
 
   def getEncapsulatedDocumentAttributes(self, candidateFile):
-    dcm = pydicom.read_file(candidateFile)
+    dcm = pydicom.dcmread(candidateFile)
     encapsulatedDocument = b''
     encapsulatedDocumentLength = 0
     if hasattr(dcm, "EncapsulatedDocument"):
