@@ -194,7 +194,7 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
       sr_class = sr_class_map.get(sop_class_uid)
       # Instantiate the correct SR object
       if sr_class is not None:
-        sr = sr_class.from_dataset(dataset, copy=False)
+        sr = sr_class.from_dataset(dataset, copy=True)
       else:
         logging.error(f"Cannot create SR from dataset. Unsupported SOP Class UID: {sop_class_uid}")
 
@@ -203,7 +203,7 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
 
       ### If it doesn't contain planar annotations, and instead references a seg, we use the original code ### 
       if not containsPlanarAnnotations: 
-      
+        
         uid = self.getDICOMValue(dataset, "SOPInstanceUID")
         loadable.ReferencedSegmentationInstanceUIDs[uid] = []
         if hasattr(dataset, "CurrentRequestedProcedureEvidenceSequence"):
