@@ -107,7 +107,7 @@ class DICOMTID1500PluginClass(DICOMPluginBase, ModuleLogicMixin):
       import highdicom as hd
     except ModuleNotFoundError:
       if slicer.util.confirmOkCancelDisplay("This module requires 'highdicom' Python package. Click OK to install it now."):
-        slicer.util.pip_install("highdicom<=0.22.0") 
+        slicer.util.pip_install("highdicom") 
         import highdicom as hd
 
     try:
