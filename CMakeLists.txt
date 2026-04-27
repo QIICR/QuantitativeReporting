@@ -9,7 +9,7 @@ set(EXTENSION_DESCRIPTION "Segmentation-based measurements with DICOM-based impo
 set(EXTENSION_ICONURL "https://github.com/QIICR/QuantitativeReporting/raw/master/QuantitativeReporting/Resources/Icons/ReportingLogo128px.png")
 set(EXTENSION_SCREENSHOTURLS "https://github.com/QIICR/QuantitativeReporting/raw/master/QuantitativeReporting/Resources/Screenshots/QuantitativeReporting-screenshot.jpg")
 set(EXTENSION_STATUS "Work in progress")
-set(EXTENSION_DEPENDS SlicerDevelopmentToolbox DCMQI PETDICOMExtension)
+set(EXTENSION_DEPENDS SlicerDevelopmentToolbox PETDICOMExtension)
 
 #-----------------------------------------------------------------------------
 
@@ -22,7 +22,6 @@ set(DEPENDENCIES_ADDITIONAL_MODULE_PATHS)
 
 if(NOT Slicer_SOURCE_DIR)
   find_package(SlicerDevelopmentToolbox REQUIRED)
-  find_package(DCMQI REQUIRED)
   find_package(PETDICOMExtension REQUIRED)
 
   list(APPEND DEPENDENCIES_ADDITIONAL_MODULE_PATHS
@@ -31,11 +30,9 @@ if(NOT Slicer_SOURCE_DIR)
     ${SlicerDevelopmentToolbox_DIR}/${Slicer_CLIMODULES_LIB_DIR}
     ${PETDICOMExtension_DIR}/${Slicer_QTSCRIPTEDMODULES_LIB_DIR}
     ${PETDICOMExtension_DIR}/${Slicer_CLIMODULES_LIB_DIR}
-    ${DCMQI_DIR}/bin
     )
 endif()
 
-add_subdirectory(DICOMPlugins)
 add_subdirectory(QuantitativeReporting)
 
 #-----------------------------------------------------------------------------

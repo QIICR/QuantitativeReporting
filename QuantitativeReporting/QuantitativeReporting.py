@@ -3,6 +3,8 @@ from __future__ import print_function
 import json
 import logging
 import os
+import shutil
+import subprocess
 import ctk
 import qt
 import slicer
@@ -27,6 +29,22 @@ from QRUtils.testdata import TestDataLogic
 from QRCustomizations.CustomSegmentStatistics import CustomSegmentStatisticsParameterEditorDialog
 from QRCustomizations.CustomSegmentEditor import CustomSegmentEditorWidget
 from QRCustomizations.SegmentEditorAlgorithmTracker import SegmentEditorAlgorithmTracker
+
+
+def _dcmqi_binary(name):
+  path = shutil.which(name)
+  if path is None:
+    import sys
+    candidate = os.path.join(os.path.dirname(sys.executable), name)
+    if os.path.isfile(candidate):
+      path = candidate
+    elif os.path.isfile(candidate + ".exe"):
+      path = candidate + ".exe"
+  if path is None:
+    raise RuntimeError(
+        "dcmqi binary '%s' not found. "
+        "Ensure the 'dcmqi' pip package is installed." % name)
+  return path
 
 
 class QuantitativeReporting(ScriptedLoadableModule):
@@ -697,10 +715,16 @@ class QuantitativeReportingWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidge
               "outputFileName": outputSRPath}
 
     logging.debug(params)
-    cliNode = slicer.cli.run(slicer.modules.tid1500writer, None, params, wait_for_completion=True)
+    result = subprocess.run(
+        [_dcmqi_binary('tid1500writer'),
+         '--metaDataFileName', params['metaDataFileName'],
+         '--compositeContextDataDir', params['compositeContextDataDir'],
+         '--imageLibraryDataDir', params['imageLibraryDataDir'],
+         '--outputFileName', params['outputFileName']],
+        capture_output=True, text=True)
 
-    if cliNode.GetStatusString() != 'Completed':
-      raise Exception("tid1500writer CLI did not complete cleanly")
+    if result.returncode != 0:
+      raise Exception("tid1500writer failed:\n" + result.stderr)
     return outputSRPath
 
   def cleanupTemporaryData(self):
